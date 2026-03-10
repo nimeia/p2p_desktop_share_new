@@ -1,0 +1,34 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>LAN Screen Share - Host</title>
+  <link rel="stylesheet" href="/assets/style.css"/>
+</head>
+<body>
+  <main class="container">
+    <h1>Host</h1>
+    <p id="info"></p>
+
+    <div class="actions">
+      <button id="btnStart">开始共享</button>
+      <button id="btnStop" disabled>停止共享</button>
+    </div>
+
+    <div class="status">
+      <div>Room: <span id="room"></span></div>
+      <div>Viewers: <span id="viewers">0</span></div>
+      <div>State: <span id="state">idle</span></div>
+    </div>
+
+    <details>
+      <summary>调试日志</summary>
+      <pre id="log" class="log"></pre>
+    </details>
+  </main>
+
+  <script src="/assets/common.js"></script>
+  <script src="/assets/app_host.js"></script>
+</body>
+</html>

@@ -1,0 +1,9 @@
+/out/
+/build/
+/.vs/
+/.vscode/
+/cert/*.key
+/cert/*.crt
+**/bin/
+**/obj/
+/vcpkg_installed/

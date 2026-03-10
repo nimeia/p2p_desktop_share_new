@@ -1,0 +1,33 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <title>LAN Screen Share - Viewer</title>
+  <link rel="stylesheet" href="/assets/style.css"/>
+</head>
+<body>
+  <main class="container">
+    <h1>Viewer</h1>
+    <div class="status">
+      <div>Room: <span id="room"></span></div>
+      <div>State: <span id="state">connecting</span></div>
+    </div>
+
+    <video id="video" autoplay playsinline muted></video>
+
+    <div id="playHint" class="status" style="display:none;">
+      <div>Browser blocked autoplay.</div>
+      <button id="btnPlay" type="button">Click To Play</button>
+    </div>
+
+    <details>
+      <summary>Debug Log</summary>
+      <pre id="log" class="log"></pre>
+    </details>
+  </main>
+
+  <script src="/assets/common.js"></script>
+  <script src="/assets/app_viewer.js"></script>
+</body>
+</html>

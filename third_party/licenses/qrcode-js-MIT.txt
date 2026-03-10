@@ -1,0 +1,9 @@
+Bundled QR code encoder used by LAN Screen Share share card.
+
+Source origin:
+- qrcode-terminal vendor/QRCode implementation
+- Original author: Kazuhiko Arase
+- Original header in source states the implementation is licensed under the MIT license.
+
+The bundled browser file in www/assets/share_card_qr.bundle.js is a local adaptation for browser use.
+Keep the original attribution header at the top of the bundled file when redistributing.

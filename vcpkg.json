@@ -1,0 +1,12 @@
+{
+  "name": "lan-screenshare",
+  "version-string": "0.1.0",
+  "dependencies": [
+    "boost-asio",
+    "boost-beast",
+    "boost-system",
+    "boost-thread",
+    "boost-json",
+    "openssl"
+  ]
+}
