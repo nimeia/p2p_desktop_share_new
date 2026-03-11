@@ -78,6 +78,35 @@ function Quote-Arg([string]$a) {
   return $escaped
 }
 
+function Read-TextLinesAuto(
+  [string]$Path
+) {
+  if (-not (Test-Path -LiteralPath $Path)) { return @() }
+
+  $bytes = [System.IO.File]::ReadAllBytes($Path)
+  if ($null -eq $bytes -or $bytes.Length -eq 0) { return @() }
+
+  $text = $null
+  if ($bytes.Length -ge 3 -and $bytes[0] -eq 0xEF -and $bytes[1] -eq 0xBB -and $bytes[2] -eq 0xBF) {
+    $text = [System.Text.Encoding]::UTF8.GetString($bytes, 3, $bytes.Length - 3)
+  } elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFF -and $bytes[1] -eq 0xFE) {
+    $text = [System.Text.Encoding]::Unicode.GetString($bytes, 2, $bytes.Length - 2)
+  } elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF) {
+    $text = [System.Text.Encoding]::BigEndianUnicode.GetString($bytes, 2, $bytes.Length - 2)
+  } else {
+    try {
+      $utf8Strict = New-Object System.Text.UTF8Encoding($false, $true)
+      $text = $utf8Strict.GetString($bytes)
+    } catch {
+      $text = [System.Text.Encoding]::Default.GetString($bytes)
+    }
+  }
+
+  if ($null -eq $text -or $text.Length -eq 0) { return @() }
+  $normalized = $text -replace "`r`n", "`n" -replace "`r", "`n"
+  return $normalized -split "`n"
+}
+
 function Invoke-External(
   [string]$File,
   [string[]]$ArgList,
@@ -111,8 +140,8 @@ function Invoke-External(
 
     $outLines = @()
     $errLines = @()
-    if (Test-Path $tmpOut) { $outLines = Get-Content -LiteralPath $tmpOut -ErrorAction SilentlyContinue }
-    if (Test-Path $tmpErr) { $errLines = Get-Content -LiteralPath $tmpErr -ErrorAction SilentlyContinue }
+    if (Test-Path $tmpOut) { $outLines = Read-TextLinesAuto $tmpOut }
+    if (Test-Path $tmpErr) { $errLines = Read-TextLinesAuto $tmpErr }
 
     # Print to console
     foreach ($l in $outLines) { Write-Host $l }
@@ -136,4 +165,3 @@ function Invoke-External(
   }
   return $code
 }
-

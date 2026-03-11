@@ -7,3 +7,5 @@
 **/bin/
 **/obj/
 /vcpkg_installed/
+**/packages/
+*.log

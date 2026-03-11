@@ -108,5 +108,15 @@
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <!-- Import NuGet-generated targets (must come after Microsoft.Cpp.targets) -->
   <Import Project="$(MSBuildProjectExtensionsPath)$(MSBuildProjectFile).nuget.g.targets" Condition="exists('$(MSBuildProjectExtensionsPath)$(MSBuildProjectFile).nuget.g.targets')" />
+  <Import Project="..\packages\microsoft.web.webview2\1.0.2592.51\build\native\Microsoft.Web.WebView2.targets"
+          Condition="exists('..\packages\microsoft.web.webview2\1.0.2592.51\build\native\Microsoft.Web.WebView2.targets')" />
+
+  <Target Name="EnsureNuGetPackageBuildImports" BeforeTargets="PrepareForBuild">
+    <PropertyGroup>
+      <ErrorText>This project requires NuGet package(s) that are missing on this computer. Run MSBuild /t:Restore /p:RestorePackagesConfig=true on desktop_host\\LanScreenShareHostApp\\LanScreenShareHostApp.sln. Missing file: {0}.</ErrorText>
+    </PropertyGroup>
+    <Error Condition="!exists('..\packages\microsoft.web.webview2\1.0.2592.51\build\native\Microsoft.Web.WebView2.targets')"
+           Text="$([System.String]::Format('$(ErrorText)', '..\packages\microsoft.web.webview2\1.0.2592.51\build\native\Microsoft.Web.WebView2.targets'))" />
+  </Target>
 
 </Project>

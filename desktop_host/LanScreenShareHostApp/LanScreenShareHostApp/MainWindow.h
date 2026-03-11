@@ -106,6 +106,7 @@ private:
 
     void NavigateHostInWebView();
     void NavigateHtmlAdminInWebView();
+    void EnsureWebViewInitialized();
     void RefreshHtmlAdminPreview();
     void HandleAdminShellMessage(std::wstring_view payload);
     AdminBackend::Snapshot BuildAdminSnapshot() const;
@@ -113,6 +114,7 @@ private:
     void ApplyHotspotConfigFromAdmin(std::wstring ssid, std::wstring password);
 
     void AppendLog(std::wstring_view line);
+    void RefreshShellFallback();
     void RefreshDashboard();
     void RefreshSessionSetup();
     void RefreshNetworkPage();
@@ -341,6 +343,9 @@ private:
     HWND m_logBox = nullptr;
     HWND m_hostPreviewPlaceholder = nullptr;
     HWND m_runtimeInfoCard = nullptr;
+    HWND m_shellFallbackBox = nullptr;
+    HWND m_shellRetryBtn = nullptr;
+    HWND m_shellOpenHostBtn = nullptr;
 
     std::wstring m_networkMode = L"";
     std::wstring m_hostPageState = L"idle";

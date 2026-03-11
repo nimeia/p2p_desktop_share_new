@@ -315,6 +315,7 @@ if ($Target -eq "desktop_host" -or $Target -eq "all") {
   $msbArgs = @(
     $sln,
     "/m",
+    "/p:RestorePackagesConfig=true",
     "/p:Configuration=$Config",
     "/p:Platform=$Arch"
   )

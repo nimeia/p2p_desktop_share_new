@@ -99,6 +99,8 @@ enum {
     ID_BTN_DIAG_COPY_LOGS = 1186,
     ID_BTN_DIAG_SAVE_LOGS = 1187,
     ID_BTN_NAV_SETTINGS = 1188,
+    ID_BTN_SHELL_RETRY = 1189,
+    ID_BTN_SHELL_OPEN_HOST = 1190,
 };
 
 struct PollResult {
@@ -1083,7 +1085,7 @@ static SelfCheckReport BuildSelfCheckReport(std::wstring_view hostState,
                      embeddedHostReady,
                      "Embedded host view is ready inside the desktop app.",
                      embeddedHostStatusUtf8 == "sdk-unavailable"
-                         ? "WebView2 SDK/runtime support is unavailable in this build. Use Open Host Page in an external browser, or install a build with WebView2 support."
+                         ? "WebView2 SDK support was not compiled into this build. Restore the desktop NuGet packages and rebuild, or use Open Host Page in an external browser."
                          : embeddedHostStatusUtf8 == "runtime-unavailable" || embeddedHostStatusUtf8 == "controller-unavailable"
                                ? "WebView2 runtime did not initialize. The host page can still be opened in an external browser."
                                : embeddedHostStatusUtf8 == "initializing"
@@ -2744,6 +2746,12 @@ void MainWindow::Show() {
     if (!m_hwnd) return;
     ShowWindow(m_hwnd, SW_SHOW);
     UpdateWindow(m_hwnd);
+    EnsureWebViewInitialized();
+    RECT rc{};
+    GetClientRect(m_hwnd, &rc);
+    OnSize(rc.right, rc.bottom);
+    RefreshHtmlAdminPreview();
+    RefreshShellFallback();
 }
 
 void MainWindow::Hide() {
@@ -2849,6 +2857,7 @@ void MainWindow::OnCreate() {
     m_defaultCertDir = (AppDir() / L"cert").wstring();
     m_outputDir = (AppDir() / L"out").wstring();
 
+#if 0
     const int LEFT_W = 720;
     const int PAD = 10;
     const int ROW_H = 22;
@@ -3273,27 +3282,23 @@ void MainWindow::OnCreate() {
     m_settingsCurrentStateCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
         WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
         x, gy, LEFT_W - PAD * 2, 170, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+#endif
 
-    RECT rc{};
-    GetClientRect(m_hwnd, &rc);
-    RECT right{};
-    right.left = LEFT_W + PAD;
-    right.top = 0;
-    right.right = rc.right;
-    right.bottom = rc.bottom;
-
-    m_webview.Initialize(
-        m_hwnd,
-        right,
-        [this](std::wstring msg) {
-            auto* heap = new std::wstring(std::move(msg));
-            PostMessageW(m_hwnd, WM_APP_LOG, (WPARAM)heap, 0);
-        },
-        [this](std::wstring payload) {
-            if (!m_hwnd) return;
-            auto* heap = new std::wstring(std::move(payload));
-            PostMessageW(m_hwnd, WM_APP_WEBVIEW, (WPARAM)heap, 0);
-        });
+    m_shellFallbackBox = CreateWindowExW(
+        WS_EX_CLIENTEDGE,
+        L"EDIT",
+        L"",
+        WS_CHILD | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+        0, 0, 1, 1,
+        m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_shellRetryBtn = CreateWindowW(
+        L"BUTTON", L"Retry Loading UI", WS_CHILD | BS_PUSHBUTTON,
+        0, 0, 1, 1,
+        m_hwnd, (HMENU)(INT_PTR)ID_BTN_SHELL_RETRY, GetModuleHandle(nullptr), nullptr);
+    m_shellOpenHostBtn = CreateWindowW(
+        L"BUTTON", L"Open Host In Browser", WS_CHILD | BS_PUSHBUTTON,
+        0, 0, 1, 1,
+        m_hwnd, (HMENU)(INT_PTR)ID_BTN_SHELL_OPEN_HOST, GetModuleHandle(nullptr), nullptr);
 
     RefreshNetworkCapabilities();
     RefreshHotspotState();
@@ -3309,46 +3314,42 @@ void MainWindow::OnCreate() {
 }
 
 void MainWindow::OnSize(int width, int height) {
-    const int LEFT_W = 720;
     const int PAD = 10;
-    const int rightLeft = LEFT_W + PAD;
-    const int rightWidth = std::max(240, width - rightLeft - PAD);
-    const int previewHeight = std::max(260, height - 220);
-    const int runtimeTop = PAD + previewHeight + PAD;
-    const int runtimeHeight = std::max(120, height - runtimeTop - PAD);
-
-    RECT right{};
-    right.left = rightLeft;
-    right.top = 0;
-    right.right = width;
-    right.bottom = previewHeight;
-    if (IsHtmlAdminActive()) {
+    if (m_webviewMode == WebViewSurfaceMode::HtmlAdminPreview) {
         RECT admin{};
-        admin.left = PAD;
-        admin.top = 52;
-        admin.right = width - PAD;
-        admin.bottom = height - PAD;
+        admin.left = 0;
+        admin.top = 0;
+        admin.right = width;
+        admin.bottom = height;
         m_webview.Resize(admin);
-    } else if (m_currentPage == UiPage::Setup && m_webviewMode == WebViewSurfaceMode::HostPreview) {
-        m_webview.Resize(right);
+    } else if (m_webviewMode == WebViewSurfaceMode::HostPreview) {
+        RECT preview{};
+        preview.left = PAD;
+        preview.top = PAD;
+        preview.right = width - PAD;
+        preview.bottom = height - PAD;
+        m_webview.Resize(preview);
     } else {
         RECT hidden{};
-        hidden.left = rightLeft;
+        hidden.left = 0;
         hidden.top = 0;
-        hidden.right = rightLeft;
+        hidden.right = 0;
         hidden.bottom = 0;
         m_webview.Resize(hidden);
     }
 
-    if (m_hostPreviewPlaceholder) {
-        MoveWindow(m_hostPreviewPlaceholder, rightLeft + PAD, PAD, rightWidth - PAD, previewHeight - PAD, TRUE);
+    if (m_shellFallbackBox) {
+        const int boxWidth = std::max(320, width - PAD * 6);
+        const int boxHeight = std::max(180, height - 180);
+        MoveWindow(m_shellFallbackBox, PAD * 2, 70, boxWidth, boxHeight, TRUE);
     }
-    if (m_btnOpenHost) {
-        MoveWindow(m_btnOpenHost, rightLeft + PAD + 16, PAD + 84, 180, 30, TRUE);
+    if (m_shellRetryBtn) {
+        MoveWindow(m_shellRetryBtn, PAD * 2, 70 + std::max(180, height - 180) + 10, 150, 30, TRUE);
     }
-    if (m_runtimeInfoCard) {
-        MoveWindow(m_runtimeInfoCard, rightLeft + PAD, runtimeTop, rightWidth - PAD, runtimeHeight, TRUE);
+    if (m_shellOpenHostBtn) {
+        MoveWindow(m_shellOpenHostBtn, PAD * 2 + 160, 70 + std::max(180, height - 180) + 10, 180, 30, TRUE);
     }
+    RefreshShellFallback();
 }
 
 void MainWindow::SetPage(UiPage page) {
@@ -3360,180 +3361,15 @@ void MainWindow::SetPage(UiPage page) {
     } else {
         m_webviewMode = WebViewSurfaceMode::Hidden;
     }
-    UpdatePageVisibility();
     RECT rc{};
     GetClientRect(m_hwnd, &rc);
     OnSize(rc.right, rc.bottom);
-    RefreshDashboard();
-    RefreshSessionSetup();
-    RefreshNetworkPage();
-    RefreshSharingPage();
-    RefreshMonitorPage();
-    RefreshDiagnosticsPage();
-    RefreshSettingsPage();
     RefreshHtmlAdminPreview();
+    RefreshShellFallback();
 }
 
 void MainWindow::UpdatePageVisibility() {
-    const bool usingHtmlAdmin = IsHtmlAdminActive();
-    const bool dashboard = m_currentPage == UiPage::Dashboard;
-    const bool setup = m_currentPage == UiPage::Setup;
-    const bool network = m_currentPage == UiPage::Network;
-    const bool sharing = m_currentPage == UiPage::Sharing;
-    const bool monitor = m_currentPage == UiPage::Monitor;
-    const bool diagnostics = m_currentPage == UiPage::Diagnostics;
-    const bool settings = m_currentPage == UiPage::Settings;
-    const bool settingsNative = settings && !usingHtmlAdmin;
-    const auto setMany = [](std::initializer_list<HWND> controls, bool visible) {
-        for (HWND hwnd : controls) {
-            if (hwnd) ShowWindow(hwnd, visible ? SW_SHOW : SW_HIDE);
-        }
-    };
-
-    setMany({
-        m_dashboardIntro,
-        m_dashboardStatusCard,
-        m_dashboardPrimaryBtn,
-        m_dashboardContinueBtn,
-        m_dashboardWizardBtn,
-        m_dashboardNetworkCard,
-        m_dashboardServiceCard,
-        m_dashboardShareCard,
-        m_dashboardHealthCard,
-        m_dashboardSuggestionsLabel,
-    }, dashboard && !usingHtmlAdmin);
-    for (HWND hwnd : m_dashboardSuggestionText) ShowWindow(hwnd, (dashboard && !usingHtmlAdmin) ? SW_SHOW : SW_HIDE);
-    for (HWND hwnd : m_dashboardSuggestionFixBtn) ShowWindow(hwnd, (dashboard && !usingHtmlAdmin) ? SW_SHOW : SW_HIDE);
-    for (HWND hwnd : m_dashboardSuggestionInfoBtn) ShowWindow(hwnd, (dashboard && !usingHtmlAdmin) ? SW_SHOW : SW_HIDE);
-    for (HWND hwnd : m_dashboardSuggestionSetupBtn) ShowWindow(hwnd, (dashboard && !usingHtmlAdmin) ? SW_SHOW : SW_HIDE);
-
-    setMany({
-        m_setupTitle,
-        m_stepInfo,
-        m_sessionGroup,
-        m_serviceGroup,
-        m_templateLabel,
-        m_templateCombo,
-        m_ipLabel,
-        m_ipValue,
-        m_btnRefreshIp,
-        m_hotspotLabel,
-        m_bindLabel,
-        m_bindEdit,
-        m_sanIpLabel,
-        m_sanIpValue,
-        m_advancedToggle,
-        m_portLabel,
-        m_portEdit,
-        m_roomLabel,
-        m_roomEdit,
-        m_tokenLabel,
-        m_tokenEdit,
-        m_btnGenerate,
-        m_btnStart,
-        m_btnStop,
-        m_btnRestart,
-        m_btnServiceOnly,
-        m_btnStartAndOpenHost,
-        m_shareInfoLabel,
-        m_sessionSummaryLabel,
-        m_sessionSummaryBox,
-        m_hostPreviewPlaceholder,
-        m_btnOpenHost,
-        m_runtimeInfoCard,
-    }, setup && !usingHtmlAdmin);
-
-    setMany({
-        m_networkTitle,
-        m_networkSummaryCard,
-        m_btnRefreshNetwork,
-        m_btnManualSelectIp,
-        m_adapterListLabel,
-        m_hotspotGroup,
-        m_hotspotStatusCard,
-        m_hotspotSsidLabel,
-        m_hotspotPwdLabel,
-        m_hotspotSsidEdit,
-        m_hotspotPwdEdit,
-        m_btnAutoHotspot,
-        m_btnStartHotspot,
-        m_btnStopHotspot,
-        m_btnOpenHotspotSettings,
-        m_wifiDirectGroup,
-        m_wifiDirectCard,
-        m_btnPairWifiDirect,
-        m_btnOpenConnectedDevices,
-        m_btnOpenPairingHelp,
-    }, network && !usingHtmlAdmin);
-    for (HWND hwnd : m_networkAdapterCards) ShowWindow(hwnd, (network && !usingHtmlAdmin) ? SW_SHOW : SW_HIDE);
-    for (HWND hwnd : m_networkAdapterSelectBtns) ShowWindow(hwnd, (network && !usingHtmlAdmin) ? SW_SHOW : SW_HIDE);
-
-    setMany({
-        m_sharingTitle,
-        m_accessEntryCard,
-        m_qrCard,
-        m_accessGuideCard,
-        m_btnCopyHostUrl,
-        m_btnCopyViewerUrl,
-        m_btnOpenHostBrowser,
-        m_btnOpenViewerBrowser,
-        m_btnSaveQrImage,
-        m_btnFullscreenQr,
-        m_btnOpenShareCard,
-        m_btnOpenShareWizard,
-        m_btnOpenBundleFolder,
-        m_btnExportOfflineZip,
-    }, sharing && !usingHtmlAdmin);
-
-    setMany({
-        m_monitorTitle,
-        m_monitorTimelineLabel,
-        m_monitorTimelineBox,
-        m_monitorTabHealth,
-        m_monitorTabConnections,
-        m_monitorTabLogs,
-        m_monitorDetailBox,
-    }, monitor && !usingHtmlAdmin);
-    for (HWND hwnd : m_monitorMetricCards) ShowWindow(hwnd, (monitor && !usingHtmlAdmin) ? SW_SHOW : SW_HIDE);
-
-    setMany({
-        m_diagPageTitle,
-        m_diagChecklistCard,
-        m_diagActionsCard,
-        m_diagExportCard,
-        m_diagFilesCard,
-        m_diagLogSearch,
-        m_diagLevelFilter,
-        m_diagSourceFilter,
-        m_diagLogViewer,
-        m_btnDiagOpenOutput,
-        m_btnDiagOpenReport,
-        m_btnDiagExportZip,
-        m_btnDiagCopyPath,
-        m_btnDiagRefreshBundle,
-        m_btnDiagCopyLogs,
-        m_btnDiagSaveLogs,
-    }, diagnostics && !usingHtmlAdmin);
-
-    setMany({
-        m_settingsTitle,
-        m_settingsIntro,
-        m_settingsGeneralCard,
-        m_settingsServiceCard,
-        m_settingsNetworkCard,
-        m_settingsSharingCard,
-        m_settingsLoggingCard,
-        m_settingsAdvancedCard,
-        m_settingsCurrentStateCard,
-    }, settingsNative);
-
-    if (m_navDashboardBtn) EnableWindow(m_navDashboardBtn, dashboard ? FALSE : TRUE);
-    if (m_navSetupBtn) EnableWindow(m_navSetupBtn, setup ? FALSE : TRUE);
-    if (m_navNetworkBtn) EnableWindow(m_navNetworkBtn, network ? FALSE : TRUE);
-    if (m_navSharingBtn) EnableWindow(m_navSharingBtn, sharing ? FALSE : TRUE);
-    if (m_navMonitorBtn) EnableWindow(m_navMonitorBtn, monitor ? FALSE : TRUE);
-    if (m_navDiagnosticsBtn) EnableWindow(m_navDiagnosticsBtn, diagnostics ? FALSE : TRUE);
-    if (m_navSettingsBtn) EnableWindow(m_navSettingsBtn, settings ? FALSE : TRUE);
+    RefreshShellFallback();
 }
 
 void MainWindow::ExecuteDashboardSuggestionFix(std::size_t index) {
@@ -3616,6 +3452,15 @@ void MainWindow::OnCommand(int id) {
         break;
     case ID_BTN_NAV_SETTINGS:
         SetPage(UiPage::Settings);
+        break;
+    case ID_BTN_SHELL_RETRY:
+        m_adminShellReady = false;
+        EnsureWebViewInitialized();
+        NavigateHtmlAdminInWebView();
+        RefreshShellFallback();
+        break;
+    case ID_BTN_SHELL_OPEN_HOST:
+        OpenHostPage();
         break;
     case ID_EDIT_DIAG_LOG_SEARCH:
     case ID_COMBO_DIAG_LEVEL:
@@ -3856,10 +3701,17 @@ void MainWindow::RefreshHotspotState() {
 
 void MainWindow::StartHotspot() {
     wchar_t buf[256]{};
-    GetWindowTextW(m_hotspotSsidEdit, buf, _countof(buf));
-    m_hotspotSsid = buf;
-    GetWindowTextW(m_hotspotPwdEdit, buf, _countof(buf));
-    m_hotspotPassword = buf;
+    if (m_hotspotSsidEdit) {
+        GetWindowTextW(m_hotspotSsidEdit, buf, _countof(buf));
+        m_hotspotSsid = buf;
+    }
+    if (m_hotspotPwdEdit) {
+        GetWindowTextW(m_hotspotPwdEdit, buf, _countof(buf));
+        m_hotspotPassword = buf;
+    }
+    if (m_hotspotSsid.empty() || m_hotspotPassword.empty()) {
+        EnsureHotspotDefaults();
+    }
 
     lan::network::HotspotConfig cfg;
     cfg.ssid = urlutil::WideToUtf8(m_hotspotSsid);
@@ -4168,6 +4020,7 @@ std::wstring MainWindow::BuildWifiDirectSessionAlias() const {
 void MainWindow::NavigateHostInWebView() {
     const auto url = BuildHostUrlLocal();
     m_webviewMode = WebViewSurfaceMode::HostPreview;
+    EnsureWebViewInitialized();
     m_webview.Navigate(url);
     AppendLog(L"Embedded host page navigate: " + url);
 }
@@ -4175,20 +4028,42 @@ void MainWindow::NavigateHostInWebView() {
 void MainWindow::NavigateHtmlAdminInWebView() {
     const fs::path uiDir = AdminUiDir();
     const fs::path indexFile = uiDir / L"index.html";
-    if (!fs::exists(indexFile)) {
-        AppendLog(L"HTML admin shell missing: " + indexFile.wstring());
-        m_webviewMode = WebViewSurfaceMode::Hidden;
-        return;
-    }
-
-    if (m_webviewMode == WebViewSurfaceMode::HtmlAdminPreview) {
-        return;
-    }
-
     m_adminShellReady = false;
     m_webviewMode = WebViewSurfaceMode::HtmlAdminPreview;
+    EnsureWebViewInitialized();
+
+    if (!fs::exists(indexFile)) {
+        AppendLog(L"HTML admin shell missing: " + indexFile.wstring());
+        return;
+    }
+
     m_webview.Navigate(BuildFileUrl(indexFile));
     AppendLog(L"HTML admin shell navigate: " + indexFile.wstring());
+}
+
+void MainWindow::EnsureWebViewInitialized() {
+    if (!m_hwnd) return;
+
+    RECT rc{};
+    GetClientRect(m_hwnd, &rc);
+    RECT bounds{};
+    bounds.left = 0;
+    bounds.top = 0;
+    bounds.right = rc.right;
+    bounds.bottom = rc.bottom;
+
+    m_webview.Initialize(
+        m_hwnd,
+        bounds,
+        [this](std::wstring msg) {
+            auto* heap = new std::wstring(std::move(msg));
+            PostMessageW(m_hwnd, WM_APP_LOG, (WPARAM)heap, 0);
+        },
+        [this](std::wstring payload) {
+            if (!m_hwnd) return;
+            auto* heap = new std::wstring(std::move(payload));
+            PostMessageW(m_hwnd, WM_APP_WEBVIEW, (WPARAM)heap, 0);
+        });
 }
 
 void MainWindow::RefreshHtmlAdminPreview() {
@@ -4196,6 +4071,7 @@ void MainWindow::RefreshHtmlAdminPreview() {
     if (!m_adminShellReady) return;
     if (!m_adminBackend) return;
     m_webview.PostJson(m_adminBackend->BuildSnapshotEventJson(BuildAdminSnapshot()));
+    RefreshShellFallback();
 }
 
 void MainWindow::HandleAdminShellMessage(std::wstring_view payload) {
@@ -4211,6 +4087,7 @@ void MainWindow::HandleAdminShellMessage(std::wstring_view payload) {
     if (result.requestSnapshot || result.stateChanged) {
         RefreshHtmlAdminPreview();
     }
+    RefreshShellFallback();
 }
 
 AdminBackend::Snapshot MainWindow::BuildAdminSnapshot() const {
@@ -4377,7 +4254,96 @@ void MainWindow::AppendLog(std::wstring_view line) {
     RefreshDiagnosticsPage();
 }
 
+void MainWindow::RefreshShellFallback() {
+    if (!m_shellFallbackBox || !m_shellRetryBtn || !m_shellOpenHostBtn) return;
+
+    const bool htmlMode = m_webviewMode == WebViewSurfaceMode::HtmlAdminPreview;
+    const std::wstring status = m_webview.StatusText();
+    const std::wstring detail = m_webview.DetailText();
+    const bool showFallback = htmlMode && (!m_adminShellReady || status != L"ready");
+
+    if (m_hwnd) {
+        RECT rc{};
+        GetClientRect(m_hwnd, &rc);
+        const int width = (rc.right > rc.left) ? static_cast<int>(rc.right - rc.left) : 0;
+        const int height = (rc.bottom > rc.top) ? static_cast<int>(rc.bottom - rc.top) : 0;
+
+        if (showFallback) {
+            RECT hidden{};
+            m_webview.Resize(hidden);
+        } else if (htmlMode) {
+            RECT admin{};
+            admin.left = 0;
+            admin.top = 0;
+            admin.right = width;
+            admin.bottom = height;
+            m_webview.Resize(admin);
+        }
+    }
+
+    ShowWindow(m_shellFallbackBox, showFallback ? SW_SHOW : SW_HIDE);
+    ShowWindow(m_shellRetryBtn, showFallback ? SW_SHOW : SW_HIDE);
+    ShowWindow(m_shellOpenHostBtn, showFallback ? SW_SHOW : SW_HIDE);
+
+    if (showFallback) {
+        SetWindowPos(m_shellFallbackBox, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+        SetWindowPos(m_shellRetryBtn, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+        SetWindowPos(m_shellOpenHostBtn, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+    }
+
+    if (!showFallback) {
+        return;
+    }
+
+    std::wstringstream ss;
+    ss << L"HTML admin shell is not ready yet.\r\n\r\n";
+    ss << L"WebView status: " << status << L"\r\n";
+    if (!detail.empty()) {
+        ss << L"WebView detail: " << detail << L"\r\n";
+    }
+    ss << L"Admin shell ready: " << (m_adminShellReady ? L"yes" : L"no") << L"\r\n";
+    ss << L"UI bundle found: " << (fs::exists(AdminUiDir() / L"index.html") ? L"yes" : L"no") << L"\r\n\r\n";
+
+    if (status == L"sdk-unavailable") {
+        ss << L"Reason\r\n";
+        ss << L"- This build was compiled without WebView2 SDK headers, so the HTML admin cannot be embedded.\r\n\r\n";
+        ss << L"Next step\r\n";
+        ss << L"- Restore desktop NuGet packages and rebuild the app, then click Retry Loading UI.\r\n";
+        ss << L"- You can still open the Host page in the system browser.";
+    } else if (status == L"controller-unavailable" &&
+               detail.find(L"0x8007139F") != std::wstring::npos) {
+        ss << L"Reason\r\n";
+        ss << L"- WebView2 Runtime is installed, but controller creation returned INVALID_STATE (0x8007139F).\r\n";
+        ss << L"- This usually means the embedded browser was started in a bad runtime state or from an older build.\r\n\r\n";
+        ss << L"Next step\r\n";
+        ss << L"- Close all LanScreenShareHostApp processes and relaunch the newest Debug build.\r\n";
+        ss << L"- Click Retry Loading UI once after relaunch.\r\n";
+        ss << L"- If it still fails, keep the detail line and check the latest desktop log.\r\n";
+        ss << L"- You can still open the Host page in the system browser.";
+    } else if (status == L"runtime-unavailable" || status == L"controller-unavailable") {
+        ss << L"Reason\r\n";
+        ss << L"- WebView2 is unavailable on this machine, so the HTML admin cannot be embedded.\r\n\r\n";
+        ss << L"Next step\r\n";
+        ss << L"- Install or repair Microsoft WebView2 Runtime, then click Retry Loading UI.\r\n";
+        ss << L"- You can still open the Host page in the system browser.";
+    } else if (!fs::exists(AdminUiDir() / L"index.html")) {
+        ss << L"Reason\r\n";
+        ss << L"- The desktop webui bundle is missing from the runtime directory.\r\n\r\n";
+        ss << L"Next step\r\n";
+        ss << L"- Rebuild or copy the webui output, then click Retry Loading UI.";
+    } else {
+        ss << L"Reason\r\n";
+        ss << L"- WebView2 is still initializing or the HTML shell has not replied with a ready snapshot yet.\r\n\r\n";
+        ss << L"Next step\r\n";
+        ss << L"- Wait a moment, or click Retry Loading UI.\r\n";
+        ss << L"- If it keeps failing, open Host in the browser and inspect logs.";
+    }
+
+    SetWindowTextW(m_shellFallbackBox, ss.str().c_str());
+}
+
 void MainWindow::RefreshDashboard() {
+    if (PreferHtmlAdminUi()) return;
     const auto certInfo = ProbeCertArtifacts(AppDir());
     const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, m_bindAddress, m_hostIp, m_port);
     const auto viewerUrl = BuildViewerUrl();
@@ -4509,6 +4475,7 @@ void MainWindow::RefreshDashboard() {
 }
 
 void MainWindow::RefreshSessionSetup() {
+    if (PreferHtmlAdminUi()) return;
     const auto certInfo = ProbeCertArtifacts(AppDir());
     const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, m_bindAddress, m_hostIp, m_port);
     const std::wstring hostUrl = BuildHostUrlLocal();
@@ -4543,8 +4510,10 @@ void MainWindow::RefreshSessionSetup() {
     if (m_hostPreviewPlaceholder) {
         std::wstringstream ss;
         ss << L"Host Preview Unavailable\r\n\r\n";
-        if (runtime.embeddedHostStatus == L"sdk-unavailable" || runtime.embeddedHostStatus == L"runtime-unavailable" || runtime.embeddedHostStatus == L"controller-unavailable") {
-            ss << L"Reason: WebView2 Runtime / SDK is unavailable.\r\n\r\n";
+        if (runtime.embeddedHostStatus == L"sdk-unavailable") {
+            ss << L"Reason: this build was compiled without WebView2 SDK support.\r\n\r\n";
+        } else if (runtime.embeddedHostStatus == L"runtime-unavailable" || runtime.embeddedHostStatus == L"controller-unavailable") {
+            ss << L"Reason: WebView2 Runtime is unavailable or did not initialize.\r\n\r\n";
         } else {
             ss << L"Reason: Host preview is not ready yet.\r\n\r\n";
         }
@@ -4561,6 +4530,7 @@ void MainWindow::RefreshSessionSetup() {
 }
 
 void MainWindow::RefreshNetworkPage() {
+    if (PreferHtmlAdminUi()) return;
     const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, m_bindAddress, m_hostIp, m_port);
     const auto candidates = CollectActiveIpv4Candidates();
 
@@ -4618,6 +4588,7 @@ void MainWindow::RefreshNetworkPage() {
 }
 
 void MainWindow::RefreshSharingPage() {
+    if (PreferHtmlAdminUi()) return;
     const std::wstring hostUrl = BuildHostUrlLocal();
     const std::wstring viewerUrl = BuildViewerUrl();
 
@@ -4666,6 +4637,7 @@ void MainWindow::RefreshSharingPage() {
 }
 
 void MainWindow::RefreshMonitorPage() {
+    if (PreferHtmlAdminUi()) return;
     const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, m_bindAddress, m_hostIp, m_port);
     const std::array<std::wstring, 5> metricTexts = {
         std::wstring(L"Rooms\n") + std::to_wstring(m_lastRooms),
@@ -4700,6 +4672,7 @@ void MainWindow::RefreshMonitorPage() {
 }
 
 void MainWindow::RefreshFilteredLogs() {
+    if (PreferHtmlAdminUi()) return;
     if (!m_diagLogViewer) return;
     wchar_t searchBuf[256]{};
     if (m_diagLogSearch) GetWindowTextW(m_diagLogSearch, searchBuf, _countof(searchBuf));
@@ -4720,6 +4693,7 @@ void MainWindow::RefreshFilteredLogs() {
 }
 
 void MainWindow::RefreshDiagnosticsPage() {
+    if (PreferHtmlAdminUi()) return;
     const auto certInfo = ProbeCertArtifacts(AppDir());
     const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, m_bindAddress, m_hostIp, m_port);
     if (m_diagChecklistCard) {
@@ -4763,6 +4737,7 @@ void MainWindow::RefreshDiagnosticsPage() {
 }
 
 void MainWindow::RefreshSettingsPage() {
+    if (PreferHtmlAdminUi()) return;
     const auto certInfo = ProbeCertArtifacts(AppDir());
     const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, m_bindAddress, m_hostIp, m_port);
     const auto serverExe = AppDir() / L"lan_screenshare_server.exe";
@@ -4896,6 +4871,7 @@ void MainWindow::UpdateUiState() {
     RefreshDiagnosticsPage();
     RefreshSettingsPage();
     RefreshHtmlAdminPreview();
+    RefreshShellFallback();
 }
 
 void MainWindow::OnDestroy() {
@@ -4911,17 +4887,25 @@ void MainWindow::StartServer() {
     }
 
     wchar_t buf[512]{};
-    GetWindowTextW(m_bindEdit, buf, _countof(buf));
-    m_bindAddress = buf;
+    if (m_bindEdit) {
+        GetWindowTextW(m_bindEdit, buf, _countof(buf));
+        m_bindAddress = buf;
+    }
 
-    GetWindowTextW(m_portEdit, buf, _countof(buf));
-    m_port = _wtoi(buf);
+    if (m_portEdit) {
+        GetWindowTextW(m_portEdit, buf, _countof(buf));
+        m_port = _wtoi(buf);
+    }
     if (m_port <= 0) m_port = 9443;
 
-    GetWindowTextW(m_roomEdit, buf, _countof(buf));
-    m_room = buf;
-    GetWindowTextW(m_tokenEdit, buf, _countof(buf));
-    m_token = buf;
+    if (m_roomEdit) {
+        GetWindowTextW(m_roomEdit, buf, _countof(buf));
+        m_room = buf;
+    }
+    if (m_tokenEdit) {
+        GetWindowTextW(m_tokenEdit, buf, _countof(buf));
+        m_token = buf;
+    }
 
     if (m_room.empty() || m_token.empty()) {
         GenerateRoomToken();
@@ -5226,7 +5210,7 @@ fs::path MainWindow::AdminUiDir() const {
 }
 
 bool MainWindow::PreferHtmlAdminUi() const {
-    return fs::exists(AdminUiDir() / L"index.html") && m_webview.IsAvailable();
+    return true;
 }
 
 bool MainWindow::IsHtmlAdminActive() const {

@@ -18,9 +18,11 @@ public:
     void Navigate(const std::wstring& url);
     bool PostJson(std::wstring_view json);
     void SetMessageCallback(std::function<void(std::wstring)> webMessage);
+    void Reset() noexcept;
     bool IsReady() const noexcept;
     bool IsAvailable() const noexcept;
     std::wstring StatusText() const;
+    std::wstring DetailText() const;
 
 private:
     struct Impl;
