@@ -12,6 +12,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ClInclude Include="AdminBackend.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="pch.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="App.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="MainWindow.h"><Filter>Header Files</Filter></ClInclude>
@@ -23,6 +24,7 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ClCompile Include="AdminBackend.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="pch.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="main.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="App.cpp"><Filter>Source Files</Filter></ClCompile>

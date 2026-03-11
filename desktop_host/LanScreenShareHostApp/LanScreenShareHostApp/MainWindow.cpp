@@ -43,6 +43,62 @@ enum {
     ID_BTN_RUN_SELF_CHECK = 1016,
     ID_BTN_OPEN_DIAGNOSTICS = 1017,
     ID_BTN_REFRESH_CHECKS = 1018,
+    ID_BTN_NAV_DASHBOARD = 1019,
+    ID_BTN_NAV_SETUP = 1020,
+    ID_BTN_DASH_START = 1021,
+    ID_BTN_DASH_CONTINUE = 1022,
+    ID_BTN_DASH_WIZARD = 1023,
+    ID_BTN_DASH_SUGGESTION_FIX_1 = 1101,
+    ID_BTN_DASH_SUGGESTION_INFO_1 = 1102,
+    ID_BTN_DASH_SUGGESTION_SETUP_1 = 1103,
+    ID_BTN_DASH_SUGGESTION_FIX_2 = 1111,
+    ID_BTN_DASH_SUGGESTION_INFO_2 = 1112,
+    ID_BTN_DASH_SUGGESTION_SETUP_2 = 1113,
+    ID_BTN_DASH_SUGGESTION_FIX_3 = 1121,
+    ID_BTN_DASH_SUGGESTION_INFO_3 = 1122,
+    ID_BTN_DASH_SUGGESTION_SETUP_3 = 1123,
+    ID_BTN_DASH_SUGGESTION_FIX_4 = 1131,
+    ID_BTN_DASH_SUGGESTION_INFO_4 = 1132,
+    ID_BTN_DASH_SUGGESTION_SETUP_4 = 1133,
+    ID_COMBO_SESSION_TEMPLATE = 1140,
+    ID_BTN_RESTART = 1141,
+    ID_BTN_SERVICE_ONLY = 1142,
+    ID_BTN_START_AND_OPEN_HOST = 1143,
+    ID_BTN_ADVANCED = 1144,
+    ID_BTN_NAV_NETWORK = 1145,
+    ID_BTN_REFRESH_NETWORK = 1146,
+    ID_BTN_MANUAL_SELECT_IP = 1147,
+    ID_BTN_AUTO_HOTSPOT = 1148,
+    ID_BTN_OPEN_CONNECTED_DEVICES = 1149,
+    ID_BTN_OPEN_PAIRING_HELP = 1150,
+    ID_BTN_SELECT_ADAPTER_1 = 1161,
+    ID_BTN_SELECT_ADAPTER_2 = 1162,
+    ID_BTN_SELECT_ADAPTER_3 = 1163,
+    ID_BTN_SELECT_ADAPTER_4 = 1164,
+    ID_BTN_NAV_SHARING = 1165,
+    ID_BTN_COPY_HOST_URL = 1166,
+    ID_BTN_COPY_VIEWER_URL_2 = 1167,
+    ID_BTN_OPEN_HOST_BROWSER = 1168,
+    ID_BTN_OPEN_VIEWER_BROWSER = 1169,
+    ID_BTN_SAVE_QR_IMAGE = 1170,
+    ID_BTN_FULLSCREEN_QR = 1171,
+    ID_BTN_OPEN_SHARE_CARD_2 = 1172,
+    ID_BTN_OPEN_SHARE_WIZARD_2 = 1173,
+    ID_BTN_OPEN_BUNDLE_FOLDER_2 = 1174,
+    ID_BTN_EXPORT_OFFLINE_ZIP = 1175,
+    ID_BTN_NAV_MONITOR = 1176,
+    ID_BTN_NAV_DIAGNOSTICS = 1177,
+    ID_EDIT_DIAG_LOG_SEARCH = 1178,
+    ID_COMBO_DIAG_LEVEL = 1179,
+    ID_COMBO_DIAG_SOURCE = 1180,
+    ID_BTN_DIAG_OPEN_OUTPUT = 1181,
+    ID_BTN_DIAG_OPEN_REPORT = 1182,
+    ID_BTN_DIAG_EXPORT_ZIP = 1183,
+    ID_BTN_DIAG_COPY_PATH = 1184,
+    ID_BTN_DIAG_REFRESH_BUNDLE = 1185,
+    ID_BTN_DIAG_COPY_LOGS = 1186,
+    ID_BTN_DIAG_SAVE_LOGS = 1187,
+    ID_BTN_NAV_SETTINGS = 1188,
 };
 
 struct PollResult {
@@ -788,6 +844,32 @@ static std::string JsonEscapeUtf8(std::string_view value) {
     return out;
 }
 
+static std::wstring BuildFileUrl(const fs::path& path) {
+    std::wstring value = fs::absolute(path).wstring();
+    std::replace(value.begin(), value.end(), L'\\', L'/');
+
+    std::wstring encoded;
+    encoded.reserve(value.size() + 16);
+    for (wchar_t ch : value) {
+        switch (ch) {
+        case L' ':
+            encoded += L"%20";
+            break;
+        case L'#':
+            encoded += L"%23";
+            break;
+        case L'%':
+            encoded += L"%25";
+            break;
+        default:
+            encoded.push_back(ch);
+            break;
+        }
+    }
+
+    return L"file:///" + encoded;
+}
+
 
 
 struct SelfCheckItem {
@@ -1269,6 +1351,31 @@ static std::wstring BuildSelfCheckSummaryLine(const SelfCheckReport& report) {
         ss << L" | " << urlutil::Utf8ToWide(report.failures.front().title);
     }
     return ss.str();
+}
+
+static bool WideContainsCaseInsensitive(std::wstring_view text, std::wstring_view needle) {
+    std::wstring hay(text);
+    std::wstring ndl(needle);
+    std::transform(hay.begin(), hay.end(), hay.begin(), [](wchar_t ch) { return static_cast<wchar_t>(::towlower(ch)); });
+    std::transform(ndl.begin(), ndl.end(), ndl.begin(), [](wchar_t ch) { return static_cast<wchar_t>(::towlower(ch)); });
+    return hay.find(ndl) != std::wstring::npos;
+}
+
+static void SetTextIfPresent(HWND hwnd, const std::wstring& value) {
+    if (hwnd) SetWindowTextW(hwnd, value.c_str());
+}
+
+static std::wstring DetectLogLevel(std::wstring_view line) {
+    if (WideContainsCaseInsensitive(line, L"failed") || WideContainsCaseInsensitive(line, L"error")) return L"Error";
+    if (WideContainsCaseInsensitive(line, L"warn") || WideContainsCaseInsensitive(line, L"attention")) return L"Warning";
+    return L"Info";
+}
+
+static std::wstring DetectLogSource(std::wstring_view line) {
+    if (WideContainsCaseInsensitive(line, L"[host-page]") || WideContainsCaseInsensitive(line, L"webview")) return L"webview";
+    if (WideContainsCaseInsensitive(line, L"network") || WideContainsCaseInsensitive(line, L"hotspot") || WideContainsCaseInsensitive(line, L"wifi")) return L"network";
+    if (WideContainsCaseInsensitive(line, L"[spawn]") || WideContainsCaseInsensitive(line, L"/health") || WideContainsCaseInsensitive(line, L"server")) return L"server";
+    return L"app";
 }
 
 static std::string BuildSelfCheckJson(const SelfCheckReport& report) {
@@ -2622,8 +2729,8 @@ bool MainWindow::Create() {
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT,
         CW_USEDEFAULT,
-        1240,
-        860,
+        1420,
+        940,
         nullptr,
         nullptr,
         GetModuleHandle(nullptr),
@@ -2645,6 +2752,7 @@ void MainWindow::Hide() {
 }
 
 void MainWindow::OnCreate() {
+    m_adminBackend = std::make_unique<AdminBackend>();
     m_server = std::make_unique<ServerController>();
 
     m_server->SetLogCallback([this](const std::wstring& line) {
@@ -2653,204 +2761,523 @@ void MainWindow::OnCreate() {
         PostMessageW(m_hwnd, WM_APP_LOG, (WPARAM)heap, 0);
     });
 
+    if (m_adminBackend) {
+        AdminBackend::Handlers handlers;
+        handlers.refreshNetwork = [this]() {
+            RefreshHostIp();
+            RefreshNetworkCapabilities();
+            RefreshHotspotState();
+        };
+        handlers.generateRoomToken = [this]() {
+            GenerateRoomToken();
+        };
+        handlers.startServer = [this]() {
+            StartServer();
+        };
+        handlers.stopServer = [this]() {
+            StopServer();
+        };
+        handlers.startServiceOnly = [this]() {
+            StartServiceOnly();
+        };
+        handlers.startAndOpenHost = [this]() {
+            StartAndOpenHost();
+        };
+        handlers.openHost = [this]() {
+            OpenHostPage();
+        };
+        handlers.openViewer = [this]() {
+            OpenViewerPage();
+        };
+        handlers.copyHostUrl = [this]() {
+            CopyHostUrl();
+        };
+        handlers.copyViewerUrl = [this]() {
+            CopyViewerUrl();
+        };
+        handlers.exportBundle = [this]() {
+            ExportShareBundle();
+        };
+        handlers.openOutput = [this]() {
+            OpenOutputFolder();
+        };
+        handlers.openReport = [this]() {
+            OpenDiagnosticsReport();
+        };
+        handlers.refreshBundle = [this]() {
+            RefreshDiagnosticsBundle();
+        };
+        handlers.showShareWizard = [this]() {
+            ShowShareWizard();
+        };
+        handlers.selectNetworkCandidate = [this](std::size_t index) {
+            SelectNetworkCandidate(index);
+        };
+        handlers.startHotspot = [this]() {
+            StartHotspot();
+        };
+        handlers.stopHotspot = [this]() {
+            StopHotspot();
+        };
+        handlers.autoHotspot = [this]() {
+            EnsureHotspotDefaults();
+            RefreshNetworkPage();
+            RefreshHtmlAdminPreview();
+        };
+        handlers.openHotspotSettings = [this]() {
+            OpenSystemHotspotSettings();
+        };
+        handlers.openConnectedDevices = [this]() {
+            OpenWifiDirectPairing();
+        };
+        handlers.navigatePage = [this](std::wstring page) {
+            TrySetPageFromAdminTab(page);
+        };
+        handlers.applySessionConfig = [this](std::wstring room, std::wstring token, std::wstring bind, int port) {
+            ApplySessionConfigFromAdmin(std::move(room), std::move(token), std::move(bind), port);
+        };
+        handlers.applyHotspotConfig = [this](std::wstring ssid, std::wstring password) {
+            ApplyHotspotConfigFromAdmin(std::move(ssid), std::move(password));
+        };
+        m_adminBackend->SetHandlers(std::move(handlers));
+    }
+
     EnsureHotspotDefaults();
     GenerateRoomToken();
+    m_defaultServerExePath = (AppDir() / L"lan_screenshare_server.exe").wstring();
+    m_defaultWwwPath = (AppDir() / L"www").wstring();
+    m_defaultCertDir = (AppDir() / L"cert").wstring();
+    m_outputDir = (AppDir() / L"out").wstring();
 
-    const int LEFT_W = 450;
+    const int LEFT_W = 720;
     const int PAD = 10;
     const int ROW_H = 22;
-    const int BTN_H = 24;
+    const int BTN_H = 28;
     const int LABEL_W = 95;
 
     int x = PAD;
     int y = PAD;
 
+    m_navDashboardBtn = CreateWindowW(L"BUTTON", L"Dashboard", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x, y, 130, 30, m_hwnd, (HMENU)(INT_PTR)ID_BTN_NAV_DASHBOARD, GetModuleHandle(nullptr), nullptr);
+    m_navSetupBtn = CreateWindowW(L"BUTTON", L"Setup", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 140, y, 130, 30, m_hwnd, (HMENU)(INT_PTR)ID_BTN_NAV_SETUP, GetModuleHandle(nullptr), nullptr);
+    m_navNetworkBtn = CreateWindowW(L"BUTTON", L"Network", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 280, y, 130, 30, m_hwnd, (HMENU)(INT_PTR)ID_BTN_NAV_NETWORK, GetModuleHandle(nullptr), nullptr);
+    m_navSharingBtn = CreateWindowW(L"BUTTON", L"Sharing", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 420, y, 130, 30, m_hwnd, (HMENU)(INT_PTR)ID_BTN_NAV_SHARING, GetModuleHandle(nullptr), nullptr);
+    m_navMonitorBtn = CreateWindowW(L"BUTTON", L"Monitor", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 560, y, 130, 30, m_hwnd, (HMENU)(INT_PTR)ID_BTN_NAV_MONITOR, GetModuleHandle(nullptr), nullptr);
+    m_navDiagnosticsBtn = CreateWindowW(L"BUTTON", L"Diagnostics", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 700, y, 130, 30, m_hwnd, (HMENU)(INT_PTR)ID_BTN_NAV_DIAGNOSTICS, GetModuleHandle(nullptr), nullptr);
+    m_navSettingsBtn = CreateWindowW(L"BUTTON", L"Settings", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 840, y, 130, 30, m_hwnd, (HMENU)(INT_PTR)ID_BTN_NAV_SETTINGS, GetModuleHandle(nullptr), nullptr);
+    y += 42;
+
+    m_dashboardIntro = CreateWindowW(L"STATIC",
+        L"Dashboard shows readiness first. Detailed knobs stay in Setup.",
+        WS_CHILD | WS_VISIBLE,
+        x, y, LEFT_W - PAD * 2, ROW_H,
+        m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    y += 28;
+
+    m_dashboardStatusCard = CreateWindowExW(
+        WS_EX_CLIENTEDGE,
+        L"EDIT",
+        L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+        x, y, LEFT_W - 210 - PAD * 3, 150,
+        m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_dashboardPrimaryBtn = CreateWindowW(L"BUTTON", L"Start Sharing", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + LEFT_W - 180 - PAD, y + 4, 170, 34, m_hwnd, (HMENU)(INT_PTR)ID_BTN_DASH_START, GetModuleHandle(nullptr), nullptr);
+    m_dashboardContinueBtn = CreateWindowW(L"BUTTON", L"Continue Setup", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + LEFT_W - 180 - PAD, y + 48, 170, 34, m_hwnd, (HMENU)(INT_PTR)ID_BTN_DASH_CONTINUE, GetModuleHandle(nullptr), nullptr);
+    m_dashboardWizardBtn = CreateWindowW(L"BUTTON", L"Open Wizard", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + LEFT_W - 180 - PAD, y + 92, 170, 34, m_hwnd, (HMENU)(INT_PTR)ID_BTN_DASH_WIZARD, GetModuleHandle(nullptr), nullptr);
+    y += 162;
+
+    const int cardGap = 10;
+    const int cardW = (LEFT_W - PAD * 2 - cardGap) / 2;
+    const int cardH = 112;
+    m_dashboardNetworkCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY,
+        x, y, cardW, cardH, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_dashboardServiceCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY,
+        x + cardW + cardGap, y, cardW, cardH, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    y += cardH + cardGap;
+    m_dashboardShareCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY,
+        x, y, cardW, cardH, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_dashboardHealthCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY,
+        x + cardW + cardGap, y, cardW, cardH, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    y += cardH + 18;
+
+    m_dashboardSuggestionsLabel = CreateWindowW(L"STATIC", L"Recent Next Steps:", WS_CHILD | WS_VISIBLE,
+        x, y, 160, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    y += 24;
+
+    const int suggestionTextW = LEFT_W - 310 - PAD * 2;
+    const int suggestionBtnW = 92;
+    for (int i = 0; i < 4; ++i) {
+        const int rowY = y + i * 40;
+        const int fixId = ID_BTN_DASH_SUGGESTION_FIX_1 + i * 10;
+        const int infoId = ID_BTN_DASH_SUGGESTION_INFO_1 + i * 10;
+        const int setupId = ID_BTN_DASH_SUGGESTION_SETUP_1 + i * 10;
+        m_dashboardSuggestionText[i] = CreateWindowW(L"STATIC", L"", WS_CHILD | WS_VISIBLE,
+            x, rowY + 8, suggestionTextW, 20, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+        m_dashboardSuggestionFixBtn[i] = CreateWindowW(L"BUTTON", L"Fix", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            x + suggestionTextW + 8, rowY + 2, suggestionBtnW, 28, m_hwnd, (HMENU)(INT_PTR)fixId, GetModuleHandle(nullptr), nullptr);
+        m_dashboardSuggestionInfoBtn[i] = CreateWindowW(L"BUTTON", L"Info", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            x + suggestionTextW + 8 + suggestionBtnW + 6, rowY + 2, suggestionBtnW, 28, m_hwnd, (HMENU)(INT_PTR)infoId, GetModuleHandle(nullptr), nullptr);
+        m_dashboardSuggestionSetupBtn[i] = CreateWindowW(L"BUTTON", L"Setup", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            x + suggestionTextW + 8 + (suggestionBtnW + 6) * 2, rowY + 2, suggestionBtnW, 28, m_hwnd, (HMENU)(INT_PTR)setupId, GetModuleHandle(nullptr), nullptr);
+    }
+
+    const int setupTop = PAD + 42;
+    y = setupTop;
+    m_setupTitle = CreateWindowW(L"STATIC", L"Session Setup", WS_CHILD | WS_VISIBLE,
+        x, y, LEFT_W - PAD * 2, 24, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    y += 28;
     m_stepInfo = CreateWindowExW(
         WS_EX_CLIENTEDGE,
         L"EDIT",
-        L"Step1: Probe Wi-Fi / hotspot / Wi-Fi Direct capability\r\n"
-        L"Step2: Optionally start a local hotspot\r\n"
-        L"Step3: Start HTTPS/WSS server\r\n"
-        L"Step4: Load host page in WebView2 and start sharing\r\n"
-        L"Step5: Use offline share card / Viewer URL\r\n\r\n"
-        L"Tips:\r\n"
-        L"- Hotspot uses Windows hosted-network commands as best effort.\r\n"
-        L"- Wi-Fi Direct pairing still goes through Windows pairing UI.\r\n"
-        L"- Share card now renders QR locally from ./www/assets/share_card_qr.bundle.js.\r\n"
-        L"- When hosted-network commands are unavailable, open Windows Mobile Hotspot settings.\r\n",
+        L"Use this page only for the current session: room, token, bind, port, start, and host preview.",
         WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
-        x, y, LEFT_W - PAD * 2, 132,
+        x, y, LEFT_W - PAD * 2, 42,
         m_hwnd,
         nullptr,
         GetModuleHandle(nullptr),
         nullptr);
-    y += 142;
+    y += 54;
+
+    m_sessionGroup = CreateWindowW(L"BUTTON", L"Module 1: Session Basics", WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
+        x, y, LEFT_W - PAD * 2, 108, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    y += 24;
 
     m_ipLabel = CreateWindowW(L"STATIC", L"Host IPv4:", WS_CHILD | WS_VISIBLE,
         x, y, LABEL_W, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
     m_ipValue = CreateWindowW(L"STATIC", m_hostIp.c_str(), WS_CHILD | WS_VISIBLE,
-        x + LABEL_W, y, LEFT_W - LABEL_W - 120 - PAD * 2, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
-    m_btnRefreshIp = CreateWindowW(L"BUTTON", L"Refresh", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        x + LEFT_W - 120 - PAD, y - 1, 110, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_REFRESH_IP, GetModuleHandle(nullptr), nullptr);
+        x + LABEL_W, y, 160, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_templateLabel = CreateWindowW(L"STATIC", L"Template:", WS_CHILD | WS_VISIBLE,
+        x + 270, y, 70, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_templateCombo = CreateWindowW(L"COMBOBOX", L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
+        x + 345, y - 3, 190, 200, m_hwnd, (HMENU)(INT_PTR)ID_COMBO_SESSION_TEMPLATE, GetModuleHandle(nullptr), nullptr);
+    SendMessageW(m_templateCombo, CB_ADDSTRING, 0, (LPARAM)L"Quick Share");
+    SendMessageW(m_templateCombo, CB_ADDSTRING, 0, (LPARAM)L"Fixed Room");
+    SendMessageW(m_templateCombo, CB_ADDSTRING, 0, (LPARAM)L"Demo Mode");
+    SendMessageW(m_templateCombo, CB_SETCURSEL, 0, 0);
+    m_btnRefreshIp = CreateWindowW(L"BUTTON", L"Refresh IP", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + LEFT_W - 130 - PAD, y - 1, 120, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_REFRESH_IP, GetModuleHandle(nullptr), nullptr);
     y += 30;
-
-    m_netCapsText = CreateWindowExW(
-        WS_EX_CLIENTEDGE,
-        L"EDIT",
-        L"Wi-Fi: -\r\nHotspot: -\r\nWi-Fi Direct API: -",
-        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY,
-        x, y, LEFT_W - PAD * 2, 58,
-        m_hwnd,
-        nullptr,
-        GetModuleHandle(nullptr),
-        nullptr);
-    y += 68;
-
-    m_hotspotLabel = CreateWindowW(L"STATIC", L"Hotspot:", WS_CHILD | WS_VISIBLE,
-        x, y, LABEL_W, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
-    m_hotspotSsidEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", m_hotspotSsid.c_str(),
-        WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
-        x + LABEL_W, y - 2, LEFT_W - LABEL_W - PAD * 2, ROW_H + 4,
-        m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
-    y += 30;
-
-    CreateWindowW(L"STATIC", L"Password:", WS_CHILD | WS_VISIBLE,
-        x, y, LABEL_W, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
-    m_hotspotPwdEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", m_hotspotPassword.c_str(),
-        WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
-        x + LABEL_W, y - 2, LEFT_W - LABEL_W - PAD * 2, ROW_H + 4,
-        m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
-    y += 34;
-
-    m_btnStartHotspot = CreateWindowW(L"BUTTON", L"Start Hotspot", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        x, y, 120, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_START_HOTSPOT, GetModuleHandle(nullptr), nullptr);
-    m_btnStopHotspot = CreateWindowW(L"BUTTON", L"Stop Hotspot", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        x + 130, y, 120, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_STOP_HOTSPOT, GetModuleHandle(nullptr), nullptr);
-    m_btnOpenHotspotSettings = CreateWindowW(L"BUTTON", L"Hotspot Settings", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        x + 260, y, 170, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_OPEN_HOTSPOT_SETTINGS, GetModuleHandle(nullptr), nullptr);
-    y += 32;
-
-    m_btnPairWifiDirect = CreateWindowW(L"BUTTON", L"Wi-Fi Direct Pair", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        x, y, 170, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_WIFI_DIRECT_PAIR, GetModuleHandle(nullptr), nullptr);
-    y += 34;
-
-    m_bindLabel = CreateWindowW(L"STATIC", L"Bind:", WS_CHILD | WS_VISIBLE,
-        x, y, LABEL_W, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
-    m_bindEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", m_bindAddress.c_str(),
-        WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
-        x + LABEL_W, y - 2, LEFT_W - LABEL_W - PAD * 2, ROW_H + 4,
-        m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
-    y += 32;
-
-    m_portLabel = CreateWindowW(L"STATIC", L"Port:", WS_CHILD | WS_VISIBLE,
-        x, y, LABEL_W, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
-    std::wstring portStr = std::to_wstring(m_port);
-    m_portEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", portStr.c_str(),
-        WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | ES_NUMBER,
-        x + LABEL_W, y - 2, LEFT_W - LABEL_W - PAD * 2, ROW_H + 4,
-        m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
-    y += 32;
 
     m_roomLabel = CreateWindowW(L"STATIC", L"Room:", WS_CHILD | WS_VISIBLE,
         x, y, LABEL_W, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
     m_roomEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", m_room.c_str(),
         WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
-        x + LABEL_W, y - 2, LEFT_W - LABEL_W - PAD * 2, ROW_H + 4,
+        x + LABEL_W, y - 2, 190, ROW_H + 4,
         m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
-    y += 32;
-
     m_tokenLabel = CreateWindowW(L"STATIC", L"Token:", WS_CHILD | WS_VISIBLE,
-        x, y, LABEL_W, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+        x + 300, y, 50, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
     m_tokenEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", m_token.c_str(),
         WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
-        x + LABEL_W, y - 2, LEFT_W - LABEL_W - 120 - PAD * 2, ROW_H + 4,
+        x + 355, y - 2, 180, ROW_H + 4,
         m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
-    m_btnGenerate = CreateWindowW(L"BUTTON", L"Gen", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        x + LEFT_W - 120 - PAD, y - 1, 110, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_GENERATE, GetModuleHandle(nullptr), nullptr);
-    y += 36;
+    m_btnGenerate = CreateWindowW(L"BUTTON", L"Auto Generate", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + LEFT_W - 130 - PAD, y - 1, 120, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_GENERATE, GetModuleHandle(nullptr), nullptr);
+    y += 42;
 
-    m_btnStart = CreateWindowW(L"BUTTON", L"Start", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        x, y, 120, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_START, GetModuleHandle(nullptr), nullptr);
-    m_btnStop = CreateWindowW(L"BUTTON", L"Stop", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        x + 130, y, 120, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_STOP, GetModuleHandle(nullptr), nullptr);
-    m_btnOpenFolder = CreateWindowW(L"BUTTON", L"Open Bundle Folder", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        x + 260, y, 170, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_OPEN_FOLDER, GetModuleHandle(nullptr), nullptr);
-    y += 36;
+    m_serviceGroup = CreateWindowW(L"BUTTON", L"Module 2: Service Listen", WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
+        x, y, LEFT_W - PAD * 2, 100, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    y += 24;
 
-    m_statusText = CreateWindowW(L"STATIC", L"Status: stopped", WS_CHILD | WS_VISIBLE,
-        x, y, LEFT_W - PAD * 2, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
-    y += 22;
-    m_statsText = CreateWindowW(L"STATIC", L"Rooms: -  Viewers: -", WS_CHILD | WS_VISIBLE,
-        x, y, LEFT_W - PAD * 2, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
-    y += 22;
-    m_webStateText = CreateWindowW(L"STATIC", L"Host Page: idle", WS_CHILD | WS_VISIBLE,
-        x, y, LEFT_W - PAD * 2, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_bindLabel = CreateWindowW(L"STATIC", L"Bind:", WS_CHILD | WS_VISIBLE,
+        x, y, LABEL_W, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_bindEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", m_bindAddress.c_str(),
+        WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
+        x + LABEL_W, y - 2, 190, ROW_H + 4,
+        m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_portLabel = CreateWindowW(L"STATIC", L"Port:", WS_CHILD | WS_VISIBLE,
+        x + 300, y, 50, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    std::wstring portStr = std::to_wstring(m_port);
+    m_portEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", portStr.c_str(),
+        WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL | ES_NUMBER,
+        x + 355, y - 2, 120, ROW_H + 4,
+        m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_advancedToggle = CreateWindowW(L"BUTTON", L"Advanced", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + LEFT_W - 130 - PAD, y - 1, 120, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_ADVANCED, GetModuleHandle(nullptr), nullptr);
     y += 30;
 
-    m_diagSummaryLabel = CreateWindowW(L"STATIC", L"Diagnostic Summary:", WS_CHILD | WS_VISIBLE,
-        x, y, 180, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_sanIpLabel = CreateWindowW(L"STATIC", L"SAN IP / Host IP:", WS_CHILD | WS_VISIBLE,
+        x, y, 120, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_sanIpValue = CreateWindowW(L"STATIC", L"", WS_CHILD | WS_VISIBLE,
+        x + 125, y, LEFT_W - 140 - PAD * 2, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    y += 42;
+
+    m_hotspotLabel = CreateWindowW(L"BUTTON", L"Module 3: Run Control", WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
+        x, y, LEFT_W - PAD * 2, 78, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    y += 24;
+
+    m_btnStart = CreateWindowW(L"BUTTON", L"Start", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x, y, 90, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_START, GetModuleHandle(nullptr), nullptr);
+    m_btnStop = CreateWindowW(L"BUTTON", L"Stop", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 100, y, 90, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_STOP, GetModuleHandle(nullptr), nullptr);
+    m_btnRestart = CreateWindowW(L"BUTTON", L"Restart", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 200, y, 90, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_RESTART, GetModuleHandle(nullptr), nullptr);
+    m_btnServiceOnly = CreateWindowW(L"BUTTON", L"Service Only", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 300, y, 110, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_SERVICE_ONLY, GetModuleHandle(nullptr), nullptr);
+    m_btnStartAndOpenHost = CreateWindowW(L"BUTTON", L"Start + Open Host", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 420, y, 160, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_START_AND_OPEN_HOST, GetModuleHandle(nullptr), nullptr);
+    y += 42;
+
+    m_shareInfoLabel = CreateWindowW(L"BUTTON", L"Module 4: Session Summary", WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
+        x, y, LEFT_W - PAD * 2, 124, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
     y += 20;
-    m_diagSummaryBox = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
-        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
-        x, y, LEFT_W - PAD * 2, 80,
-        m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
-    y += 90;
-
-    m_firstActionsLabel = CreateWindowW(L"STATIC", L"Operator First Actions:", WS_CHILD | WS_VISIBLE,
-        x, y, 180, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_sessionSummaryLabel = CreateWindowW(L"STATIC", L"Live session summary before launch:", WS_CHILD | WS_VISIBLE,
+        x, y, 240, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
     y += 20;
-    m_firstActionsBox = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+    m_sessionSummaryBox = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
         WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
-        x, y, LEFT_W - PAD * 2, 104,
+        x, y, LEFT_W - PAD * 2, 78,
         m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
-    y += 114;
+    y += 88;
 
-    m_shareInfoLabel = CreateWindowW(L"STATIC", L"Share Info:", WS_CHILD | WS_VISIBLE,
-        x, y, LABEL_W, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
-    y += 20;
-    m_shareInfoBox = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+    m_hostPreviewPlaceholder = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
         WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
-        x, y, LEFT_W - PAD * 2, 92,
-        m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
-    y += 102;
-
-    m_btnOpenHost = CreateWindowW(L"BUTTON", L"Open Host", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        x, y, 120, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_OPEN_HOST, GetModuleHandle(nullptr), nullptr);
-    m_btnOpenViewer = CreateWindowW(L"BUTTON", L"Open Viewer", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        x + 130, y, 120, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_OPEN_VIEWER, GetModuleHandle(nullptr), nullptr);
-    m_btnCopyViewer = CreateWindowW(L"BUTTON", L"Copy Viewer", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        x + 260, y, 170, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_COPY_VIEWER, GetModuleHandle(nullptr), nullptr);
-    y += 32;
-
-    m_btnShowQr = CreateWindowW(L"BUTTON", L"Share Card", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        x, y, 120, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_SHOW_QR, GetModuleHandle(nullptr), nullptr);
-    m_btnShowWizard = CreateWindowW(L"BUTTON", L"Share Wizard", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        x + 130, y, 120, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_SHOW_WIZARD, GetModuleHandle(nullptr), nullptr);
-    m_btnExportBundle = CreateWindowW(L"BUTTON", L"Export Bundle", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        x + 260, y, 170, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_EXPORT_BUNDLE, GetModuleHandle(nullptr), nullptr);
-    y += 32;
-
-    m_btnRunSelfCheck = CreateWindowW(L"BUTTON", L"Run Self-Check", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        x, y, 120, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_RUN_SELF_CHECK, GetModuleHandle(nullptr), nullptr);
-    m_btnOpenDiagnostics = CreateWindowW(L"BUTTON", L"Open Diag", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        x + 130, y, 120, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_OPEN_DIAGNOSTICS, GetModuleHandle(nullptr), nullptr);
-    m_btnRefreshChecks = CreateWindowW(L"BUTTON", L"Re-run Checks", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
-        x + 260, y, 170, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_REFRESH_CHECKS, GetModuleHandle(nullptr), nullptr);
-    y += 36;
-
-    m_logLabel = CreateWindowW(L"STATIC", L"Logs:", WS_CHILD | WS_VISIBLE,
-        x, y, LABEL_W, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
-    y += 20;
-
-    m_logBox = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        LEFT_W + PAD * 2, PAD, 1, 1, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_btnOpenHost = CreateWindowW(L"BUTTON", L"Open Host In Browser", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        LEFT_W + PAD * 2, PAD, 1, 1, m_hwnd, (HMENU)(INT_PTR)ID_BTN_OPEN_HOST, GetModuleHandle(nullptr), nullptr);
+    m_runtimeInfoCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
         WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
-        x, y, LEFT_W - PAD * 2, 110,
-        m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+        LEFT_W + PAD * 2, PAD, 1, 1, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+
+    int ny = setupTop;
+    m_networkTitle = CreateWindowW(L"STATIC", L"Network & Connectivity", WS_CHILD | WS_VISIBLE,
+        x, ny, LEFT_W - PAD * 2, 24, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    ny += 28;
+    m_networkSummaryCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+        x, ny, LEFT_W - 250 - PAD * 3, 110, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_btnRefreshNetwork = CreateWindowW(L"BUTTON", L"Re-Detect", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + LEFT_W - 220 - PAD, ny + 6, 210, 30, m_hwnd, (HMENU)(INT_PTR)ID_BTN_REFRESH_NETWORK, GetModuleHandle(nullptr), nullptr);
+    m_btnManualSelectIp = CreateWindowW(L"BUTTON", L"Manual Select Main IP", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + LEFT_W - 220 - PAD, ny + 46, 210, 30, m_hwnd, (HMENU)(INT_PTR)ID_BTN_MANUAL_SELECT_IP, GetModuleHandle(nullptr), nullptr);
+    ny += 122;
+
+    m_adapterListLabel = CreateWindowW(L"STATIC", L"Adapter Candidates", WS_CHILD | WS_VISIBLE,
+        x, ny, 200, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    ny += 24;
+    for (int i = 0; i < 4; ++i) {
+        const int rowY = ny + i * 58;
+        m_networkAdapterCards[i] = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+            WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY,
+            x, rowY, LEFT_W - 170 - PAD * 3, 48, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+        m_networkAdapterSelectBtns[i] = CreateWindowW(L"BUTTON", L"Use As Main", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+            x + LEFT_W - 160 - PAD, rowY + 9, 150, 28, m_hwnd, (HMENU)(INT_PTR)(ID_BTN_SELECT_ADAPTER_1 + i), GetModuleHandle(nullptr), nullptr);
+    }
+    ny += 4 * 58 + 8;
+
+    m_hotspotGroup = CreateWindowW(L"BUTTON", L"Hotspot", WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
+        x, ny, LEFT_W - PAD * 2, 148, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    ny += 24;
+    m_hotspotStatusCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY,
+        x + 360, ny - 4, LEFT_W - 370 - PAD * 2, 86, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_hotspotSsidLabel = CreateWindowW(L"STATIC", L"SSID:", WS_CHILD | WS_VISIBLE,
+        x, ny, LABEL_W, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_hotspotSsidEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", m_hotspotSsid.c_str(),
+        WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
+        x + LABEL_W, ny - 2, 230, ROW_H + 4, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    ny += 30;
+    m_hotspotPwdLabel = CreateWindowW(L"STATIC", L"Password:", WS_CHILD | WS_VISIBLE,
+        x, ny, LABEL_W, ROW_H, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_hotspotPwdEdit = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", m_hotspotPassword.c_str(),
+        WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
+        x + LABEL_W, ny - 2, 230, ROW_H + 4, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    ny += 34;
+    m_btnAutoHotspot = CreateWindowW(L"BUTTON", L"Auto Generate", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x, ny, 120, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_AUTO_HOTSPOT, GetModuleHandle(nullptr), nullptr);
+    m_btnStartHotspot = CreateWindowW(L"BUTTON", L"Start Hotspot", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 130, ny, 120, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_START_HOTSPOT, GetModuleHandle(nullptr), nullptr);
+    m_btnStopHotspot = CreateWindowW(L"BUTTON", L"Stop Hotspot", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 260, ny, 120, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_STOP_HOTSPOT, GetModuleHandle(nullptr), nullptr);
+    m_btnOpenHotspotSettings = CreateWindowW(L"BUTTON", L"System Hotspot Settings", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 390, ny, 180, BTN_H, m_hwnd, (HMENU)(INT_PTR)ID_BTN_OPEN_HOTSPOT_SETTINGS, GetModuleHandle(nullptr), nullptr);
+    ny += 42;
+
+    m_wifiDirectGroup = CreateWindowW(L"BUTTON", L"Wi-Fi Direct / Pairing", WS_CHILD | WS_VISIBLE | BS_GROUPBOX,
+        x, ny, LEFT_W - PAD * 2, 120, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    ny += 24;
+    m_wifiDirectCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY,
+        x, ny, LEFT_W - 210 - PAD * 3, 74, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_btnPairWifiDirect = CreateWindowW(L"BUTTON", L"Open Connected Devices", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + LEFT_W - 190 - PAD, ny, 180, 28, m_hwnd, (HMENU)(INT_PTR)ID_BTN_WIFI_DIRECT_PAIR, GetModuleHandle(nullptr), nullptr);
+    m_btnOpenConnectedDevices = CreateWindowW(L"BUTTON", L"Open Settings Page", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + LEFT_W - 190 - PAD, ny + 34, 180, 28, m_hwnd, (HMENU)(INT_PTR)ID_BTN_OPEN_CONNECTED_DEVICES, GetModuleHandle(nullptr), nullptr);
+    m_btnOpenPairingHelp = CreateWindowW(L"BUTTON", L"Pairing Help", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + LEFT_W - 190 - PAD, ny + 68, 180, 28, m_hwnd, (HMENU)(INT_PTR)ID_BTN_OPEN_PAIRING_HELP, GetModuleHandle(nullptr), nullptr);
+
+    int sy = setupTop;
+    m_sharingTitle = CreateWindowW(L"STATIC", L"Sharing Center", WS_CHILD | WS_VISIBLE,
+        x, sy, LEFT_W - PAD * 2, 24, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    sy += 28;
+    m_accessEntryCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+        x, sy, LEFT_W - PAD * 2, 164, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_btnCopyHostUrl = CreateWindowW(L"BUTTON", L"Copy Host URL", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 14, sy + 112, 130, 28, m_hwnd, (HMENU)(INT_PTR)ID_BTN_COPY_HOST_URL, GetModuleHandle(nullptr), nullptr);
+    m_btnCopyViewerUrl = CreateWindowW(L"BUTTON", L"Copy Viewer URL", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 154, sy + 112, 140, 28, m_hwnd, (HMENU)(INT_PTR)ID_BTN_COPY_VIEWER_URL_2, GetModuleHandle(nullptr), nullptr);
+    m_btnOpenHostBrowser = CreateWindowW(L"BUTTON", L"Open Host In Browser", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 304, sy + 112, 160, 28, m_hwnd, (HMENU)(INT_PTR)ID_BTN_OPEN_HOST_BROWSER, GetModuleHandle(nullptr), nullptr);
+    m_btnOpenViewerBrowser = CreateWindowW(L"BUTTON", L"Open Viewer In Browser", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 474, sy + 112, 170, 28, m_hwnd, (HMENU)(INT_PTR)ID_BTN_OPEN_VIEWER_BROWSER, GetModuleHandle(nullptr), nullptr);
+    sy += 176;
+
+    m_qrCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+        x, sy, LEFT_W - PAD * 2, 176, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_btnSaveQrImage = CreateWindowW(L"BUTTON", L"Save QR Image", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 14, sy + 124, 120, 28, m_hwnd, (HMENU)(INT_PTR)ID_BTN_SAVE_QR_IMAGE, GetModuleHandle(nullptr), nullptr);
+    m_btnFullscreenQr = CreateWindowW(L"BUTTON", L"Fullscreen QR", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 144, sy + 124, 120, 28, m_hwnd, (HMENU)(INT_PTR)ID_BTN_FULLSCREEN_QR, GetModuleHandle(nullptr), nullptr);
+    m_btnOpenShareCard = CreateWindowW(L"BUTTON", L"Open Share Card", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 274, sy + 124, 130, 28, m_hwnd, (HMENU)(INT_PTR)ID_BTN_OPEN_SHARE_CARD_2, GetModuleHandle(nullptr), nullptr);
+    m_btnOpenShareWizard = CreateWindowW(L"BUTTON", L"Open Share Wizard", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 414, sy + 124, 140, 28, m_hwnd, (HMENU)(INT_PTR)ID_BTN_OPEN_SHARE_WIZARD_2, GetModuleHandle(nullptr), nullptr);
+    m_btnOpenBundleFolder = CreateWindowW(L"BUTTON", L"Open Bundle Folder", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 564, sy + 124, 140, 28, m_hwnd, (HMENU)(INT_PTR)ID_BTN_OPEN_BUNDLE_FOLDER_2, GetModuleHandle(nullptr), nullptr);
+    sy += 188;
+
+    m_accessGuideCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+        x, sy, LEFT_W - PAD * 2, 190, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_btnExportOfflineZip = CreateWindowW(L"BUTTON", L"Export Offline Package", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 14, sy + 148, 180, 28, m_hwnd, (HMENU)(INT_PTR)ID_BTN_EXPORT_OFFLINE_ZIP, GetModuleHandle(nullptr), nullptr);
+
+    int my = setupTop;
+    m_monitorTitle = CreateWindowW(L"STATIC", L"Live Monitor", WS_CHILD | WS_VISIBLE,
+        x, my, LEFT_W - PAD * 2, 24, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    my += 30;
+    const int monitorGap = 8;
+    const int metricW = (LEFT_W - PAD * 2 - monitorGap * 4) / 5;
+    for (int i = 0; i < 5; ++i) {
+        m_monitorMetricCards[i] = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+            WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY,
+            x + i * (metricW + monitorGap), my, metricW, 70, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    }
+    my += 82;
+    m_monitorTimelineLabel = CreateWindowW(L"STATIC", L"Session Timeline", WS_CHILD | WS_VISIBLE,
+        x, my, 200, 22, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    my += 24;
+    m_monitorTimelineBox = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+        x, my, LEFT_W - PAD * 2, 150, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    my += 162;
+    m_monitorTabHealth = CreateWindowW(L"BUTTON", L"Health Checks", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x, my, 130, 28, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_monitorTabConnections = CreateWindowW(L"BUTTON", L"Connection Events", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 140, my, 150, 28, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_monitorTabLogs = CreateWindowW(L"BUTTON", L"Realtime Logs", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 300, my, 130, 28, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    my += 36;
+    m_monitorDetailBox = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+        x, my, LEFT_W - PAD * 2, 260, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+
+    int dy = setupTop;
+    m_diagPageTitle = CreateWindowW(L"STATIC", L"Diagnostics & Export", WS_CHILD | WS_VISIBLE,
+        x, dy, LEFT_W - PAD * 2, 24, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    dy += 28;
+    m_diagChecklistCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+        x, dy, 230, 180, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_diagActionsCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+        x + 240, dy, 230, 180, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_diagExportCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+        x + 480, dy, 220, 180, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    dy += 192;
+    m_diagFilesCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+        x, dy, LEFT_W - PAD * 2, 116, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    dy += 128;
+    m_diagLogSearch = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_AUTOHSCROLL,
+        x, dy, 200, 24, m_hwnd, (HMENU)(INT_PTR)ID_EDIT_DIAG_LOG_SEARCH, GetModuleHandle(nullptr), nullptr);
+    m_diagLevelFilter = CreateWindowW(L"COMBOBOX", L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
+        x + 210, dy - 2, 120, 160, m_hwnd, (HMENU)(INT_PTR)ID_COMBO_DIAG_LEVEL, GetModuleHandle(nullptr), nullptr);
+    SendMessageW(m_diagLevelFilter, CB_ADDSTRING, 0, (LPARAM)L"All Levels");
+    SendMessageW(m_diagLevelFilter, CB_ADDSTRING, 0, (LPARAM)L"Info");
+    SendMessageW(m_diagLevelFilter, CB_ADDSTRING, 0, (LPARAM)L"Warning");
+    SendMessageW(m_diagLevelFilter, CB_ADDSTRING, 0, (LPARAM)L"Error");
+    SendMessageW(m_diagLevelFilter, CB_SETCURSEL, 0, 0);
+    m_diagSourceFilter = CreateWindowW(L"COMBOBOX", L"", WS_CHILD | WS_VISIBLE | CBS_DROPDOWNLIST | WS_VSCROLL,
+        x + 340, dy - 2, 140, 160, m_hwnd, (HMENU)(INT_PTR)ID_COMBO_DIAG_SOURCE, GetModuleHandle(nullptr), nullptr);
+    SendMessageW(m_diagSourceFilter, CB_ADDSTRING, 0, (LPARAM)L"All Sources");
+    SendMessageW(m_diagSourceFilter, CB_ADDSTRING, 0, (LPARAM)L"app");
+    SendMessageW(m_diagSourceFilter, CB_ADDSTRING, 0, (LPARAM)L"network");
+    SendMessageW(m_diagSourceFilter, CB_ADDSTRING, 0, (LPARAM)L"server");
+    SendMessageW(m_diagSourceFilter, CB_ADDSTRING, 0, (LPARAM)L"webview");
+    SendMessageW(m_diagSourceFilter, CB_SETCURSEL, 0, 0);
+    m_btnDiagCopyLogs = CreateWindowW(L"BUTTON", L"Copy Logs", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 490, dy - 1, 100, 26, m_hwnd, (HMENU)(INT_PTR)ID_BTN_DIAG_COPY_LOGS, GetModuleHandle(nullptr), nullptr);
+    m_btnDiagSaveLogs = CreateWindowW(L"BUTTON", L"Save Logs", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 600, dy - 1, 100, 26, m_hwnd, (HMENU)(INT_PTR)ID_BTN_DIAG_SAVE_LOGS, GetModuleHandle(nullptr), nullptr);
+    dy += 34;
+    m_diagLogViewer = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+        x, dy, LEFT_W - PAD * 2, 224, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_btnDiagOpenOutput = CreateWindowW(L"BUTTON", L"Open Output", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 490, setupTop + 132, 100, 26, m_hwnd, (HMENU)(INT_PTR)ID_BTN_DIAG_OPEN_OUTPUT, GetModuleHandle(nullptr), nullptr);
+    m_btnDiagOpenReport = CreateWindowW(L"BUTTON", L"Open Report", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 600, setupTop + 132, 100, 26, m_hwnd, (HMENU)(INT_PTR)ID_BTN_DIAG_OPEN_REPORT, GetModuleHandle(nullptr), nullptr);
+    m_btnDiagExportZip = CreateWindowW(L"BUTTON", L"Export Zip", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 490, setupTop + 162, 100, 26, m_hwnd, (HMENU)(INT_PTR)ID_BTN_DIAG_EXPORT_ZIP, GetModuleHandle(nullptr), nullptr);
+    m_btnDiagCopyPath = CreateWindowW(L"BUTTON", L"Copy Path", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 600, setupTop + 162, 100, 26, m_hwnd, (HMENU)(INT_PTR)ID_BTN_DIAG_COPY_PATH, GetModuleHandle(nullptr), nullptr);
+    m_btnDiagRefreshBundle = CreateWindowW(L"BUTTON", L"Refresh Bundle", WS_CHILD | WS_VISIBLE | BS_PUSHBUTTON,
+        x + 545, setupTop + 102, 120, 26, m_hwnd, (HMENU)(INT_PTR)ID_BTN_DIAG_REFRESH_BUNDLE, GetModuleHandle(nullptr), nullptr);
+
+    int gy = setupTop;
+    m_settingsTitle = CreateWindowW(L"STATIC", L"Settings", WS_CHILD | WS_VISIBLE,
+        x, gy, LEFT_W - PAD * 2, 24, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    gy += 28;
+    m_settingsIntro = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+        x, gy, LEFT_W - PAD * 2, 56, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    gy += 68;
+    m_settingsGeneralCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+        x, gy, 226, 176, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_settingsServiceCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+        x + 236, gy, 226, 176, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_settingsNetworkCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+        x + 472, gy, 228, 176, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    gy += 188;
+    m_settingsSharingCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+        x, gy, 226, 176, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_settingsLoggingCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+        x + 236, gy, 226, 176, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    m_settingsAdvancedCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+        x + 472, gy, 228, 176, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
+    gy += 188;
+    m_settingsCurrentStateCard = CreateWindowExW(WS_EX_CLIENTEDGE, L"EDIT", L"",
+        WS_CHILD | WS_VISIBLE | ES_MULTILINE | ES_READONLY | WS_VSCROLL,
+        x, gy, LEFT_W - PAD * 2, 170, m_hwnd, nullptr, GetModuleHandle(nullptr), nullptr);
 
     RECT rc{};
     GetClientRect(m_hwnd, &rc);
     RECT right{};
-    right.left = LEFT_W;
+    right.left = LEFT_W + PAD;
     right.top = 0;
     right.right = rc.right;
     right.bottom = rc.bottom;
@@ -2876,39 +3303,364 @@ void MainWindow::OnCreate() {
 
     AppendLog(L"UI created");
     RefreshShareInfo();
+    RefreshDashboard();
+    SetPage(UiPage::Dashboard);
     UpdateUiState();
 }
 
 void MainWindow::OnSize(int width, int height) {
-    const int LEFT_W = 450;
+    const int LEFT_W = 720;
     const int PAD = 10;
-
-    if (m_logBox) {
-        RECT rc{};
-        GetClientRect(m_hwnd, &rc);
-
-        RECT rlog{};
-        GetWindowRect(m_logBox, &rlog);
-        POINT pt{ rlog.left, rlog.top };
-        ScreenToClient(m_hwnd, &pt);
-        int top = pt.y;
-        const int availableHeight = static_cast<int>(rc.bottom - PAD - top);
-        int h = std::max(120, availableHeight);
-        MoveWindow(m_logBox, PAD, top, LEFT_W - PAD * 2, h, TRUE);
-    }
+    const int rightLeft = LEFT_W + PAD;
+    const int rightWidth = std::max(240, width - rightLeft - PAD);
+    const int previewHeight = std::max(260, height - 220);
+    const int runtimeTop = PAD + previewHeight + PAD;
+    const int runtimeHeight = std::max(120, height - runtimeTop - PAD);
 
     RECT right{};
-    right.left = LEFT_W;
+    right.left = rightLeft;
     right.top = 0;
     right.right = width;
-    right.bottom = height;
-    m_webview.Resize(right);
+    right.bottom = previewHeight;
+    if (IsHtmlAdminActive()) {
+        RECT admin{};
+        admin.left = PAD;
+        admin.top = 52;
+        admin.right = width - PAD;
+        admin.bottom = height - PAD;
+        m_webview.Resize(admin);
+    } else if (m_currentPage == UiPage::Setup && m_webviewMode == WebViewSurfaceMode::HostPreview) {
+        m_webview.Resize(right);
+    } else {
+        RECT hidden{};
+        hidden.left = rightLeft;
+        hidden.top = 0;
+        hidden.right = rightLeft;
+        hidden.bottom = 0;
+        m_webview.Resize(hidden);
+    }
+
+    if (m_hostPreviewPlaceholder) {
+        MoveWindow(m_hostPreviewPlaceholder, rightLeft + PAD, PAD, rightWidth - PAD, previewHeight - PAD, TRUE);
+    }
+    if (m_btnOpenHost) {
+        MoveWindow(m_btnOpenHost, rightLeft + PAD + 16, PAD + 84, 180, 30, TRUE);
+    }
+    if (m_runtimeInfoCard) {
+        MoveWindow(m_runtimeInfoCard, rightLeft + PAD, runtimeTop, rightWidth - PAD, runtimeHeight, TRUE);
+    }
+}
+
+void MainWindow::SetPage(UiPage page) {
+    m_currentPage = page;
+    if (PreferHtmlAdminUi()) {
+        NavigateHtmlAdminInWebView();
+    } else if (m_currentPage == UiPage::Setup && m_server && m_server->IsRunning()) {
+        NavigateHostInWebView();
+    } else {
+        m_webviewMode = WebViewSurfaceMode::Hidden;
+    }
+    UpdatePageVisibility();
+    RECT rc{};
+    GetClientRect(m_hwnd, &rc);
+    OnSize(rc.right, rc.bottom);
+    RefreshDashboard();
+    RefreshSessionSetup();
+    RefreshNetworkPage();
+    RefreshSharingPage();
+    RefreshMonitorPage();
+    RefreshDiagnosticsPage();
+    RefreshSettingsPage();
+    RefreshHtmlAdminPreview();
+}
+
+void MainWindow::UpdatePageVisibility() {
+    const bool usingHtmlAdmin = IsHtmlAdminActive();
+    const bool dashboard = m_currentPage == UiPage::Dashboard;
+    const bool setup = m_currentPage == UiPage::Setup;
+    const bool network = m_currentPage == UiPage::Network;
+    const bool sharing = m_currentPage == UiPage::Sharing;
+    const bool monitor = m_currentPage == UiPage::Monitor;
+    const bool diagnostics = m_currentPage == UiPage::Diagnostics;
+    const bool settings = m_currentPage == UiPage::Settings;
+    const bool settingsNative = settings && !usingHtmlAdmin;
+    const auto setMany = [](std::initializer_list<HWND> controls, bool visible) {
+        for (HWND hwnd : controls) {
+            if (hwnd) ShowWindow(hwnd, visible ? SW_SHOW : SW_HIDE);
+        }
+    };
+
+    setMany({
+        m_dashboardIntro,
+        m_dashboardStatusCard,
+        m_dashboardPrimaryBtn,
+        m_dashboardContinueBtn,
+        m_dashboardWizardBtn,
+        m_dashboardNetworkCard,
+        m_dashboardServiceCard,
+        m_dashboardShareCard,
+        m_dashboardHealthCard,
+        m_dashboardSuggestionsLabel,
+    }, dashboard && !usingHtmlAdmin);
+    for (HWND hwnd : m_dashboardSuggestionText) ShowWindow(hwnd, (dashboard && !usingHtmlAdmin) ? SW_SHOW : SW_HIDE);
+    for (HWND hwnd : m_dashboardSuggestionFixBtn) ShowWindow(hwnd, (dashboard && !usingHtmlAdmin) ? SW_SHOW : SW_HIDE);
+    for (HWND hwnd : m_dashboardSuggestionInfoBtn) ShowWindow(hwnd, (dashboard && !usingHtmlAdmin) ? SW_SHOW : SW_HIDE);
+    for (HWND hwnd : m_dashboardSuggestionSetupBtn) ShowWindow(hwnd, (dashboard && !usingHtmlAdmin) ? SW_SHOW : SW_HIDE);
+
+    setMany({
+        m_setupTitle,
+        m_stepInfo,
+        m_sessionGroup,
+        m_serviceGroup,
+        m_templateLabel,
+        m_templateCombo,
+        m_ipLabel,
+        m_ipValue,
+        m_btnRefreshIp,
+        m_hotspotLabel,
+        m_bindLabel,
+        m_bindEdit,
+        m_sanIpLabel,
+        m_sanIpValue,
+        m_advancedToggle,
+        m_portLabel,
+        m_portEdit,
+        m_roomLabel,
+        m_roomEdit,
+        m_tokenLabel,
+        m_tokenEdit,
+        m_btnGenerate,
+        m_btnStart,
+        m_btnStop,
+        m_btnRestart,
+        m_btnServiceOnly,
+        m_btnStartAndOpenHost,
+        m_shareInfoLabel,
+        m_sessionSummaryLabel,
+        m_sessionSummaryBox,
+        m_hostPreviewPlaceholder,
+        m_btnOpenHost,
+        m_runtimeInfoCard,
+    }, setup && !usingHtmlAdmin);
+
+    setMany({
+        m_networkTitle,
+        m_networkSummaryCard,
+        m_btnRefreshNetwork,
+        m_btnManualSelectIp,
+        m_adapterListLabel,
+        m_hotspotGroup,
+        m_hotspotStatusCard,
+        m_hotspotSsidLabel,
+        m_hotspotPwdLabel,
+        m_hotspotSsidEdit,
+        m_hotspotPwdEdit,
+        m_btnAutoHotspot,
+        m_btnStartHotspot,
+        m_btnStopHotspot,
+        m_btnOpenHotspotSettings,
+        m_wifiDirectGroup,
+        m_wifiDirectCard,
+        m_btnPairWifiDirect,
+        m_btnOpenConnectedDevices,
+        m_btnOpenPairingHelp,
+    }, network && !usingHtmlAdmin);
+    for (HWND hwnd : m_networkAdapterCards) ShowWindow(hwnd, (network && !usingHtmlAdmin) ? SW_SHOW : SW_HIDE);
+    for (HWND hwnd : m_networkAdapterSelectBtns) ShowWindow(hwnd, (network && !usingHtmlAdmin) ? SW_SHOW : SW_HIDE);
+
+    setMany({
+        m_sharingTitle,
+        m_accessEntryCard,
+        m_qrCard,
+        m_accessGuideCard,
+        m_btnCopyHostUrl,
+        m_btnCopyViewerUrl,
+        m_btnOpenHostBrowser,
+        m_btnOpenViewerBrowser,
+        m_btnSaveQrImage,
+        m_btnFullscreenQr,
+        m_btnOpenShareCard,
+        m_btnOpenShareWizard,
+        m_btnOpenBundleFolder,
+        m_btnExportOfflineZip,
+    }, sharing && !usingHtmlAdmin);
+
+    setMany({
+        m_monitorTitle,
+        m_monitorTimelineLabel,
+        m_monitorTimelineBox,
+        m_monitorTabHealth,
+        m_monitorTabConnections,
+        m_monitorTabLogs,
+        m_monitorDetailBox,
+    }, monitor && !usingHtmlAdmin);
+    for (HWND hwnd : m_monitorMetricCards) ShowWindow(hwnd, (monitor && !usingHtmlAdmin) ? SW_SHOW : SW_HIDE);
+
+    setMany({
+        m_diagPageTitle,
+        m_diagChecklistCard,
+        m_diagActionsCard,
+        m_diagExportCard,
+        m_diagFilesCard,
+        m_diagLogSearch,
+        m_diagLevelFilter,
+        m_diagSourceFilter,
+        m_diagLogViewer,
+        m_btnDiagOpenOutput,
+        m_btnDiagOpenReport,
+        m_btnDiagExportZip,
+        m_btnDiagCopyPath,
+        m_btnDiagRefreshBundle,
+        m_btnDiagCopyLogs,
+        m_btnDiagSaveLogs,
+    }, diagnostics && !usingHtmlAdmin);
+
+    setMany({
+        m_settingsTitle,
+        m_settingsIntro,
+        m_settingsGeneralCard,
+        m_settingsServiceCard,
+        m_settingsNetworkCard,
+        m_settingsSharingCard,
+        m_settingsLoggingCard,
+        m_settingsAdvancedCard,
+        m_settingsCurrentStateCard,
+    }, settingsNative);
+
+    if (m_navDashboardBtn) EnableWindow(m_navDashboardBtn, dashboard ? FALSE : TRUE);
+    if (m_navSetupBtn) EnableWindow(m_navSetupBtn, setup ? FALSE : TRUE);
+    if (m_navNetworkBtn) EnableWindow(m_navNetworkBtn, network ? FALSE : TRUE);
+    if (m_navSharingBtn) EnableWindow(m_navSharingBtn, sharing ? FALSE : TRUE);
+    if (m_navMonitorBtn) EnableWindow(m_navMonitorBtn, monitor ? FALSE : TRUE);
+    if (m_navDiagnosticsBtn) EnableWindow(m_navDiagnosticsBtn, diagnostics ? FALSE : TRUE);
+    if (m_navSettingsBtn) EnableWindow(m_navSettingsBtn, settings ? FALSE : TRUE);
+}
+
+void MainWindow::ExecuteDashboardSuggestionFix(std::size_t index) {
+    if (index >= m_dashboardSuggestionKinds.size()) return;
+    switch (m_dashboardSuggestionKinds[index]) {
+    case DashboardSuggestionKind::StartServer:
+        StartServer();
+        break;
+    case DashboardSuggestionKind::OpenQuickWizard:
+        ShowShareWizard();
+        break;
+    case DashboardSuggestionKind::OpenDiagnostics:
+        OpenDiagnosticsReport();
+        break;
+    case DashboardSuggestionKind::OpenHostExternally:
+        OpenHostPage();
+        break;
+    case DashboardSuggestionKind::StartHotspot:
+        StartHotspot();
+        break;
+    case DashboardSuggestionKind::OpenHotspotSettings:
+        OpenSystemHotspotSettings();
+        break;
+    case DashboardSuggestionKind::RefreshIp:
+        RefreshHostIp();
+        break;
+    case DashboardSuggestionKind::NoteSelfSignedCert:
+        OpenHostPage();
+        break;
+    case DashboardSuggestionKind::PortReady:
+        RefreshDiagnosticsBundle();
+        break;
+    case DashboardSuggestionKind::None:
+    default:
+        break;
+    }
+}
+
+void MainWindow::ExecuteDashboardSuggestionInfo(std::size_t index) {
+    if (index >= m_dashboardSuggestionKinds.size()) return;
+    if (!m_dashboardSuggestionDetails[index].empty()) {
+        MessageBoxW(m_hwnd, m_dashboardSuggestionDetails[index].c_str(), L"Dashboard Hint", MB_OK | MB_ICONINFORMATION);
+    }
+    switch (m_dashboardSuggestionKinds[index]) {
+    case DashboardSuggestionKind::OpenQuickWizard:
+        ShowShareWizard();
+        break;
+    default:
+        break;
+    }
+}
+
+void MainWindow::AddTimelineEvent(std::wstring_view eventText) {
+    m_timelineText += L"[" + NowTs() + L"] " + std::wstring(eventText) + L"\r\n";
+    if (m_timelineText.size() > 24000) {
+        m_timelineText.erase(0, m_timelineText.size() - 20000);
+    }
 }
 
 void MainWindow::OnCommand(int id) {
     switch (id) {
+    case ID_BTN_NAV_DASHBOARD:
+        SetPage(UiPage::Dashboard);
+        break;
+    case ID_BTN_NAV_SETUP:
+    case ID_BTN_DASH_CONTINUE:
+        SetPage(UiPage::Setup);
+        break;
+    case ID_BTN_NAV_NETWORK:
+        SetPage(UiPage::Network);
+        break;
+    case ID_BTN_NAV_SHARING:
+        SetPage(UiPage::Sharing);
+        break;
+    case ID_BTN_NAV_MONITOR:
+        SetPage(UiPage::Monitor);
+        break;
+    case ID_BTN_NAV_DIAGNOSTICS:
+        SetPage(UiPage::Diagnostics);
+        break;
+    case ID_BTN_NAV_SETTINGS:
+        SetPage(UiPage::Settings);
+        break;
+    case ID_EDIT_DIAG_LOG_SEARCH:
+    case ID_COMBO_DIAG_LEVEL:
+    case ID_COMBO_DIAG_SOURCE:
+        RefreshFilteredLogs();
+        break;
+    case ID_BTN_DASH_START:
+        StartServer();
+        break;
+    case ID_BTN_DASH_WIZARD:
+        ShowShareWizard();
+        break;
+    case ID_COMBO_SESSION_TEMPLATE: {
+        const int sel = m_templateCombo ? static_cast<int>(SendMessageW(m_templateCombo, CB_GETCURSEL, 0, 0)) : 0;
+        if (sel == 0) {
+            GenerateRoomToken();
+        } else if (sel == 1) {
+            m_room = L"meeting-room";
+            m_token = L"persistent-token";
+            if (m_roomEdit) SetWindowTextW(m_roomEdit, m_room.c_str());
+            if (m_tokenEdit) SetWindowTextW(m_tokenEdit, m_token.c_str());
+            RefreshShareInfo();
+        } else if (sel == 2) {
+            m_room = L"demo";
+            m_token = L"demo-view";
+            if (m_roomEdit) SetWindowTextW(m_roomEdit, m_room.c_str());
+            if (m_tokenEdit) SetWindowTextW(m_tokenEdit, m_token.c_str());
+            RefreshShareInfo();
+        }
+        break;
+    }
     case ID_BTN_REFRESH_IP:
         RefreshHostIp();
+        break;
+    case ID_BTN_REFRESH_NETWORK:
+        RefreshHostIp();
+        RefreshNetworkCapabilities();
+        RefreshHotspotState();
+        break;
+    case ID_BTN_MANUAL_SELECT_IP:
+        SetPage(UiPage::Network);
+        break;
+    case ID_BTN_AUTO_HOTSPOT:
+        EnsureHotspotDefaults();
+        RefreshNetworkPage();
         break;
     case ID_BTN_GENERATE:
         GenerateRoomToken();
@@ -2919,23 +3671,79 @@ void MainWindow::OnCommand(int id) {
     case ID_BTN_STOP:
         StopServer();
         break;
+    case ID_BTN_RESTART:
+        RestartServer();
+        break;
+    case ID_BTN_SERVICE_ONLY:
+        StartServiceOnly();
+        break;
+    case ID_BTN_START_AND_OPEN_HOST:
+        StartAndOpenHost();
+        break;
+    case ID_BTN_COPY_HOST_URL: {
+        CopyHostUrl();
+        break;
+    }
     case ID_BTN_OPEN_HOST:
+    case ID_BTN_OPEN_HOST_BROWSER:
         OpenHostPage();
         break;
     case ID_BTN_OPEN_VIEWER:
+    case ID_BTN_OPEN_VIEWER_BROWSER:
         OpenViewerPage();
         break;
     case ID_BTN_COPY_VIEWER:
+    case ID_BTN_COPY_VIEWER_URL_2:
         CopyViewerUrl();
         break;
     case ID_BTN_SHOW_QR:
+    case ID_BTN_FULLSCREEN_QR:
+    case ID_BTN_OPEN_SHARE_CARD_2:
         ShowQr();
         break;
     case ID_BTN_SHOW_WIZARD:
+    case ID_BTN_OPEN_SHARE_WIZARD_2:
         ShowShareWizard();
         break;
     case ID_BTN_EXPORT_BUNDLE:
+    case ID_BTN_EXPORT_OFFLINE_ZIP:
         ExportShareBundle();
+        break;
+    case ID_BTN_OPEN_BUNDLE_FOLDER_2:
+        OpenOutputFolder();
+        break;
+    case ID_BTN_SAVE_QR_IMAGE:
+        ExportShareBundle();
+        AppendLog(L"Exported sharing bundle for QR save");
+        break;
+    case ID_BTN_DIAG_OPEN_OUTPUT:
+        OpenOutputFolder();
+        break;
+    case ID_BTN_DIAG_OPEN_REPORT:
+        OpenDiagnosticsReport();
+        break;
+    case ID_BTN_DIAG_EXPORT_ZIP:
+        ExportShareBundle();
+        AppendLog(L"Offline zip export placeholder: bundle refreshed");
+        break;
+    case ID_BTN_DIAG_COPY_PATH: {
+        const auto path = (AppDir() / L"out" / L"share_bundle").wstring();
+        if (urlutil::SetClipboardText(m_hwnd, path)) AppendLog(L"Diagnostics path copied");
+        break;
+    }
+    case ID_BTN_DIAG_REFRESH_BUNDLE:
+        RefreshDiagnosticsBundle();
+        break;
+    case ID_BTN_DIAG_COPY_LOGS:
+        if (m_diagLogViewer) {
+            wchar_t buf[32768]{};
+            GetWindowTextW(m_diagLogViewer, buf, _countof(buf));
+            urlutil::SetClipboardText(m_hwnd, buf);
+        }
+        break;
+    case ID_BTN_DIAG_SAVE_LOGS:
+        ExportShareBundle();
+        AppendLog(L"Saved logs via bundle refresh placeholder");
         break;
     case ID_BTN_RUN_SELF_CHECK:
         RunDesktopSelfCheck();
@@ -2961,6 +3769,39 @@ void MainWindow::OnCommand(int id) {
     case ID_BTN_OPEN_HOTSPOT_SETTINGS:
         OpenSystemHotspotSettings();
         break;
+    case ID_BTN_OPEN_CONNECTED_DEVICES:
+        OpenWifiDirectPairing();
+        break;
+    case ID_BTN_OPEN_PAIRING_HELP:
+        MessageBoxW(m_hwnd,
+            L"1. Open Connected Devices.\r\n2. Pick the target device.\r\n3. Confirm pairing in Windows UI.\r\n4. Keep both devices on the same local link, then use the Viewer URL.",
+            L"Pairing Help",
+            MB_OK | MB_ICONINFORMATION);
+        break;
+    case ID_BTN_SELECT_ADAPTER_1:
+    case ID_BTN_SELECT_ADAPTER_2:
+    case ID_BTN_SELECT_ADAPTER_3:
+    case ID_BTN_SELECT_ADAPTER_4:
+        SelectNetworkCandidate(static_cast<std::size_t>(id - ID_BTN_SELECT_ADAPTER_1));
+        break;
+    case ID_BTN_DASH_SUGGESTION_FIX_1:
+    case ID_BTN_DASH_SUGGESTION_FIX_2:
+    case ID_BTN_DASH_SUGGESTION_FIX_3:
+    case ID_BTN_DASH_SUGGESTION_FIX_4:
+        ExecuteDashboardSuggestionFix(static_cast<std::size_t>((id - ID_BTN_DASH_SUGGESTION_FIX_1) / 10));
+        break;
+    case ID_BTN_DASH_SUGGESTION_INFO_1:
+    case ID_BTN_DASH_SUGGESTION_INFO_2:
+    case ID_BTN_DASH_SUGGESTION_INFO_3:
+    case ID_BTN_DASH_SUGGESTION_INFO_4:
+        ExecuteDashboardSuggestionInfo(static_cast<std::size_t>((id - ID_BTN_DASH_SUGGESTION_INFO_1) / 10));
+        break;
+    case ID_BTN_DASH_SUGGESTION_SETUP_1:
+    case ID_BTN_DASH_SUGGESTION_SETUP_2:
+    case ID_BTN_DASH_SUGGESTION_SETUP_3:
+    case ID_BTN_DASH_SUGGESTION_SETUP_4:
+        SetPage(UiPage::Setup);
+        break;
     default:
         break;
     }
@@ -2984,6 +3825,8 @@ void MainWindow::EnsureHotspotDefaults() {
 void MainWindow::GenerateRoomToken() {
     m_room = urlutil::RandomAlnum(6);
     m_token = urlutil::RandomAlnum(16);
+    m_viewerUrlCopied = false;
+    m_shareCardExported = false;
     if (m_roomEdit) SetWindowTextW(m_roomEdit, m_room.c_str());
     if (m_tokenEdit) SetWindowTextW(m_tokenEdit, m_token.c_str());
     RefreshShareInfo();
@@ -3028,6 +3871,7 @@ void MainWindow::StartHotspot() {
         m_hotspotRunning = out.running;
         m_hotspotStatus = out.running ? L"running" : L"stopped";
         AppendLog(L"Hotspot started: " + m_hotspotSsid);
+        AddTimelineEvent(L"Hotspot started");
         if (!out.hostIp.empty()) {
             m_hostIp = urlutil::Utf8ToWide(out.hostIp);
             if (m_ipValue) SetWindowTextW(m_ipValue, m_hostIp.c_str());
@@ -3036,6 +3880,7 @@ void MainWindow::StartHotspot() {
         m_hotspotRunning = false;
         m_hotspotStatus = L"start failed";
         AppendLog(L"Start hotspot failed: " + urlutil::Utf8ToWide(err));
+        AddTimelineEvent(L"Hotspot start failed");
     }
     RefreshShareInfo();
     UpdateUiState();
@@ -3047,6 +3892,7 @@ void MainWindow::StopHotspot() {
         m_hotspotRunning = false;
         m_hotspotStatus = L"stopped";
         AppendLog(L"Hotspot stopped");
+        AddTimelineEvent(L"Hotspot stopped");
     } else {
         AppendLog(L"Stop hotspot failed: " + urlutil::Utf8ToWide(err));
     }
@@ -3068,29 +3914,45 @@ void MainWindow::OpenHostPage() {
     const auto url = BuildHostUrlLocal();
     ShellExecuteW(m_hwnd, L"open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
     AppendLog(L"Opened Host page");
+    AddTimelineEvent(L"Host page opened in browser");
 }
 
 void MainWindow::OpenViewerPage() {
     const auto url = BuildViewerUrl();
     ShellExecuteW(m_hwnd, L"open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
     AppendLog(L"Opened Viewer page");
+    AddTimelineEvent(L"Viewer page opened in browser");
+}
+
+void MainWindow::CopyHostUrl() {
+    const auto url = BuildHostUrlLocal();
+    if (urlutil::SetClipboardText(m_hwnd, url)) {
+        AppendLog(L"Host URL copied");
+    } else {
+        AppendLog(L"Host URL copy failed");
+    }
+    RefreshDashboard();
 }
 
 void MainWindow::CopyViewerUrl() {
     const auto url = BuildViewerUrl();
     if (urlutil::SetClipboardText(m_hwnd, url)) {
+        m_viewerUrlCopied = true;
         AppendLog(L"Viewer URL copied");
     } else {
         AppendLog(L"Viewer URL copy failed");
     }
+    RefreshDashboard();
 }
 
 void MainWindow::ShowQr() {
     fs::path shareCardPath;
     if (WriteShareArtifacts(&shareCardPath, nullptr, nullptr, nullptr)) {
+        m_shareCardExported = true;
         ShellExecuteW(m_hwnd, L"open", shareCardPath.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
         AppendLog(L"Opened share card");
     }
+    RefreshDashboard();
 }
 
 void MainWindow::ShowShareWizard() {
@@ -3104,9 +3966,12 @@ void MainWindow::ShowShareWizard() {
 void MainWindow::ExportShareBundle() {
     fs::path bundleJsonPath;
     if (WriteShareArtifacts(nullptr, nullptr, &bundleJsonPath, nullptr)) {
+        m_shareCardExported = true;
         OpenOutputFolder();
         AppendLog(L"Exported local share bundle");
+        AddTimelineEvent(L"Diagnostics bundle generated");
     }
+    RefreshDashboard();
 }
 
 void MainWindow::RunDesktopSelfCheck() {
@@ -3302,17 +4167,710 @@ std::wstring MainWindow::BuildWifiDirectSessionAlias() const {
 
 void MainWindow::NavigateHostInWebView() {
     const auto url = BuildHostUrlLocal();
+    m_webviewMode = WebViewSurfaceMode::HostPreview;
     m_webview.Navigate(url);
     AppendLog(L"Embedded host page navigate: " + url);
 }
 
+void MainWindow::NavigateHtmlAdminInWebView() {
+    const fs::path uiDir = AdminUiDir();
+    const fs::path indexFile = uiDir / L"index.html";
+    if (!fs::exists(indexFile)) {
+        AppendLog(L"HTML admin shell missing: " + indexFile.wstring());
+        m_webviewMode = WebViewSurfaceMode::Hidden;
+        return;
+    }
+
+    if (m_webviewMode == WebViewSurfaceMode::HtmlAdminPreview) {
+        return;
+    }
+
+    m_adminShellReady = false;
+    m_webviewMode = WebViewSurfaceMode::HtmlAdminPreview;
+    m_webview.Navigate(BuildFileUrl(indexFile));
+    AppendLog(L"HTML admin shell navigate: " + indexFile.wstring());
+}
+
+void MainWindow::RefreshHtmlAdminPreview() {
+    if (!IsHtmlAdminActive()) return;
+    if (!m_adminShellReady) return;
+    if (!m_adminBackend) return;
+    m_webview.PostJson(m_adminBackend->BuildSnapshotEventJson(BuildAdminSnapshot()));
+}
+
+void MainWindow::HandleAdminShellMessage(std::wstring_view payload) {
+    if (!m_adminBackend) return;
+
+    const auto result = m_adminBackend->HandleMessage(payload);
+    if (!result.logLine.empty()) {
+        AppendLog(result.logLine);
+    }
+    if (result.requestSnapshot) {
+        m_adminShellReady = true;
+    }
+    if (result.requestSnapshot || result.stateChanged) {
+        RefreshHtmlAdminPreview();
+    }
+}
+
+AdminBackend::Snapshot MainWindow::BuildAdminSnapshot() const {
+    const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, m_bindAddress, m_hostIp, m_port);
+    const auto certInfo = ProbeCertArtifacts(AppDir());
+    const auto candidates = CollectActiveIpv4Candidates();
+    const auto viewerUrl = BuildViewerUrl();
+    const auto report = BuildSelfCheckReport(m_hostPageState, m_hostIp, viewerUrl, m_lastViewers,
+                                             runtime.serverProcessRunning,
+                                             certInfo.certExists, certInfo.keyExists,
+                                             runtime.portReady, runtime.portDetail,
+                                             runtime.localHealthReady, runtime.localHealthDetail,
+                                             runtime.hostIpReachable, runtime.hostIpReachableDetail,
+                                             runtime.lanBindReady, runtime.lanBindDetail,
+                                             runtime.activeIpv4Candidates, runtime.selectedIpRecommended, runtime.adapterHint,
+                                             runtime.embeddedHostReady, runtime.embeddedHostStatus,
+                                             m_wifiAdapterPresent, m_hotspotSupported, m_wifiDirectApiAvailable, m_hotspotRunning, true);
+
+    AdminBackend::Snapshot snapshot;
+    snapshot.appName = L"LanScreenShareHostApp";
+    snapshot.nativePage = AdminTabNameForPage(m_currentPage);
+    snapshot.dashboardState = L"not-ready";
+    snapshot.dashboardLabel = L"Not Ready";
+    if (IsHostStateSharing(m_hostPageState)) {
+        snapshot.dashboardState = L"sharing";
+        snapshot.dashboardLabel = L"Sharing";
+    } else if (report.p0 == 0 && runtime.serverProcessRunning && IsHostStateReadyOrLoading(m_hostPageState)) {
+        snapshot.dashboardState = L"ready";
+        snapshot.dashboardLabel = L"Ready";
+    } else if (runtime.serverProcessRunning && (!runtime.localHealthReady || !runtime.hostIpReachable)) {
+        snapshot.dashboardState = L"error";
+        snapshot.dashboardLabel = L"Error";
+    }
+
+    snapshot.dashboardError = m_lastErrorSummary;
+    if (!report.failures.empty()) {
+        snapshot.dashboardError = urlutil::Utf8ToWide(report.failures.front().title);
+    }
+    if (snapshot.dashboardError.empty()) snapshot.dashboardError = L"none";
+
+    snapshot.canStartSharing = !IsHostStateSharing(m_hostPageState);
+    snapshot.sharingActive = IsHostStateSharing(m_hostPageState);
+    snapshot.serverRunning = runtime.serverProcessRunning;
+    snapshot.healthReady = runtime.localHealthReady;
+    snapshot.hostReachable = runtime.hostIpReachable;
+    snapshot.certReady = certInfo.certExists && certInfo.keyExists;
+    snapshot.wifiAdapterPresent = m_wifiAdapterPresent;
+    snapshot.hotspotSupported = m_hotspotSupported;
+    snapshot.hotspotRunning = m_hotspotRunning;
+    snapshot.wifiDirectAvailable = m_wifiDirectApiAvailable;
+    snapshot.activeIpv4Candidates = runtime.activeIpv4Candidates;
+    snapshot.port = m_port;
+    snapshot.rooms = m_lastRooms;
+    snapshot.viewers = m_lastViewers;
+    snapshot.hostIp = m_hostIp.empty() ? L"(not found)" : m_hostIp;
+    snapshot.bind = m_bindAddress;
+    snapshot.room = m_room;
+    snapshot.token = m_token;
+    snapshot.hostUrl = BuildHostUrlLocal();
+    snapshot.viewerUrl = viewerUrl;
+    snapshot.networkMode = m_networkMode.empty() ? L"unknown" : m_networkMode;
+    snapshot.hostState = m_hostPageState;
+    snapshot.hotspotStatus = m_hotspotStatus;
+    snapshot.hotspotSsid = m_hotspotSsid;
+    snapshot.hotspotPassword = m_hotspotPassword;
+    snapshot.webviewStatus = m_webview.StatusText();
+    snapshot.recentHeartbeat = runtime.localHealthReady ? L"/health ok" : runtime.localHealthDetail;
+    snapshot.localReachability = runtime.hostIpReachable ? L"ok" : runtime.hostIpReachableDetail;
+    snapshot.outputDir = (AppDir() / L"out").wstring();
+    snapshot.bundleDir = (AppDir() / L"out" / L"share_bundle").wstring();
+    snapshot.serverExePath = (AppDir() / L"lan_screenshare_server.exe").wstring();
+    snapshot.certDir = certInfo.certDir.wstring();
+    snapshot.timelineText = m_timelineText.empty() ? L"No timeline events yet." : m_timelineText;
+    snapshot.logTail = m_logs.size() > 8000 ? m_logs.substr(m_logs.size() - 8000) : m_logs;
+    snapshot.viewerUrlCopied = m_viewerUrlCopied;
+    snapshot.shareBundleExported = m_shareCardExported;
+    snapshot.lastError = m_lastErrorSummary;
+    snapshot.defaultPort = m_defaultPort;
+    snapshot.defaultBind = m_defaultBindAddress;
+    snapshot.roomRule = m_roomRule;
+    snapshot.tokenRule = m_tokenRule;
+    snapshot.logLevel = m_logLevel;
+    snapshot.defaultViewerOpenMode = m_defaultViewerOpenMode;
+    snapshot.autoCopyViewerLink = m_autoCopyViewerLink;
+    snapshot.autoGenerateQr = m_autoGenerateQr;
+    snapshot.autoExportBundle = m_autoExportBundle;
+    snapshot.saveStdStreams = m_saveStdStreams;
+    snapshot.certBypassPolicy = m_certBypassPolicy;
+    snapshot.webViewBehavior = m_webViewBehavior;
+    snapshot.startupHook = m_startupHook;
+    for (std::size_t i = 0; i < candidates.size() && i < 6; ++i) {
+        const auto& candidate = candidates[i];
+        AdminBackend::AdapterCandidate item;
+        item.name = candidate.name;
+        item.ip = candidate.ip;
+        item.type = (WideContainsCaseInsensitive(candidate.name, L"wi-fi") || WideContainsCaseInsensitive(candidate.name, L"wireless"))
+            ? L"Wi-Fi"
+            : L"Ethernet / Other";
+        item.recommended = i == 0;
+        item.selected = candidate.ip == m_hostIp;
+        snapshot.networkCandidates.push_back(std::move(item));
+    }
+    return snapshot;
+}
+
+void MainWindow::ApplySessionConfigFromAdmin(std::wstring room, std::wstring token, std::wstring bind, int port) {
+    m_room = std::move(room);
+    m_token = std::move(token);
+    m_bindAddress = bind.empty() ? std::wstring(L"0.0.0.0") : std::move(bind);
+    if (port > 0 && port <= 65535) {
+        m_port = port;
+    } else if (m_port <= 0) {
+        m_port = 9443;
+    }
+
+    if (m_roomEdit) SetWindowTextW(m_roomEdit, m_room.c_str());
+    if (m_tokenEdit) SetWindowTextW(m_tokenEdit, m_token.c_str());
+    if (m_bindEdit) SetWindowTextW(m_bindEdit, m_bindAddress.c_str());
+    if (m_portEdit) {
+        const std::wstring portText = std::to_wstring(m_port);
+        SetWindowTextW(m_portEdit, portText.c_str());
+    }
+
+    m_viewerUrlCopied = false;
+    m_shareCardExported = false;
+    AppendLog(L"Admin shell applied session config");
+    RefreshShareInfo();
+    UpdateUiState();
+}
+
+void MainWindow::ApplyHotspotConfigFromAdmin(std::wstring ssid, std::wstring password) {
+    m_hotspotSsid = std::move(ssid);
+    m_hotspotPassword = std::move(password);
+    if (m_hotspotSsid.empty() || m_hotspotPassword.empty()) {
+        EnsureHotspotDefaults();
+    }
+    if (m_hotspotSsidEdit) SetWindowTextW(m_hotspotSsidEdit, m_hotspotSsid.c_str());
+    if (m_hotspotPwdEdit) SetWindowTextW(m_hotspotPwdEdit, m_hotspotPassword.c_str());
+    AppendLog(L"Admin shell applied hotspot config");
+    RefreshNetworkPage();
+    RefreshShareInfo();
+    UpdateUiState();
+}
+
 void MainWindow::AppendLog(std::wstring_view line) {
-    std::wstring entry = L"[" + NowTs() + L"] " + std::wstring(line) + L"\r\n";
+    const std::wstring ts = NowTs();
+    std::wstring entry = L"[" + ts + L"] " + std::wstring(line) + L"\r\n";
     m_logs += entry;
     if (m_logs.size() > 32000) {
         m_logs.erase(0, m_logs.size() - 28000);
     }
     if (m_logBox) SetWindowTextW(m_logBox, m_logs.c_str());
+    m_logEntries.push_back(LogEntry{ts, DetectLogLevel(line), DetectLogSource(line), std::wstring(line)});
+    if (m_logEntries.size() > 400) {
+        m_logEntries.erase(m_logEntries.begin(), m_logEntries.begin() + 120);
+    }
+    if (WideContainsCaseInsensitive(line, L"failed") ||
+        WideContainsCaseInsensitive(line, L"error") ||
+        WideContainsCaseInsensitive(line, L"blocked") ||
+        WideContainsCaseInsensitive(line, L"missing")) {
+        m_lastErrorSummary = std::wstring(line);
+    }
+    RefreshDashboard();
+    RefreshDiagnosticsPage();
+}
+
+void MainWindow::RefreshDashboard() {
+    const auto certInfo = ProbeCertArtifacts(AppDir());
+    const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, m_bindAddress, m_hostIp, m_port);
+    const auto viewerUrl = BuildViewerUrl();
+    const auto report = BuildSelfCheckReport(m_hostPageState, m_hostIp, viewerUrl, m_lastViewers,
+                                             runtime.serverProcessRunning,
+                                             certInfo.certExists, certInfo.keyExists,
+                                             runtime.portReady, runtime.portDetail,
+                                             runtime.localHealthReady, runtime.localHealthDetail,
+                                             runtime.hostIpReachable, runtime.hostIpReachableDetail,
+                                             runtime.lanBindReady, runtime.lanBindDetail,
+                                             runtime.activeIpv4Candidates, runtime.selectedIpRecommended, runtime.adapterHint,
+                                             runtime.embeddedHostReady, runtime.embeddedHostStatus,
+                                             m_wifiAdapterPresent, m_hotspotSupported, m_wifiDirectApiAvailable, m_hotspotRunning, true);
+
+    std::wstring overall = L"Not Ready";
+    if (IsHostStateSharing(m_hostPageState)) {
+        overall = L"Sharing";
+    } else if (report.p0 == 0 && runtime.serverProcessRunning && IsHostStateReadyOrLoading(m_hostPageState)) {
+        overall = L"Ready";
+    } else if (runtime.serverProcessRunning && (!runtime.localHealthReady || !runtime.hostIpReachable)) {
+        overall = L"Error";
+    }
+
+    std::wstring errorSummary = m_lastErrorSummary;
+    if (!report.failures.empty()) {
+        errorSummary = urlutil::Utf8ToWide(report.failures.front().title);
+    }
+    if (errorSummary.empty()) errorSummary = L"none";
+
+    std::wstringstream statusCard;
+    statusCard << L"Current State: " << overall << L"\r\n";
+    statusCard << L"Host IP: " << (m_hostIp.empty() ? L"(not found)" : m_hostIp) << L"\r\n";
+    statusCard << L"Port: " << m_port << L"\r\n";
+    statusCard << L"Room: " << m_room << L"\r\n";
+    statusCard << L"Viewer Count: " << m_lastViewers << L"\r\n";
+    statusCard << L"Latest Error: " << errorSummary;
+    SetTextIfPresent(m_dashboardStatusCard, statusCard.str());
+
+    std::wstringstream networkCard;
+    networkCard << L"Network\r\n";
+    networkCard << L"Primary IPv4: " << (m_hostIp.empty() ? L"(not found)" : m_hostIp) << L"\r\n";
+    networkCard << L"Adapter Count: " << runtime.activeIpv4Candidates << L"\r\n";
+    networkCard << L"Wi-Fi / Hotspot: "
+                << (m_wifiAdapterPresent ? L"Wi-Fi yes" : L"Wi-Fi no")
+                << L", hotspot " << (m_hotspotSupported ? L"yes" : L"fallback")
+                << L", Wi-Fi Direct " << (m_wifiDirectApiAvailable ? L"yes" : L"no");
+    SetTextIfPresent(m_dashboardNetworkCard, networkCard.str());
+
+    std::wstringstream serviceCard;
+    serviceCard << L"Service\r\n";
+    serviceCard << L"Server Exe: " << (AppDir() / L"lan_screenshare_server.exe").wstring() << L"\r\n";
+    serviceCard << L"Bind + Port: " << m_bindAddress << L":" << m_port << L"\r\n";
+    serviceCard << L"Cert State: " << ((certInfo.certExists && certInfo.keyExists) ? L"ready" : L"missing");
+    SetTextIfPresent(m_dashboardServiceCard, serviceCard.str());
+
+    std::wstringstream shareCard;
+    shareCard << L"Sharing\r\n";
+    shareCard << L"Viewer URL: " << viewerUrl << L"\r\n";
+    shareCard << L"Copied: " << (m_viewerUrlCopied ? L"yes" : L"no") << L"\r\n";
+    shareCard << L"Share Card Exported: " << (m_shareCardExported ? L"yes" : L"no");
+    SetTextIfPresent(m_dashboardShareCard, shareCard.str());
+
+    std::wstringstream healthCard;
+    healthCard << L"Health\r\n";
+    healthCard << L"/health: " << (runtime.localHealthReady ? L"ok" : L"attention") << L"\r\n";
+    healthCard << L"/api/status: " << (runtime.serverProcessRunning ? L"polling" : L"server stopped") << L"\r\n";
+    healthCard << L"WebView: " << m_webview.StatusText() << L"\r\n";
+    healthCard << L"Local Reachability: " << (runtime.hostIpReachable ? L"ok" : L"attention");
+    SetTextIfPresent(m_dashboardHealthCard, healthCard.str());
+
+    EnableWindow(m_dashboardPrimaryBtn, IsHostStateSharing(m_hostPageState) ? FALSE : TRUE);
+
+    for (auto& kind : m_dashboardSuggestionKinds) kind = DashboardSuggestionKind::None;
+    for (auto& detail : m_dashboardSuggestionDetails) detail.clear();
+
+    std::size_t slot = 0;
+    auto addSuggestion = [&](DashboardSuggestionKind kind, std::wstring title, std::wstring detail) {
+        if (slot >= m_dashboardSuggestionKinds.size()) return;
+        m_dashboardSuggestionKinds[slot] = kind;
+        m_dashboardSuggestionDetails[slot] = std::move(detail);
+        SetTextIfPresent(m_dashboardSuggestionText[slot], std::move(title));
+        EnableWindow(m_dashboardSuggestionFixBtn[slot], TRUE);
+        EnableWindow(m_dashboardSuggestionInfoBtn[slot], TRUE);
+        EnableWindow(m_dashboardSuggestionSetupBtn[slot], TRUE);
+        ++slot;
+    };
+
+    if (!runtime.embeddedHostReady) {
+        addSuggestion(DashboardSuggestionKind::OpenHostExternally,
+                      L"WebView2 runtime is unavailable",
+                      L"Embedded host view is unavailable. Open the host page in an external browser, or install/repair WebView2 Runtime.");
+    }
+    if (!m_hotspotRunning) {
+        addSuggestion(m_hotspotSupported ? DashboardSuggestionKind::StartHotspot : DashboardSuggestionKind::OpenHotspotSettings,
+                      L"Hotspot is not running",
+                      m_hotspotSupported ? L"You can try starting hotspot directly. If that fails, open Windows Mobile Hotspot settings." : L"This machine does not expose controllable hotspot support. Open system hotspot settings.");
+    }
+    if (certInfo.certExists && certInfo.keyExists) {
+        addSuggestion(DashboardSuggestionKind::NoteSelfSignedCert,
+                      L"Certificate is self-signed",
+                      L"On first LAN access, the browser may prompt for certificate trust. That is expected for the current local HTTPS MVP.");
+    }
+    if (runtime.portReady) {
+        addSuggestion(DashboardSuggestionKind::PortReady,
+                      std::wstring(L"Port ") + std::to_wstring(m_port) + L" is available",
+                      runtime.portDetail.empty() ? L"The configured port is available for the local server." : runtime.portDetail);
+    }
+    if (slot == 0 || slot < m_dashboardSuggestionKinds.size()) {
+        if (!runtime.serverProcessRunning) {
+            addSuggestion(DashboardSuggestionKind::StartServer,
+                          L"Local server is not started",
+                          L"Use Start Sharing to launch the local HTTPS/WSS server and load the host page.");
+        }
+    }
+    if (slot < m_dashboardSuggestionKinds.size() && m_hostIp.empty()) {
+        addSuggestion(DashboardSuggestionKind::RefreshIp,
+                      L"Host IP is still missing",
+                      L"Refresh the host IPv4, or connect to LAN / start hotspot before sharing.");
+    }
+    while (slot < m_dashboardSuggestionKinds.size()) {
+        SetTextIfPresent(m_dashboardSuggestionText[slot], L"No higher-priority suggestion right now.");
+        m_dashboardSuggestionKinds[slot] = DashboardSuggestionKind::OpenDiagnostics;
+        m_dashboardSuggestionDetails[slot] = L"Open diagnostics to inspect the full runtime snapshot.";
+        EnableWindow(m_dashboardSuggestionFixBtn[slot], FALSE);
+        EnableWindow(m_dashboardSuggestionInfoBtn[slot], TRUE);
+        EnableWindow(m_dashboardSuggestionSetupBtn[slot], TRUE);
+        ++slot;
+    }
+}
+
+void MainWindow::RefreshSessionSetup() {
+    const auto certInfo = ProbeCertArtifacts(AppDir());
+    const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, m_bindAddress, m_hostIp, m_port);
+    const std::wstring hostUrl = BuildHostUrlLocal();
+    const std::wstring viewerUrl = BuildViewerUrl();
+
+    if (m_sanIpValue) {
+        std::wstring san = m_hostIp.empty() ? L"127.0.0.1" : (m_hostIp + L",127.0.0.1");
+        SetWindowTextW(m_sanIpValue, san.c_str());
+    }
+
+    if (m_sessionSummaryBox) {
+        std::wstringstream ss;
+        ss << L"Host URL\r\n" << hostUrl << L"\r\n\r\n";
+        ss << L"Viewer URL\r\n" << viewerUrl << L"\r\n\r\n";
+        ss << L"Output Dir\r\n" << (AppDir() / L"out").wstring() << L"\r\n\r\n";
+        ss << L"Share Bundle\r\n" << (AppDir() / L"out" / L"share_bundle").wstring();
+        SetWindowTextW(m_sessionSummaryBox, ss.str().c_str());
+    }
+
+    if (m_runtimeInfoCard) {
+        std::wstringstream ss;
+        ss << L"Runtime Info\r\n";
+        ss << L"Uptime: " << (runtime.serverProcessRunning ? L"running" : L"stopped") << L"\r\n";
+        ss << L"Rooms: " << m_lastRooms << L"\r\n";
+        ss << L"Viewers: " << m_lastViewers << L"\r\n";
+        ss << L"Recent Heartbeat: " << (runtime.localHealthReady ? L"/health ok" : runtime.localHealthDetail) << L"\r\n";
+        ss << L"Host Ready State: " << m_hostPageState << L"\r\n";
+        ss << L"Local Reachability: " << (runtime.hostIpReachable ? L"ok" : runtime.hostIpReachableDetail);
+        SetWindowTextW(m_runtimeInfoCard, ss.str().c_str());
+    }
+
+    if (m_hostPreviewPlaceholder) {
+        std::wstringstream ss;
+        ss << L"Host Preview Unavailable\r\n\r\n";
+        if (runtime.embeddedHostStatus == L"sdk-unavailable" || runtime.embeddedHostStatus == L"runtime-unavailable" || runtime.embeddedHostStatus == L"controller-unavailable") {
+            ss << L"Reason: WebView2 Runtime / SDK is unavailable.\r\n\r\n";
+        } else {
+            ss << L"Reason: Host preview is not ready yet.\r\n\r\n";
+        }
+        ss << L"Action: Open Host in the system browser.\r\n";
+        ss << L"Host URL: " << hostUrl << L"\r\n";
+        ss << L"Cert State: " << ((certInfo.certExists && certInfo.keyExists) ? L"ready" : L"missing");
+        SetWindowTextW(m_hostPreviewPlaceholder, ss.str().c_str());
+        const bool placeholderVisible = !m_webview.IsReady() && !IsHtmlAdminActive();
+        ShowWindow(m_hostPreviewPlaceholder, (m_currentPage == UiPage::Setup && placeholderVisible) ? SW_SHOW : SW_HIDE);
+        if (m_btnOpenHost) {
+            ShowWindow(m_btnOpenHost, (m_currentPage == UiPage::Setup && !IsHtmlAdminActive()) ? SW_SHOW : SW_HIDE);
+        }
+    }
+}
+
+void MainWindow::RefreshNetworkPage() {
+    const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, m_bindAddress, m_hostIp, m_port);
+    const auto candidates = CollectActiveIpv4Candidates();
+
+    if (m_networkSummaryCard) {
+        std::wstringstream ss;
+        ss << L"Current Recommended IPv4: " << (candidates.empty() ? L"(none)" : candidates.front().ip) << L"\r\n";
+        ss << L"Adapter: " << (candidates.empty() ? L"(none)" : candidates.front().name) << L"\r\n";
+        ss << L"Network Type: " << (m_networkMode.empty() ? L"unknown" : m_networkMode) << L"\r\n";
+        ss << L"Multiple Candidate IPs: " << (candidates.size() > 1 ? L"yes" : L"no") << L"\r\n";
+        ss << L"Reachability: " << (runtime.hostIpReachable ? L"reachable" : runtime.hostIpReachableDetail);
+        SetWindowTextW(m_networkSummaryCard, ss.str().c_str());
+    }
+
+    for (std::size_t i = 0; i < m_networkAdapterCards.size(); ++i) {
+        std::wstringstream ss;
+        bool hasCandidate = i < candidates.size();
+        if (hasCandidate) {
+            const auto& c = candidates[i];
+            const bool isWifi = WideContainsCaseInsensitive(c.name, L"wi-fi") || WideContainsCaseInsensitive(c.name, L"wireless");
+            const bool recommended = i == 0;
+            const bool selected = c.ip == m_hostIp;
+            m_networkCandidateIps[i] = c.ip;
+            ss << L"Adapter: " << c.name << L"\r\n";
+            ss << L"IPv4: " << c.ip << L"\r\n";
+            ss << L"Type: " << (isWifi ? L"Wi-Fi" : L"Ethernet / Other") << L" | Online: yes\r\n";
+            ss << L"Recommended: " << (recommended ? L"yes" : L"no") << L" | Selected: " << (selected ? L"yes" : L"no");
+        } else {
+            m_networkCandidateIps[i].clear();
+            ss << L"No adapter candidate in this slot.";
+        }
+        if (m_networkAdapterCards[i]) SetWindowTextW(m_networkAdapterCards[i], ss.str().c_str());
+        if (m_networkAdapterSelectBtns[i]) EnableWindow(m_networkAdapterSelectBtns[i], hasCandidate ? TRUE : FALSE);
+    }
+
+    if (m_hotspotStatusCard) {
+        std::wstring hotspotState = L"Not Started";
+        if (m_hotspotRunning) hotspotState = L"Started";
+        else if (!m_hotspotSupported) hotspotState = L"System Managed / Not Supported";
+        std::wstringstream ss;
+        ss << L"Hotspot Status: " << hotspotState << L"\r\n";
+        ss << L"SSID: " << (m_hotspotSsid.empty() ? L"(not set)" : m_hotspotSsid) << L"\r\n";
+        ss << L"Password: " << (m_hotspotPassword.empty() ? L"(not set)" : m_hotspotPassword) << L"\r\n";
+        ss << L"Mode: " << (m_hotspotSupported ? L"best-effort control" : L"system takeover / unsupported");
+        SetWindowTextW(m_hotspotStatusCard, ss.str().c_str());
+    }
+
+    if (m_wifiDirectCard) {
+        std::wstringstream ss;
+        ss << L"Wi-Fi Direct Supported: " << (m_wifiDirectApiAvailable ? L"yes" : L"no") << L"\r\n";
+        ss << L"Recommended Action: "
+           << (m_wifiDirectApiAvailable ? L"Open Connected Devices and complete pairing in Windows UI." : L"Use system settings or stay on the same LAN / hotspot.") << L"\r\n";
+        ss << L"Current Session Alias: " << BuildWifiDirectSessionAlias();
+        SetWindowTextW(m_wifiDirectCard, ss.str().c_str());
+    }
+}
+
+void MainWindow::RefreshSharingPage() {
+    const std::wstring hostUrl = BuildHostUrlLocal();
+    const std::wstring viewerUrl = BuildViewerUrl();
+
+    if (m_accessEntryCard) {
+        std::wstringstream ss;
+        ss << L"Access Entry\r\n\r\n";
+        ss << L"Host URL\r\n" << hostUrl << L"\r\n\r\n";
+        ss << L"Viewer URL\r\n" << viewerUrl << L"\r\n\r\n";
+        ss << L"Use Viewer URL for guests. Use Host URL only for the operator host page.";
+        SetWindowTextW(m_accessEntryCard, ss.str().c_str());
+    }
+
+    if (m_qrCard) {
+        std::wstringstream ss;
+        ss << L"QR & Share Materials\r\n\r\n";
+        ss << L"Viewer QR: available via share card / share wizard\r\n";
+        ss << L"Host QR: advanced operator path only\r\n\r\n";
+        ss << L"Recommended actions\r\n";
+        ss << L"- Open Share Card for a large QR preview\r\n";
+        ss << L"- Open Share Wizard for guided access handoff\r\n";
+        ss << L"- Open Bundle Folder for offline materials\r\n";
+        ss << L"- Export Offline Package to refresh all generated assets";
+        SetWindowTextW(m_qrCard, ss.str().c_str());
+    }
+
+    if (m_accessGuideCard) {
+        std::wstringstream ss;
+        ss << L"Access Guide\r\n\r\n";
+        ss << L"Same LAN\r\n";
+        ss << L"- Keep both devices on the same router or switch.\r\n";
+        ss << L"- Send the Viewer URL or show the Viewer QR.\r\n\r\n";
+        ss << L"Hotspot Mode\r\n";
+        ss << L"- Start hotspot in Network page.\r\n";
+        ss << L"- Join that hotspot from the guest device.\r\n";
+        ss << L"- Open the Viewer URL exactly as shown.\r\n\r\n";
+        ss << L"Certificate Reminder\r\n";
+        ss << L"- First access may show a self-signed certificate prompt.\r\n";
+        ss << L"- Accept it for this local session.\r\n\r\n";
+        ss << L"Common Failure Reasons\r\n";
+        ss << L"- Devices are not on the same local network.\r\n";
+        ss << L"- Wrong IP was selected as the main host address.\r\n";
+        ss << L"- Local service is not running yet.\r\n";
+        ss << L"- Browser blocked the self-signed certificate.";
+        SetWindowTextW(m_accessGuideCard, ss.str().c_str());
+    }
+}
+
+void MainWindow::RefreshMonitorPage() {
+    const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, m_bindAddress, m_hostIp, m_port);
+    const std::array<std::wstring, 5> metricTexts = {
+        std::wstring(L"Rooms\n") + std::to_wstring(m_lastRooms),
+        std::wstring(L"Viewers\n") + std::to_wstring(m_lastViewers),
+        std::wstring(L"Host State\n") + m_hostPageState,
+        std::wstring(L"/health\n") + (runtime.localHealthReady ? L"OK" : L"ATTN"),
+        std::wstring(L"Latency\n") + (runtime.localHealthReady ? L"<1s" : L"n/a")
+    };
+    for (std::size_t i = 0; i < m_monitorMetricCards.size(); ++i) {
+        if (m_monitorMetricCards[i]) SetWindowTextW(m_monitorMetricCards[i], metricTexts[i].c_str());
+    }
+
+    if (m_monitorTimelineBox) {
+        std::wstring value = m_timelineText.empty() ? L"No timeline events yet." : m_timelineText;
+        SetWindowTextW(m_monitorTimelineBox, value.c_str());
+    }
+
+    if (m_monitorDetailBox) {
+        std::wstringstream ss;
+        ss << L"Health Checks\r\n";
+        ss << L"- Local /health: " << (runtime.localHealthReady ? L"green / normal" : L"red / abnormal") << L"\r\n";
+        ss << L"- Host reachability: " << (runtime.hostIpReachable ? L"green / normal" : L"yellow / attention") << L"\r\n";
+        ss << L"- WebView: " << (runtime.embeddedHostReady ? L"green / normal" : L"gray / inactive") << L"\r\n\r\n";
+        ss << L"Connection Events\r\n";
+        ss << L"- Rooms: " << m_lastRooms << L"\r\n";
+        ss << L"- Viewers: " << m_lastViewers << L"\r\n\r\n";
+        ss << L"Realtime Logs\r\n";
+        ss << L"- Info / Warning / Error / WebView / Server stdout-stderr are currently merged below.\r\n\r\n";
+        ss << m_logs;
+        SetWindowTextW(m_monitorDetailBox, ss.str().c_str());
+    }
+}
+
+void MainWindow::RefreshFilteredLogs() {
+    if (!m_diagLogViewer) return;
+    wchar_t searchBuf[256]{};
+    if (m_diagLogSearch) GetWindowTextW(m_diagLogSearch, searchBuf, _countof(searchBuf));
+    const std::wstring search = searchBuf;
+    const int levelSel = m_diagLevelFilter ? static_cast<int>(SendMessageW(m_diagLevelFilter, CB_GETCURSEL, 0, 0)) : 0;
+    const int sourceSel = m_diagSourceFilter ? static_cast<int>(SendMessageW(m_diagSourceFilter, CB_GETCURSEL, 0, 0)) : 0;
+    const std::wstring levelFilter = levelSel == 1 ? L"Info" : levelSel == 2 ? L"Warning" : levelSel == 3 ? L"Error" : L"";
+    const std::wstring sourceFilter = sourceSel == 1 ? L"app" : sourceSel == 2 ? L"network" : sourceSel == 3 ? L"server" : sourceSel == 4 ? L"webview" : L"";
+
+    std::wstringstream ss;
+    for (const auto& entry : m_logEntries) {
+        if (!levelFilter.empty() && entry.level != levelFilter) continue;
+        if (!sourceFilter.empty() && entry.source != sourceFilter) continue;
+        if (!search.empty() && !WideContainsCaseInsensitive(entry.message, search)) continue;
+        ss << L"[" << entry.timestamp << L"][" << entry.level << L"][" << entry.source << L"] " << entry.message << L"\r\n";
+    }
+    SetWindowTextW(m_diagLogViewer, ss.str().c_str());
+}
+
+void MainWindow::RefreshDiagnosticsPage() {
+    const auto certInfo = ProbeCertArtifacts(AppDir());
+    const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, m_bindAddress, m_hostIp, m_port);
+    if (m_diagChecklistCard) {
+        std::wstringstream ss;
+        ss << L"["
+           << (runtime.portReady ? L"OK" : L"FIX") << L"] Port listening normal\r\n";
+        ss << L"  Fix: free the port or change bind/port if needed.\r\n\r\n";
+        ss << L"[" << (runtime.localHealthReady ? L"OK" : L"FIX") << L"] Local Host opens\r\n";
+        ss << L"  Fix: start service, then test Host URL in browser.\r\n\r\n";
+        ss << L"[" << (runtime.embeddedHostReady ? L"OK" : L"FIX") << L"] WebView2 available\r\n";
+        ss << L"  Fix: install/repair WebView2 Runtime or use browser fallback.\r\n\r\n";
+        ss << L"[" << ((certInfo.certExists && certInfo.keyExists) ? L"OK" : L"FIX") << L"] Certificate ready\r\n";
+        ss << L"  Fix: start service once to generate cert files.\r\n\r\n";
+        ss << L"[" << (!m_hostIp.empty() ? L"OK" : L"FIX") << L"] LAN IP determined\r\n";
+        ss << L"  Fix: re-detect network or choose main IP manually.\r\n\r\n";
+        ss << L"[" << (m_shareCardExported ? L"OK" : L"FIX") << L"] Share bundle exported\r\n";
+        ss << L"  Fix: export bundle or open Sharing Center.";
+        SetWindowTextW(m_diagChecklistCard, ss.str().c_str());
+    }
+    if (m_diagActionsCard) {
+        std::wstringstream ss;
+        ss << L"Operator Actions\r\n\r\n";
+        ss << L"1. Confirm guest and host are on the same subnet.\r\n";
+        ss << L"2. If Viewer fails, paste the Viewer URL directly into a browser.\r\n";
+        ss << L"3. If hotspot fails, open system hotspot settings and start it manually.\r\n";
+        ss << L"4. If host preview is unavailable, open Host in the system browser.";
+        SetWindowTextW(m_diagActionsCard, ss.str().c_str());
+    }
+    if (m_diagExportCard) {
+        std::wstringstream ss;
+        ss << L"Export Actions\r\n\r\n";
+        ss << L"Output Dir\r\n" << (AppDir() / L"out" / L"share_bundle").wstring() << L"\r\n\r\n";
+        ss << L"Use buttons on the right to open, copy, refresh, and export.";
+        SetWindowTextW(m_diagExportCard, ss.str().c_str());
+    }
+    if (m_diagFilesCard) {
+        SetWindowTextW(m_diagFilesCard,
+            L"Exported Files\r\n\r\nshare_card.html\r\nshare_wizard.html\r\nshare_bundle.json\r\nshare_status.js\r\nshare_diagnostics.txt\r\ndesktop_self_check.html\r\ndesktop_self_check.txt");
+    }
+    RefreshFilteredLogs();
+}
+
+void MainWindow::RefreshSettingsPage() {
+    const auto certInfo = ProbeCertArtifacts(AppDir());
+    const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, m_bindAddress, m_hostIp, m_port);
+    const auto serverExe = AppDir() / L"lan_screenshare_server.exe";
+    const auto wwwDir = AppDir() / L"www";
+    const auto certDir = AppDir() / L"cert";
+    const auto bundleDir = AppDir() / L"out" / L"share_bundle";
+
+    if (m_settingsIntro) {
+        std::wstringstream ss;
+        ss << L"Settings stays outside the session workflow. Use it to review default policies before operators start a room.\r\n";
+        ss << L"Current page is a product-style settings center, not a persisted config backend yet.";
+        SetWindowTextW(m_settingsIntro, ss.str().c_str());
+    }
+
+    if (m_settingsGeneralCard) {
+        std::wstringstream ss;
+        ss << L"General\r\n\r\n";
+        ss << L"Default Port: " << m_defaultPort << L"\r\n";
+        ss << L"Default Bind: " << m_defaultBindAddress << L"\r\n";
+        ss << L"Room Rule: " << m_roomRule << L"\r\n";
+        ss << L"Token Rule: " << m_tokenRule << L"\r\n\r\n";
+        ss << L"Current Session\r\n";
+        ss << L"Room: " << m_room << L"\r\n";
+        ss << L"Token: " << m_token;
+        SetWindowTextW(m_settingsGeneralCard, ss.str().c_str());
+    }
+
+    if (m_settingsServiceCard) {
+        std::wstringstream ss;
+        ss << L"Service\r\n\r\n";
+        ss << L"Server EXE\r\n" << m_defaultServerExePath << L"\r\n\r\n";
+        ss << L"WWW Dir\r\n" << m_defaultWwwPath << L"\r\n\r\n";
+        ss << L"Cert Dir\r\n" << m_defaultCertDir << L"\r\n\r\n";
+        ss << L"Args Template\r\n" << m_defaultLaunchArgs;
+        SetWindowTextW(m_settingsServiceCard, ss.str().c_str());
+    }
+
+    if (m_settingsNetworkCard) {
+        std::wstringstream ss;
+        ss << L"Network\r\n\r\n";
+        ss << L"Main IP Strategy: " << m_defaultIpStrategy << L"\r\n";
+        ss << L"Detect Frequency: " << m_autoDetectFrequencySec << L"s\r\n";
+        ss << L"Hotspot SSID: auto session alias\r\n";
+        ss << L"Password Rule: " << m_hotspotPasswordRule << L"\r\n\r\n";
+        ss << L"Live State\r\n";
+        ss << L"Selected IP: " << (m_hostIp.empty() ? L"(not selected)" : m_hostIp) << L"\r\n";
+        ss << L"Hotspot: " << m_hotspotStatus;
+        SetWindowTextW(m_settingsNetworkCard, ss.str().c_str());
+    }
+
+    if (m_settingsSharingCard) {
+        std::wstringstream ss;
+        ss << L"Sharing\r\n\r\n";
+        ss << L"Viewer Open Mode: " << m_defaultViewerOpenMode << L"\r\n";
+        ss << L"Auto Copy Link: " << (m_autoCopyViewerLink ? L"enabled" : L"disabled") << L"\r\n";
+        ss << L"Auto QR: " << (m_autoGenerateQr ? L"enabled" : L"disabled") << L"\r\n";
+        ss << L"Auto Bundle Export: " << (m_autoExportBundle ? L"enabled" : L"disabled") << L"\r\n\r\n";
+        ss << L"Latest Viewer URL\r\n" << BuildViewerUrl();
+        SetWindowTextW(m_settingsSharingCard, ss.str().c_str());
+    }
+
+    if (m_settingsLoggingCard) {
+        std::wstringstream ss;
+        ss << L"Logs & Diagnostics\r\n\r\n";
+        ss << L"Log Level: " << m_logLevel << L"\r\n";
+        ss << L"Output Dir\r\n" << m_outputDir << L"\r\n\r\n";
+        ss << L"Retention Days: " << m_diagnosticsRetentionDays << L"\r\n";
+        ss << L"Save stdout/stderr: " << (m_saveStdStreams ? L"yes" : L"no") << L"\r\n\r\n";
+        ss << L"Bundle Dir\r\n" << bundleDir.wstring();
+        SetWindowTextW(m_settingsLoggingCard, ss.str().c_str());
+    }
+
+    if (m_settingsAdvancedCard) {
+        std::wstringstream ss;
+        ss << L"Advanced\r\n\r\n";
+        ss << L"Cert Bypass: " << m_certBypassPolicy << L"\r\n";
+        ss << L"WebView Mode: " << m_webViewBehavior << L"\r\n";
+        ss << L"Startup Hook: " << m_startupHook << L"\r\n\r\n";
+        ss << L"Runtime Flags\r\n";
+        ss << L"WebView Ready: " << (runtime.embeddedHostReady ? L"yes" : L"no") << L"\r\n";
+        ss << L"Cert Ready: " << ((certInfo.certExists && certInfo.keyExists) ? L"yes" : L"no");
+        SetWindowTextW(m_settingsAdvancedCard, ss.str().c_str());
+    }
+
+    if (m_settingsCurrentStateCard) {
+        std::wstringstream ss;
+        ss << L"Current Effective Defaults Snapshot\r\n\r\n";
+        ss << L"Default Port -> current port: " << m_defaultPort << L" -> " << m_port << L"\r\n";
+        ss << L"Default Bind -> current bind: " << m_defaultBindAddress << L" -> " << m_bindAddress << L"\r\n";
+        ss << L"Server Path Exists: " << (fs::exists(serverExe) ? L"yes" : L"no") << L"\r\n";
+        ss << L"WWW Path Exists: " << (fs::exists(wwwDir) ? L"yes" : L"no") << L"\r\n";
+        ss << L"Cert Dir Exists: " << (fs::exists(certDir) ? L"yes" : L"no") << L"\r\n";
+        ss << L"Bundle Dir Exists: " << (fs::exists(bundleDir) ? L"yes" : L"no") << L"\r\n";
+        ss << L"Health Ready: " << (runtime.localHealthReady ? L"green / normal" : L"yellow / attention") << L"\r\n";
+        ss << L"Host Reachable: " << (runtime.hostIpReachable ? L"green / normal" : L"red / abnormal") << L"\r\n";
+        ss << L"Page Role: outside main flow, available for preflight and operator policy review.";
+        SetWindowTextW(m_settingsCurrentStateCard, ss.str().c_str());
+    }
+}
+
+void MainWindow::SelectNetworkCandidate(std::size_t index) {
+    if (index >= m_networkCandidateIps.size()) return;
+    if (m_networkCandidateIps[index].empty()) return;
+    m_hostIp = m_networkCandidateIps[index];
+    if (m_ipValue) SetWindowTextW(m_ipValue, m_hostIp.c_str());
+    AppendLog(L"Selected main host IP: " + m_hostIp);
+    RefreshShareInfo();
+    RefreshNetworkPage();
 }
 
 void MainWindow::UpdateUiState() {
@@ -3330,6 +4888,14 @@ void MainWindow::UpdateUiState() {
     if (m_btnStop) EnableWindow(m_btnStop, running ? TRUE : FALSE);
     if (m_btnStartHotspot) EnableWindow(m_btnStartHotspot, m_hotspotRunning ? FALSE : TRUE);
     if (m_btnStopHotspot) EnableWindow(m_btnStopHotspot, m_hotspotRunning ? TRUE : FALSE);
+    RefreshDashboard();
+    RefreshSessionSetup();
+    RefreshNetworkPage();
+    RefreshSharingPage();
+    RefreshMonitorPage();
+    RefreshDiagnosticsPage();
+    RefreshSettingsPage();
+    RefreshHtmlAdminPreview();
 }
 
 void MainWindow::OnDestroy() {
@@ -3390,10 +4956,14 @@ void MainWindow::StartServer() {
     auto r = m_server->Start(opt);
     if (!r.ok) {
         AppendLog(L"Start failed: " + r.message);
+        AddTimelineEvent(L"Service start failed");
     } else {
         AppendLog(L"Server started");
+        AddTimelineEvent(L"Service started");
         m_hostPageState = L"loading";
-        NavigateHostInWebView();
+        if (m_currentPage == UiPage::Setup && !PreferHtmlAdminUi()) {
+            NavigateHostInWebView();
+        }
     }
 
     RefreshShareInfo();
@@ -3409,8 +4979,25 @@ void MainWindow::StopServer() {
     m_server->Stop();
     m_hostPageState = L"stopped";
     AppendLog(L"Server stopped");
+    AddTimelineEvent(L"Service stopped");
     RefreshShareInfo();
     UpdateUiState();
+}
+
+void MainWindow::RestartServer() {
+    StopServer();
+    StartServer();
+}
+
+void MainWindow::StartServiceOnly() {
+    StartServer();
+}
+
+void MainWindow::StartAndOpenHost() {
+    StartServer();
+    if (m_server && m_server->IsRunning()) {
+        OpenHostPage();
+    }
 }
 
 void MainWindow::RefreshHostIp() {
@@ -3465,8 +5052,6 @@ void MainWindow::RefreshNetworkCapabilities() {
 }
 
 void MainWindow::RefreshShareInfo() {
-    if (!m_shareInfoBox) return;
-
     std::wstringstream ss;
     ss << L"Mode: " << (m_networkMode.empty() ? L"unknown" : m_networkMode) << L"\r\n";
     ss << L"Host IPv4: " << (m_hostIp.empty() ? L"(not found)" : m_hostIp) << L"\r\n";
@@ -3508,17 +5093,36 @@ void MainWindow::RefreshShareInfo() {
     ss << L"Host URL\r\n" << BuildHostUrlLocal() << L"\r\n\r\n";
     ss << L"Viewer URL\r\n" << BuildViewerUrl();
 
-    SetWindowTextW(m_shareInfoBox, ss.str().c_str());
+    if (m_shareInfoBox) {
+        SetWindowTextW(m_shareInfoBox, ss.str().c_str());
+    }
     WriteShareArtifacts(nullptr, nullptr, nullptr, nullptr);
+    RefreshDashboard();
+    RefreshSessionSetup();
+    RefreshNetworkPage();
+    RefreshSharingPage();
+    RefreshSettingsPage();
+    RefreshHtmlAdminPreview();
 }
 
 void MainWindow::HandleWebViewMessage(std::wstring_view payload) {
+    const std::wstring source = JsonStringField(payload, L"source");
+    if (source == L"admin-shell") {
+        HandleAdminShellMessage(payload);
+        return;
+    }
+
     const std::wstring kind = JsonStringField(payload, L"kind");
     if (kind.empty()) return;
 
     if (kind == L"status") {
         const std::wstring state = JsonStringField(payload, L"state");
         if (!state.empty()) {
+            if (m_hostPageState != state) {
+                if (state == L"loading") AddTimelineEvent(L"Host page loading");
+                else if (state == L"ready") AddTimelineEvent(L"Host page loaded");
+                else if (state == L"sharing") AddTimelineEvent(L"Host page sharing started");
+            }
             m_hostPageState = state;
             if (m_webStateText) {
                 std::wstring text = L"Host Page: " + m_hostPageState + L" | WebView: " + m_webview.StatusText() + L" | Hotspot: " + m_hotspotStatus;
@@ -3571,6 +5175,11 @@ void MainWindow::HandlePollResult(DWORD status, std::size_t rooms, std::size_t v
 
     std::wstringstream ss;
     if (status == 200) {
+        if (m_lastViewers == 0 && viewers > 0) {
+            AddTimelineEvent(L"First viewer connected");
+        } else if (m_lastViewers > 0 && viewers == 0) {
+            AddTimelineEvent(L"Viewer disconnected");
+        }
         m_lastRooms = rooms;
         m_lastViewers = viewers;
         ss << L"Rooms: " << rooms << L"  Viewers: " << viewers;
@@ -3600,6 +5209,77 @@ fs::path MainWindow::AppDir() const {
     GetModuleFileNameW(nullptr, buf, _countof(buf));
     fs::path p(buf);
     return p.parent_path();
+}
+
+fs::path MainWindow::AdminUiDir() const {
+    const fs::path runtimeDir = AppDir() / L"webui";
+    if (fs::exists(runtimeDir / L"index.html")) {
+        return runtimeDir;
+    }
+
+    const fs::path sourceDir = AppDir().parent_path().parent_path().parent_path() / L"LanScreenShareHostApp" / L"webui";
+    if (fs::exists(sourceDir / L"index.html")) {
+        return sourceDir;
+    }
+
+    return runtimeDir;
+}
+
+bool MainWindow::PreferHtmlAdminUi() const {
+    return fs::exists(AdminUiDir() / L"index.html") && m_webview.IsAvailable();
+}
+
+bool MainWindow::IsHtmlAdminActive() const {
+    return m_webviewMode == WebViewSurfaceMode::HtmlAdminPreview && PreferHtmlAdminUi();
+}
+
+std::wstring MainWindow::AdminTabNameForPage(UiPage page) const {
+    switch (page) {
+    case UiPage::Dashboard:
+        return L"dashboard";
+    case UiPage::Setup:
+        return L"session";
+    case UiPage::Network:
+        return L"network";
+    case UiPage::Sharing:
+        return L"sharing";
+    case UiPage::Monitor:
+        return L"monitor";
+    case UiPage::Diagnostics:
+        return L"diagnostics";
+    case UiPage::Settings:
+        return L"settings";
+    default:
+        return L"dashboard";
+    }
+}
+
+bool MainWindow::TrySetPageFromAdminTab(std::wstring_view tab) {
+    UiPage page = m_currentPage;
+    if (tab == L"dashboard") {
+        page = UiPage::Dashboard;
+    } else if (tab == L"session") {
+        page = UiPage::Setup;
+    } else if (tab == L"network") {
+        page = UiPage::Network;
+    } else if (tab == L"sharing") {
+        page = UiPage::Sharing;
+    } else if (tab == L"monitor") {
+        page = UiPage::Monitor;
+    } else if (tab == L"diagnostics") {
+        page = UiPage::Diagnostics;
+    } else if (tab == L"settings") {
+        page = UiPage::Settings;
+    } else {
+        return false;
+    }
+
+    if (page == m_currentPage) {
+        return false;
+    }
+
+    SetPage(page);
+    return true;
 }
 
 MainWindow* MainWindow::GetInstance(HWND hwnd) {

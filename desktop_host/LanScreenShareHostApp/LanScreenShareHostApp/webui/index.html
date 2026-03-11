@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>LanScreenShare HTML Admin</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="shell">
+    <header class="hero">
+      <div class="hero-copy">
+        <p class="eyebrow">Migration Workspace</p>
+        <h1>HTML Admin Shell</h1>
+        <p class="subtitle">The desktop-only admin shell is now the primary operator workspace for Dashboard, Session, Network, Sharing, Monitor, Diagnostics, and Settings.</p>
+      </div>
+      <div class="hero-meta">
+        <div class="status idle" id="bridgeStatus">Waiting for bridge</div>
+        <div class="native-note">The HTML admin shell now owns the main workflow. Native pages remain in place only as a fallback when WebView2 is unavailable.</div>
+      </div>
+    </header>
+
+    <nav class="tabs">
+      <button class="tab active" data-tab="dashboard">Dashboard</button>
+      <button class="tab" data-tab="session">Session</button>
+      <button class="tab" data-tab="network">Network</button>
+      <button class="tab" data-tab="sharing">Sharing</button>
+      <button class="tab" data-tab="monitor">Monitor</button>
+      <button class="tab" data-tab="diagnostics">Diagnostics</button>
+      <button class="tab" data-tab="settings">Settings</button>
+    </nav>
+
+    <section class="view active" data-view="dashboard">
+      <section class="dashboard-lead">
+        <article class="status-panel">
+          <div class="status-kicker">Current Readiness</div>
+          <div class="status-label" id="dashboardStateLabel">Waiting</div>
+          <div class="status-detail" id="dashboardStateDetail">Requesting state from the native bridge.</div>
+          <dl class="status-grid" id="dashboardStatusGrid"></dl>
+          <div class="action-row">
+            <button data-command="start-server">Start Sharing</button>
+            <button class="secondary" data-tab-target="session">Continue Setup</button>
+            <button class="secondary" data-command="refresh-network">Refresh Network</button>
+            <button class="ghost" data-command="request-snapshot">Refresh Snapshot</button>
+          </div>
+        </article>
+      </section>
+
+      <section class="summary-grid">
+        <article class="card">
+          <h2>Network</h2>
+          <dl id="dashboardNetworkCard"></dl>
+        </article>
+        <article class="card">
+          <h2>Service</h2>
+          <dl id="dashboardServiceCard"></dl>
+        </article>
+        <article class="card">
+          <h2>Sharing</h2>
+          <dl id="dashboardSharingCard"></dl>
+        </article>
+        <article class="card">
+          <h2>Health</h2>
+          <dl id="dashboardHealthCard"></dl>
+        </article>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Recent Suggestions</h2>
+        </div>
+        <div class="suggestions" id="suggestions"></div>
+      </section>
+    </section>
+
+    <section class="view" data-view="session">
+      <section class="session-layout">
+        <article class="card form-card">
+          <div class="card-head">
+            <h2>Session Basics</h2>
+            <button class="ghost" data-command="generate-room-token">Auto Generate</button>
+          </div>
+          <label class="field">
+            <span>Room</span>
+            <input id="roomInput" type="text" autocomplete="off">
+          </label>
+          <label class="field">
+            <span>Token</span>
+            <input id="tokenInput" type="text" autocomplete="off">
+          </label>
+          <label class="field">
+            <span>Bind</span>
+            <input id="bindInput" type="text" autocomplete="off">
+          </label>
+          <label class="field">
+            <span>Port</span>
+            <input id="portInput" type="number" min="1" max="65535">
+          </label>
+          <div class="action-row compact">
+            <button data-command="apply-session">Apply Session</button>
+            <button class="secondary" data-command="refresh-network">Refresh IP</button>
+          </div>
+
+          <div class="divider"></div>
+
+          <h3>Run Control</h3>
+          <div class="action-grid">
+            <button data-command="start-server">Start</button>
+            <button class="secondary" data-command="stop-server">Stop</button>
+            <button class="secondary" data-command="service-only">Service Only</button>
+            <button data-command="start-and-open-host">Start + Open Host</button>
+          </div>
+        </article>
+
+        <article class="stack">
+          <section class="card">
+            <div class="card-head">
+              <h2>Session Summary</h2>
+              <button class="ghost" data-command="copy-viewer-url">Copy Viewer URL</button>
+            </div>
+            <dl id="sessionSummary"></dl>
+          </section>
+          <section class="card">
+            <div class="card-head">
+              <h2>Runtime</h2>
+              <button class="ghost" data-command="open-host">Open Host</button>
+            </div>
+            <dl id="sessionRuntimeCard"></dl>
+          </section>
+          <section class="card preview-card">
+            <div class="card-head">
+              <div>
+                <h2>Host Preview</h2>
+                <p class="muted">The same `/host` page is embedded here so the operator can stay inside Session Setup.</p>
+              </div>
+              <div class="action-row compact">
+                <div class="status idle status-inline" id="hostPreviewBadge">Idle</div>
+                <button class="ghost" data-local-action="reload-preview">Reload Preview</button>
+                <button class="secondary" data-command="open-host">Open Host In Browser</button>
+              </div>
+            </div>
+
+            <div class="preview-surface">
+              <iframe id="hostPreviewFrame" title="Host Preview" referrerpolicy="no-referrer"></iframe>
+              <div class="preview-empty" id="hostPreviewEmpty">
+                <div class="preview-empty-inner">
+                  <h3 id="hostPreviewEmptyTitle">Host Preview Unavailable</h3>
+                  <p id="hostPreviewEmptyBody">Start the local service first, then the embedded Host page can load inside this panel.</p>
+                  <div class="action-row">
+                    <button data-command="start-server">Start Service</button>
+                    <button class="secondary" data-command="open-host">Open Host In Browser</button>
+                    <button class="ghost" data-command="request-snapshot">Refresh Snapshot</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <p class="preview-note" id="hostPreviewNote">The preview will reuse the existing WebView2 certificate bypass path for this desktop session.</p>
+          </section>
+        </article>
+      </section>
+    </section>
+
+    <section class="view" data-view="network">
+      <section class="summary-grid">
+        <article class="card">
+          <div class="card-head">
+            <h2>Current Network Summary</h2>
+            <button class="ghost" data-command="refresh-network">Re-Detect</button>
+          </div>
+          <dl id="networkSummary"></dl>
+        </article>
+        <article class="card">
+          <h2>Wi-Fi Direct / Pairing</h2>
+          <dl id="wifiDirectCard"></dl>
+          <div class="action-row">
+            <button class="secondary" data-command="open-connected-devices">Open Connected Devices</button>
+            <button class="ghost" data-command="open-hotspot-settings">Open System Settings</button>
+          </div>
+        </article>
+      </section>
+
+      <section class="card">
+        <div class="card-head">
+          <h2>Adapter Candidates</h2>
+          <span class="muted">Choose which LAN address should be treated as the primary sharing endpoint.</span>
+        </div>
+        <div class="candidate-list" id="adapterList"></div>
+      </section>
+
+      <section class="summary-grid">
+        <article class="card form-card">
+          <div class="card-head">
+            <h2>Hotspot</h2>
+            <button class="ghost" data-command="auto-hotspot">Auto Generate</button>
+          </div>
+          <label class="field">
+            <span>SSID</span>
+            <input id="hotspotSsidInput" type="text" autocomplete="off">
+          </label>
+          <label class="field">
+            <span>Password</span>
+            <input id="hotspotPasswordInput" type="text" autocomplete="off">
+          </label>
+          <div class="action-row compact">
+            <button data-command="apply-hotspot">Apply Hotspot Config</button>
+            <button class="secondary" data-command="start-hotspot">Start Hotspot</button>
+            <button class="secondary" data-command="stop-hotspot">Stop Hotspot</button>
+            <button class="ghost" data-command="open-hotspot-settings">System Hotspot Settings</button>
+          </div>
+        </article>
+        <article class="card">
+          <h2>Hotspot Status</h2>
+          <dl id="hotspotCard"></dl>
+        </article>
+      </section>
+    </section>
+
+    <section class="view" data-view="sharing">
+      <section class="summary-grid">
+        <article class="card">
+          <div class="card-head">
+            <h2>Access Entry</h2>
+            <button class="ghost" data-command="request-snapshot">Refresh Snapshot</button>
+          </div>
+          <dl id="sharingAccessCard"></dl>
+          <div class="action-row">
+            <button data-command="copy-host-url">Copy Host URL</button>
+            <button class="secondary" data-command="copy-viewer-url">Copy Viewer URL</button>
+            <button class="secondary" data-command="open-host">Open Host</button>
+            <button class="secondary" data-command="open-viewer">Open Viewer</button>
+          </div>
+        </article>
+        <article class="card">
+          <div class="card-head">
+            <h2>Offline Materials</h2>
+            <button class="ghost" data-command="export-bundle">Export Bundle</button>
+          </div>
+          <dl id="sharingMaterialCard"></dl>
+          <div class="action-row">
+            <button data-command="show-share-wizard">Open Share Wizard</button>
+            <button class="secondary" data-command="open-output">Open Output Folder</button>
+            <button class="secondary" data-command="refresh-bundle">Refresh Bundle</button>
+          </div>
+        </article>
+      </section>
+
+      <section class="card">
+        <h2>Access Guidance</h2>
+        <div class="guide-list" id="sharingGuide"></div>
+      </section>
+    </section>
+
+    <section class="view" data-view="monitor">
+      <section class="metric-grid" id="monitorMetrics"></section>
+      <section class="summary-grid">
+        <article class="card">
+          <h2>Timeline</h2>
+          <pre id="timelineText">No timeline events yet.</pre>
+        </article>
+        <article class="card">
+          <h2>Live Log Tail</h2>
+          <pre id="logTailText">No logs yet.</pre>
+        </article>
+      </section>
+    </section>
+
+    <section class="view" data-view="diagnostics">
+      <section class="summary-grid">
+        <article class="card">
+          <h2>Checklist</h2>
+          <div class="checklist" id="diagChecklist"></div>
+        </article>
+        <article class="card">
+          <h2>Actions</h2>
+          <div class="suggestions" id="diagActions"></div>
+        </article>
+      </section>
+
+      <section class="summary-grid">
+        <article class="card">
+          <h2>Export Paths</h2>
+          <dl id="diagPaths"></dl>
+          <div class="action-row">
+            <button data-command="open-output">Open Output</button>
+            <button class="secondary" data-command="open-report">Open Report</button>
+            <button class="secondary" data-command="refresh-bundle">Refresh Bundle</button>
+            <button class="ghost" data-command="export-bundle">Export Bundle</button>
+          </div>
+        </article>
+        <article class="card">
+          <h2>Current Warning</h2>
+          <p class="muted" id="diagWarningText">None</p>
+        </article>
+      </section>
+    </section>
+
+    <section class="view" data-view="settings">
+      <section class="summary-grid">
+        <article class="card">
+          <h2>General</h2>
+          <dl id="settingsGeneral"></dl>
+        </article>
+        <article class="card">
+          <h2>Sharing Defaults</h2>
+          <dl id="settingsSharing"></dl>
+        </article>
+        <article class="card">
+          <h2>Logging</h2>
+          <dl id="settingsLogging"></dl>
+        </article>
+        <article class="card">
+          <h2>Advanced</h2>
+          <dl id="settingsAdvanced"></dl>
+        </article>
+      </section>
+    </section>
+
+    <section class="card">
+      <div class="card-head">
+        <h2>Raw Snapshot</h2>
+        <div class="action-row compact">
+          <button class="ghost" data-command="request-snapshot">Refresh Snapshot</button>
+          <span class="muted">Useful while the HTML shell is still under active migration.</span>
+        </div>
+      </div>
+      <pre id="rawState">{}</pre>
+    </section>
+  </div>
+
+  <script src="./app.js"></script>
+</body>
+</html>

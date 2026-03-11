@@ -177,6 +177,27 @@ void WebViewHost::Navigate(const std::wstring& url) {
 #endif
 }
 
+bool WebViewHost::PostJson(std::wstring_view json) {
+    if (!m_impl) return false;
+
+#if LAN_HAS_WEBVIEW2
+    if (!m_impl->webview) {
+        return false;
+    }
+
+    const HRESULT hr = m_impl->webview->PostWebMessageAsJson(std::wstring(json).c_str());
+    if (FAILED(hr)) {
+        m_impl->Log(L"WebView2: PostWebMessageAsJson failed");
+        return false;
+    }
+    return true;
+#else
+    (void)json;
+    m_impl->Log(L"WebView2 SDK is unavailable; PostJson was ignored.");
+    return false;
+#endif
+}
+
 void WebViewHost::SetMessageCallback(std::function<void(std::wstring)> webMessage) {
     if (!m_impl) return;
     m_impl->webMessage = std::move(webMessage);

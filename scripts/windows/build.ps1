@@ -352,6 +352,13 @@ if ($Target -eq "desktop_host" -or $Target -eq "all") {
       if (Test-Path $wwwOut) { Remove-Item -Recurse -Force $wwwOut }
       Copy-Item -Recurse -Force $wwwBuilt $wwwOut
     }
+
+    $webUiBuilt = Join-Path $root "desktop_host\LanScreenShareHostApp\LanScreenShareHostApp\webui"
+    if (Test-Path $webUiBuilt) {
+      $webUiOut = Join-Path $winOut "webui"
+      if (Test-Path $webUiOut) { Remove-Item -Recurse -Force $webUiOut }
+      Copy-Item -Recurse -Force $webUiBuilt $webUiOut
+    }
   }
 }
 
