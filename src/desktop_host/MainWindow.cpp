@@ -3705,7 +3705,13 @@ void MainWindow::RefreshHotspotState() {
     std::string err;
     if (lan::network::NetworkManager::QueryHotspotState(state, err)) {
         m_hotspotRunning = state.running;
-        m_hotspotStatus = state.running ? L"running" : L"stopped";
+        if (state.running) {
+            m_hotspotStatus = L"running";
+        } else if (!state.supported) {
+            m_hotspotStatus = L"system settings required";
+        } else {
+            m_hotspotStatus = L"stopped";
+        }
         if (!state.ssid.empty()) m_hotspotSsid = urlutil::Utf8ToWide(state.ssid);
         if (!state.password.empty()) m_hotspotPassword = urlutil::Utf8ToWide(state.password);
         if (!state.hostIp.empty()) {
@@ -3753,7 +3759,11 @@ void MainWindow::StartHotspot() {
         }
     } else {
         m_hotspotRunning = false;
-        m_hotspotStatus = L"start failed";
+        if (!m_hotspotSupported) {
+            m_hotspotStatus = L"system settings required";
+        } else {
+            m_hotspotStatus = L"start failed";
+        }
         AppendLog(L"Start hotspot failed: " + urlutil::Utf8ToWide(err));
         AddTimelineEvent(L"Hotspot start failed");
     }
@@ -4898,7 +4908,7 @@ void MainWindow::UpdateUiState() {
     }
     if (m_btnStart) EnableWindow(m_btnStart, running ? FALSE : TRUE);
     if (m_btnStop) EnableWindow(m_btnStop, running ? TRUE : FALSE);
-    if (m_btnStartHotspot) EnableWindow(m_btnStartHotspot, m_hotspotRunning ? FALSE : TRUE);
+    if (m_btnStartHotspot) EnableWindow(m_btnStartHotspot, (m_hotspotRunning || !m_hotspotSupported) ? FALSE : TRUE);
     if (m_btnStopHotspot) EnableWindow(m_btnStopHotspot, m_hotspotRunning ? TRUE : FALSE);
     RefreshDashboard();
     RefreshSessionSetup();

@@ -13,6 +13,7 @@ struct NetworkInfo {
 struct NetworkCapabilities {
   bool wifiAdapterPresent = false;
   bool hotspotSupported = false;
+  bool processElevated = false;
   bool wifiDirectApiAvailable = false;
   bool wifiDirectNeedsPairingUi = false;
   std::string summary;

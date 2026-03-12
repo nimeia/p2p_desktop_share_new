@@ -349,6 +349,28 @@ bool HasWifiAdapter() {
   return false;
 }
 
+bool IsProcessElevated() {
+  HANDLE token = nullptr;
+  if (!OpenProcessToken(GetCurrentProcess(), TOKEN_QUERY, &token)) return false;
+
+  TOKEN_ELEVATION elevation{};
+  DWORD bytes = 0;
+  const BOOL ok = GetTokenInformation(token, TokenElevation, &elevation, sizeof(elevation), &bytes);
+  CloseHandle(token);
+  return ok && elevation.TokenIsElevated != 0;
+}
+
+std::string FriendlyHostedNetworkUnavailableError(bool wifiAdapterPresent) {
+  if (!wifiAdapterPresent) {
+    return "No Wi-Fi adapter was detected. Use wired LAN or open Windows hotspot settings instead.";
+  }
+  return "The current Wi-Fi driver does not support hosted network control. Use Windows Mobile Hotspot settings instead.";
+}
+
+std::string FriendlyHotspotAdminError() {
+  return "Starting hotspot requires administrator privileges. Restart the desktop app as administrator, or use Windows Mobile Hotspot settings instead.";
+}
+
 bool QueryWifiDirectApiAvailability() {
   HMODULE wlanApi = LoadLibraryW(L"wlanapi.dll");
   if (!wlanApi) return false;
@@ -448,6 +470,7 @@ bool NetworkManager::GetCurrentNetworkInfo(NetworkInfo& out, std::string& err) {
 bool NetworkManager::QueryCapabilities(NetworkCapabilities& out, std::string& err) {
   out = {};
   out.wifiAdapterPresent = HasWifiAdapter();
+  out.processElevated = IsProcessElevated();
   out.wifiDirectApiAvailable = QueryWifiDirectApiAvailability();
   out.wifiDirectNeedsPairingUi = out.wifiDirectApiAvailable;
 
@@ -467,6 +490,7 @@ bool NetworkManager::QueryCapabilities(NetworkCapabilities& out, std::string& er
 
   if (out.summary.empty()) {
     out.summary = std::string("wifiAdapter=") + (out.wifiAdapterPresent ? "yes" : "no") +
+                  ", elevated=" + (out.processElevated ? "yes" : "no") +
                   ", hotspot=" + (out.hotspotSupported ? "yes" : "no") +
                   ", wifiDirectApi=" + (out.wifiDirectApiAvailable ? "yes" : "no");
   }
@@ -490,6 +514,15 @@ bool NetworkManager::StartHotspot(const HotspotConfig& cfg, HotspotState& out, s
     return false;
   }
 
+  NetworkCapabilities caps;
+  std::string capsErr;
+  QueryCapabilities(caps, capsErr);
+  out.supported = caps.hotspotSupported;
+  if (!caps.hotspotSupported) {
+    err = FriendlyHostedNetworkUnavailableError(caps.wifiAdapterPresent);
+    return false;
+  }
+
   std::string output;
   DWORD exitCode = 0;
   const std::wstring ssid = QuoteArg(Utf8ToWide(cfg.ssid));
@@ -499,7 +532,12 @@ bool NetworkManager::StartHotspot(const HotspotConfig& cfg, HotspotState& out, s
     return false;
   }
   if (exitCode != 0) {
-    err = "netsh set hostednetwork failed: " + Trim(output);
+    const std::string trimmed = Trim(output);
+    if (ToLower(trimmed).find("administrator privilege") != std::string::npos) {
+      err = FriendlyHotspotAdminError();
+    } else {
+      err = "netsh set hostednetwork failed: " + trimmed;
+    }
     return false;
   }
 
@@ -508,7 +546,12 @@ bool NetworkManager::StartHotspot(const HotspotConfig& cfg, HotspotState& out, s
     return false;
   }
   if (exitCode != 0) {
-    err = "netsh start hostednetwork failed: " + Trim(output);
+    const std::string trimmed = Trim(output);
+    if (ToLower(trimmed).find("administrator privilege") != std::string::npos) {
+      err = FriendlyHotspotAdminError();
+    } else {
+      err = "netsh start hostednetwork failed: " + trimmed;
+    }
     return false;
   }
 
@@ -544,6 +587,11 @@ bool NetworkManager::StopHotspot(std::string& err) {
 
 bool NetworkManager::QueryHotspotState(HotspotState& out, std::string& err) {
   out = {};
+  NetworkCapabilities caps;
+  std::string capsErr;
+  QueryCapabilities(caps, capsErr);
+  out.supported = caps.hotspotSupported;
+
   std::string output;
   DWORD exitCode = 0;
   if (!RunNetshCapture(L"wlan show hostednetwork", output, exitCode, err)) {
@@ -554,7 +602,6 @@ bool NetworkManager::QueryHotspotState(HotspotState& out, std::string& err) {
     return false;
   }
 
-  out.supported = true;
   out.rawStatus = Trim(output);
   if (const auto running = ParseHostedNetworkState(output); running.has_value()) {
     out.running = *running;

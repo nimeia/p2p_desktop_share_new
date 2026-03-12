@@ -282,6 +282,7 @@
     applySessionForm(state);
     applyHotspotForm(state);
     renderCandidates(state);
+    syncHotspotActions(state);
 
     setPairs("sessionSummary", [
       ["Host URL", state.hostUrl],
@@ -408,6 +409,26 @@
     });
   }
 
+  function syncHotspotActions(payload) {
+    const startBtn = $("startHotspotBtn");
+    const stopBtn = $("stopHotspotBtn");
+    const applyBtn = $("applyHotspotBtn");
+    const directControl = !!payload.hotspotSupported;
+
+    applyBtn.disabled = false;
+    stopBtn.disabled = !payload.hotspotRunning;
+
+    if (directControl) {
+      startBtn.disabled = !!payload.hotspotRunning;
+      startBtn.textContent = "Start Hotspot";
+      startBtn.title = "";
+    } else {
+      startBtn.disabled = false;
+      startBtn.textContent = "Use System Hotspot";
+      startBtn.title = "This machine does not support hostednetwork control. Open Windows hotspot settings instead.";
+    }
+  }
+
   function handleCommand(command, extra) {
     if (command === "request-snapshot") {
       send({ kind: "request-snapshot" });
@@ -420,6 +441,15 @@
     if (command === "apply-hotspot") {
       applyHotspot();
       return;
+    }
+    if (command === "start-hotspot") {
+      if (hotspotDirty) {
+        applyHotspot();
+      }
+      if (!state.hotspotSupported && !state.hotspotRunning) {
+        send({ kind: "command", command: "open-hotspot-settings" });
+        return;
+      }
     }
     send({ kind: "command", command, ...extra });
   }
