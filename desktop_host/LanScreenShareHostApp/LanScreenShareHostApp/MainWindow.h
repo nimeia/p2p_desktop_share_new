@@ -345,6 +345,8 @@ private:
     HWND m_runtimeInfoCard = nullptr;
     HWND m_shellFallbackBox = nullptr;
     HWND m_shellRetryBtn = nullptr;
+    HWND m_shellStartBtn = nullptr;
+    HWND m_shellStartHostBtn = nullptr;
     HWND m_shellOpenHostBtn = nullptr;
 
     std::wstring m_networkMode = L"";
