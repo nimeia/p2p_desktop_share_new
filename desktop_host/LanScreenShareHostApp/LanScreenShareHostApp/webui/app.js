@@ -98,6 +98,7 @@
 
   function switchTab(tab, notifyNative) {
     const normalizedTab = normalizeTab(tab);
+    const changed = activeTab !== normalizedTab;
     activeTab = normalizedTab;
     document.querySelectorAll(".tab").forEach((button) => {
       button.classList.toggle("active", button.getAttribute("data-tab") === normalizedTab);
@@ -105,7 +106,7 @@
     document.querySelectorAll(".view").forEach((view) => {
       view.classList.toggle("active", view.getAttribute("data-view") === normalizedTab);
     });
-    if (notifyNative) {
+    if (notifyNative && changed) {
       send({ kind: "command", command: "switch-page", page: normalizedTab });
     }
   }

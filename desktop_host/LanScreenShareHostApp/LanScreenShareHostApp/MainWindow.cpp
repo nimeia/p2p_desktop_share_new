@@ -3295,6 +3295,14 @@ void MainWindow::OnCreate() {
         L"BUTTON", L"Retry Loading UI", WS_CHILD | BS_PUSHBUTTON,
         0, 0, 1, 1,
         m_hwnd, (HMENU)(INT_PTR)ID_BTN_SHELL_RETRY, GetModuleHandle(nullptr), nullptr);
+    m_shellStartBtn = CreateWindowW(
+        L"BUTTON", L"Start Service", WS_CHILD | BS_PUSHBUTTON,
+        0, 0, 1, 1,
+        m_hwnd, (HMENU)(INT_PTR)ID_BTN_START, GetModuleHandle(nullptr), nullptr);
+    m_shellStartHostBtn = CreateWindowW(
+        L"BUTTON", L"Start + Open Host", WS_CHILD | BS_PUSHBUTTON,
+        0, 0, 1, 1,
+        m_hwnd, (HMENU)(INT_PTR)ID_BTN_START_AND_OPEN_HOST, GetModuleHandle(nullptr), nullptr);
     m_shellOpenHostBtn = CreateWindowW(
         L"BUTTON", L"Open Host In Browser", WS_CHILD | BS_PUSHBUTTON,
         0, 0, 1, 1,
@@ -3346,8 +3354,14 @@ void MainWindow::OnSize(int width, int height) {
     if (m_shellRetryBtn) {
         MoveWindow(m_shellRetryBtn, PAD * 2, 70 + std::max(180, height - 180) + 10, 150, 30, TRUE);
     }
+    if (m_shellStartBtn) {
+        MoveWindow(m_shellStartBtn, PAD * 2 + 160, 70 + std::max(180, height - 180) + 10, 140, 30, TRUE);
+    }
+    if (m_shellStartHostBtn) {
+        MoveWindow(m_shellStartHostBtn, PAD * 2 + 310, 70 + std::max(180, height - 180) + 10, 170, 30, TRUE);
+    }
     if (m_shellOpenHostBtn) {
-        MoveWindow(m_shellOpenHostBtn, PAD * 2 + 160, 70 + std::max(180, height - 180) + 10, 180, 30, TRUE);
+        MoveWindow(m_shellOpenHostBtn, PAD * 2 + 490, 70 + std::max(180, height - 180) + 10, 180, 30, TRUE);
     }
     RefreshShellFallback();
 }
@@ -3355,7 +3369,11 @@ void MainWindow::OnSize(int width, int height) {
 void MainWindow::SetPage(UiPage page) {
     m_currentPage = page;
     if (PreferHtmlAdminUi()) {
-        NavigateHtmlAdminInWebView();
+        m_webviewMode = WebViewSurfaceMode::HtmlAdminPreview;
+        EnsureWebViewInitialized();
+        if (!m_htmlAdminNavigated) {
+            NavigateHtmlAdminInWebView();
+        }
     } else if (m_currentPage == UiPage::Setup && m_server && m_server->IsRunning()) {
         NavigateHostInWebView();
     } else {
@@ -3455,12 +3473,17 @@ void MainWindow::OnCommand(int id) {
         break;
     case ID_BTN_SHELL_RETRY:
         m_adminShellReady = false;
+        m_htmlAdminNavigated = false;
         EnsureWebViewInitialized();
         NavigateHtmlAdminInWebView();
         RefreshShellFallback();
         break;
     case ID_BTN_SHELL_OPEN_HOST:
-        OpenHostPage();
+        if (m_server && !m_server->IsRunning()) {
+            StartAndOpenHost();
+        } else {
+            OpenHostPage();
+        }
         break;
     case ID_EDIT_DIAG_LOG_SEARCH:
     case ID_COMBO_DIAG_LEVEL:
@@ -4020,6 +4043,7 @@ std::wstring MainWindow::BuildWifiDirectSessionAlias() const {
 void MainWindow::NavigateHostInWebView() {
     const auto url = BuildHostUrlLocal();
     m_webviewMode = WebViewSurfaceMode::HostPreview;
+    m_htmlAdminNavigated = false;
     EnsureWebViewInitialized();
     m_webview.Navigate(url);
     AppendLog(L"Embedded host page navigate: " + url);
@@ -4033,10 +4057,12 @@ void MainWindow::NavigateHtmlAdminInWebView() {
     EnsureWebViewInitialized();
 
     if (!fs::exists(indexFile)) {
+        m_htmlAdminNavigated = false;
         AppendLog(L"HTML admin shell missing: " + indexFile.wstring());
         return;
     }
 
+    m_htmlAdminNavigated = true;
     m_webview.Navigate(BuildFileUrl(indexFile));
     AppendLog(L"HTML admin shell navigate: " + indexFile.wstring());
 }
@@ -4255,12 +4281,13 @@ void MainWindow::AppendLog(std::wstring_view line) {
 }
 
 void MainWindow::RefreshShellFallback() {
-    if (!m_shellFallbackBox || !m_shellRetryBtn || !m_shellOpenHostBtn) return;
+    if (!m_shellFallbackBox || !m_shellRetryBtn || !m_shellStartBtn || !m_shellStartHostBtn || !m_shellOpenHostBtn) return;
 
     const bool htmlMode = m_webviewMode == WebViewSurfaceMode::HtmlAdminPreview;
     const std::wstring status = m_webview.StatusText();
     const std::wstring detail = m_webview.DetailText();
     const bool showFallback = htmlMode && (!m_adminShellReady || status != L"ready");
+    const bool serverRunning = m_server && m_server->IsRunning();
 
     if (m_hwnd) {
         RECT rc{};
@@ -4283,11 +4310,15 @@ void MainWindow::RefreshShellFallback() {
 
     ShowWindow(m_shellFallbackBox, showFallback ? SW_SHOW : SW_HIDE);
     ShowWindow(m_shellRetryBtn, showFallback ? SW_SHOW : SW_HIDE);
+    ShowWindow(m_shellStartBtn, showFallback ? SW_SHOW : SW_HIDE);
+    ShowWindow(m_shellStartHostBtn, showFallback ? SW_SHOW : SW_HIDE);
     ShowWindow(m_shellOpenHostBtn, showFallback ? SW_SHOW : SW_HIDE);
 
     if (showFallback) {
         SetWindowPos(m_shellFallbackBox, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
         SetWindowPos(m_shellRetryBtn, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+        SetWindowPos(m_shellStartBtn, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
+        SetWindowPos(m_shellStartHostBtn, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
         SetWindowPos(m_shellOpenHostBtn, HWND_TOP, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE);
     }
 
@@ -4302,14 +4333,19 @@ void MainWindow::RefreshShellFallback() {
         ss << L"WebView detail: " << detail << L"\r\n";
     }
     ss << L"Admin shell ready: " << (m_adminShellReady ? L"yes" : L"no") << L"\r\n";
+    ss << L"Server running: " << (serverRunning ? L"yes" : L"no") << L"\r\n";
     ss << L"UI bundle found: " << (fs::exists(AdminUiDir() / L"index.html") ? L"yes" : L"no") << L"\r\n\r\n";
+
+    SetWindowTextW(m_shellStartBtn, serverRunning ? L"Service Running" : L"Start Service");
+    EnableWindow(m_shellStartBtn, serverRunning ? FALSE : TRUE);
+    SetWindowTextW(m_shellStartHostBtn, serverRunning ? L"Open Host In Browser" : L"Start + Open Host");
 
     if (status == L"sdk-unavailable") {
         ss << L"Reason\r\n";
         ss << L"- This build was compiled without WebView2 SDK headers, so the HTML admin cannot be embedded.\r\n\r\n";
         ss << L"Next step\r\n";
         ss << L"- Restore desktop NuGet packages and rebuild the app, then click Retry Loading UI.\r\n";
-        ss << L"- You can still open the Host page in the system browser.";
+        ss << L"- You can still use Start Service / Start + Open Host below.";
     } else if (status == L"controller-unavailable" &&
                detail.find(L"0x8007139F") != std::wstring::npos) {
         ss << L"Reason\r\n";
@@ -4319,24 +4355,25 @@ void MainWindow::RefreshShellFallback() {
         ss << L"- Close all LanScreenShareHostApp processes and relaunch the newest Debug build.\r\n";
         ss << L"- Click Retry Loading UI once after relaunch.\r\n";
         ss << L"- If it still fails, keep the detail line and check the latest desktop log.\r\n";
-        ss << L"- You can still open the Host page in the system browser.";
+        ss << L"- You can still use Start Service / Start + Open Host below.";
     } else if (status == L"runtime-unavailable" || status == L"controller-unavailable") {
         ss << L"Reason\r\n";
         ss << L"- WebView2 is unavailable on this machine, so the HTML admin cannot be embedded.\r\n\r\n";
         ss << L"Next step\r\n";
         ss << L"- Install or repair Microsoft WebView2 Runtime, then click Retry Loading UI.\r\n";
-        ss << L"- You can still open the Host page in the system browser.";
+        ss << L"- You can still use Start Service / Start + Open Host below.";
     } else if (!fs::exists(AdminUiDir() / L"index.html")) {
         ss << L"Reason\r\n";
         ss << L"- The desktop webui bundle is missing from the runtime directory.\r\n\r\n";
         ss << L"Next step\r\n";
-        ss << L"- Rebuild or copy the webui output, then click Retry Loading UI.";
+        ss << L"- Rebuild or copy the webui output, then click Retry Loading UI.\r\n";
+        ss << L"- You can still use Start Service / Start + Open Host below.";
     } else {
         ss << L"Reason\r\n";
         ss << L"- WebView2 is still initializing or the HTML shell has not replied with a ready snapshot yet.\r\n\r\n";
         ss << L"Next step\r\n";
         ss << L"- Wait a moment, or click Retry Loading UI.\r\n";
-        ss << L"- If it keeps failing, open Host in the browser and inspect logs.";
+        ss << L"- If it keeps failing, use Start Service / Start + Open Host below and inspect logs.";
     }
 
     SetWindowTextW(m_shellFallbackBox, ss.str().c_str());

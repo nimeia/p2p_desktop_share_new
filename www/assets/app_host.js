@@ -228,6 +228,8 @@ async function negotiatePeer(peerId) {
     return;
   }
 
+  // Consume the current renegotiation request before creating an offer.
+  peer.needsRenegotiate = false;
   peer.negotiating = true;
   try {
     const offer = await peer.pc.createOffer({ offerToReceiveAudio: false, offerToReceiveVideo: false });

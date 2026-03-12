@@ -20,6 +20,7 @@ video.defaultMuted = true;
 let ws = null;
 let peerId = null;
 let pc = null;
+let playRetryTimer = null;
 
 function setState(nextState) {
   document.getElementById("state").textContent = nextState;
@@ -45,6 +46,21 @@ async function tryPlayVideo(reason) {
     log(`video.play OK (${reason})`);
     setState("playing");
   } catch (e) {
+    const message = String(e || "");
+    if ((e && e.name === "AbortError") || message.includes("interrupted by a call to pause")) {
+      log(`video.play interrupted (${reason}): ${e}`);
+      setState("stream_attached");
+      if (playRetryTimer) {
+        clearTimeout(playRetryTimer);
+      }
+      playRetryTimer = setTimeout(() => {
+        playRetryTimer = null;
+        if (video.srcObject) {
+          void tryPlayVideo(`${reason}-retry`);
+        }
+      }, 150);
+      return;
+    }
     log(`video.play blocked (${reason}): ${e}`);
     setState("play_blocked");
     showPlayHint();
@@ -89,6 +105,10 @@ function ensurePc() {
 }
 
 function cleanupPc() {
+  if (playRetryTimer) {
+    clearTimeout(playRetryTimer);
+    playRetryTimer = null;
+  }
   try {
     if (pc) pc.close();
   } catch {}

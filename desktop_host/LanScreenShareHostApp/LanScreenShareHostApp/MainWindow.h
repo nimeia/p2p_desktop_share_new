@@ -167,6 +167,7 @@ private:
     bool m_viewerUrlCopied = false;
     bool m_shareCardExported = false;
     bool m_adminShellReady = false;
+    bool m_htmlAdminNavigated = false;
     WebViewSurfaceMode m_webviewMode = WebViewSurfaceMode::Hidden;
 
     std::atomic<bool> m_polling{false};
