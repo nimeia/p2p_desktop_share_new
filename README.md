@@ -2,7 +2,7 @@
 
 LAN Screen Share is a Windows-first local screen sharing MVP:
 
-- Desktop host application: currently a Win32 desktop shell with embedded WebView2 support in `desktop_host/`
+- Desktop host application: currently a Win32 desktop shell with embedded WebView2 support in `src/desktop_host/`
 - Local signaling and static file server: C++20 + Boost.Asio/Beast + OpenSSL
 - Browser media path: Host/Viewer pages use WebRTC in the browser/WebView2
 - Local-network modes: same LAN/Wi-Fi first, with Windows hotspot helpers and Wi-Fi Direct pairing guidance
@@ -64,8 +64,10 @@ See:
   - core server, cert, protocol, util, and Windows network helpers
 - `www/`
   - `host.html`, `viewer.html`, and JS assets
-- `desktop_host/`
-  - desktop host app and build notes
+- `src/desktop_host/`
+  - desktop host app solution, project, native sources, and `webui/`
+- `docs/desktop_host/`
+  - desktop host build/status notes
 - `scripts/`
   - build and certificate helper scripts
 - `out/`
@@ -95,8 +97,8 @@ Build server only:
 
 Useful outputs:
 
-- Server: `out/bin/Debug/lan_screenshare_server.exe`
-- Desktop app: `desktop_host/LanScreenShareHostApp/bin/x64/Debug/LanScreenShareHostApp.exe`
+- Server: `out/server/Debug/lan_screenshare_server.exe`
+- Desktop app: `out/desktop_host/x64/Debug/LanScreenShareHostApp.exe`
 - Build logs: `out/logs/build_*.log`
 
 Server smoke test:

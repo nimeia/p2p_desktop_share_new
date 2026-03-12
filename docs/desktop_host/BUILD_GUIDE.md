@@ -21,16 +21,20 @@ Notes:
 - Recommended: set `VCPKG_ROOT` (or use `scripts\windows\build.ps1`, which passes it automatically).
 
 ## 3) Run server (manual, WIP)
-- `out\build\Release\lan_screenshare_server.exe --bind 0.0.0.0 --port 9443 --www www --certdir cert --san-ip <host-ip>`
+- `out\server\Release\lan_screenshare_server.exe --bind 0.0.0.0 --port 9443 --www out\server\Release\www --certdir out\server\Release\cert --san-ip <host-ip>`
 
 
 
 ## 4) Build/run desktop host
 Open:
-- `desktop_host/LanScreenShareHostApp/LanScreenShareHostApp.sln`
+- `src/desktop_host/LanScreenShareHostApp.sln`
 
 Build and run project `LanScreenShareHostApp`.
 
 Or use scripts:
 - Build: `scripts\windows\build.ps1 -Target desktop_host -Config Debug`
 - Run: `scripts\windows\run_desktop_host.ps1 -Config Debug`
+
+Runtime output directories:
+- server: `out\server\<Config>\`
+- desktop host: `out\desktop_host\<Arch>\<Config>\`

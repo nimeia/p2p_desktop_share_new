@@ -6,7 +6,7 @@ param(
 . (Join-Path $PSScriptRoot "common.ps1")
 
 $root = Get-RepoRoot
-$exe = Join-Path $root "desktop_host\LanScreenShareHostApp\bin\$Arch\$Config\LanScreenShareHostApp.exe"
+$exe = Join-Path $root "out\desktop_host\$Arch\$Config\LanScreenShareHostApp.exe"
 if (-not (Test-Path $exe)) { Fail "Desktop host exe not found. Build first: scripts\windows\build.ps1 -Target desktop_host" }
 Write-Section "Run desktop host app"
 & $exe

@@ -8,7 +8,7 @@ param(
 . (Join-Path $PSScriptRoot "common.ps1")
 
 $root = Get-RepoRoot
-$exe = Join-Path $root "out\bin\$Config\lan_screenshare_server.exe"
+$exe = Join-Path $root "out\server\$Config\lan_screenshare_server.exe"
 if (-not (Test-Path $exe)) {
   Fail "Server exe not found: $exe"
 }

@@ -10,7 +10,7 @@ echo.
 echo Starting application...
 echo.
 
-set APP_PATH=LanScreenShareHostApp\bin\x64\Debug\LanScreenShareHostApp.exe
+set APP_PATH=..\..\out\desktop_host\x64\Debug\LanScreenShareHostApp.exe
 
 if not exist "%APP_PATH%" (
     echo Error: Executable not found at "%APP_PATH%"

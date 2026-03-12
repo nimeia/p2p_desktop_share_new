@@ -17,8 +17,8 @@ Verified recently:
 
 ## What Works
 
-- desktop executable is produced
-- server executable is produced
+- desktop executable is produced under `out\desktop_host\<Arch>\<Config>\`
+- server executable is produced under `out\server\<Config>\`
 - server/cert/www assets are copied next to the desktop app
 - local share pages and diagnostics bundle generation are implemented
 

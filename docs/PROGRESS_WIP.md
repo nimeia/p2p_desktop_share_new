@@ -4,7 +4,7 @@ This package is intentionally **not finished**. It is provided to prevent the ch
 
 ## What is included
 - Desktop host app (Win32 shell, unpackaged):
-  - `desktop_host/LanScreenShareHostApp/`
+  - `src/desktop_host/`
   - Basic control panel: start/stop server process, open Host/Viewer URL, open output dirs/logs.
 - Server-side incremental improvements (C++ core):
   - ServiceHost now initializes Listener + HttpRouter (no longer TODO).

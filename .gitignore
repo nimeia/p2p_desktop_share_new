@@ -7,5 +7,6 @@
 **/bin/
 **/obj/
 /vcpkg_installed/
+/third_party/nuget/
 **/packages/
 *.log

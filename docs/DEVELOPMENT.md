@@ -73,7 +73,7 @@ Important implementation note:
 
 - the current desktop shell is a Win32 application with an embedded WebView2 host area
 - it is not yet a Windows App SDK / WinUI-style product shell
-- the current source tree lives under `desktop_host/`
+- the current source tree lives under `src/desktop_host/`
 
 ### 4. Share Artifact Export
 

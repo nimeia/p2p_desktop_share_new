@@ -3,7 +3,7 @@
 
 #include "UrlUtil.h"
 #include "HttpClient.h"
-#include "../../../src/core/network/network_manager.h"
+#include "../core/network/network_manager.h"
 
 #define WIN32_LEAN_AND_MEAN
 #include <iphlpapi.h>

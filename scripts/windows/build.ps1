@@ -86,6 +86,8 @@ function Validate-ServerOutputLayout(
 
 $root = Get-RepoRoot
 $outDir = Join-Path $root "out"
+$serverOutDir = Join-Path $outDir "server\$Config"
+$desktopOutDir = Join-Path $outDir "desktop_host\$Arch\$Config"
 
 $needServer = ($Target -eq "server" -or $Target -eq "all")
 $needDesktopHost = ($Target -eq "desktop_host" -or $Target -eq "all")
@@ -174,6 +176,13 @@ if ($needServer) {
     }
   }
 
+  $legacyServerBinDir = Join-Path $outDir "bin"
+  $legacyServerCertDir = Join-Path $outDir "cert"
+  $legacyServerWwwDir = Join-Path $outDir "www"
+  if (Test-Path $legacyServerBinDir) { Remove-Item -Recurse -Force $legacyServerBinDir -ErrorAction SilentlyContinue }
+  if (Test-Path $legacyServerCertDir) { Remove-Item -Recurse -Force $legacyServerCertDir -ErrorAction SilentlyContinue }
+  if (Test-Path $legacyServerWwwDir) { Remove-Item -Recurse -Force $legacyServerWwwDir -ErrorAction SilentlyContinue }
+
   Write-Section "Configure CMake"
   New-Item -ItemType Directory -Force -Path $buildDir | Out-Null
   $cmakeArgs = @("-S", $root, "-B", $buildDir, "-Wno-dev", "-DCMAKE_TOOLCHAIN_FILE=$toolchain", "-DVCPKG_TARGET_TRIPLET=$Triplet")
@@ -251,7 +260,7 @@ if (-not $serverExeItem) {
 
 $serverExe = $serverExeItem.FullName
 
-$binDir = Join-Path $outDir "bin\$Config"
+$binDir = $serverOutDir
 New-Item -ItemType Directory -Force -Path $binDir | Out-Null
 Copy-Item -Force $serverExe (Join-Path $binDir "lan_screenshare_server.exe")
 Copy-VcpkgRuntimeDlls -RepoRoot $root -Triplet $Triplet -Config $Config -DestinationDir $binDir
@@ -264,22 +273,14 @@ if (Test-Path $pdbCandidate) {
 }
 # Generate cert (optional)
   if (-not $SanIp) { $SanIp = Get-DefaultIPv4 }
-  $certDir = Join-Path $outDir "cert"
+  $certDir = Join-Path $binDir "cert"
   Write-Section "Generate self-signed cert (SanIp=$SanIp)"
   & (Join-Path $root "scripts\gen_self_signed_cert.ps1") -OutDir $certDir -SanIp $SanIp -VcpkgRoot $vcpkgRootResolved -Triplet $Triplet
 
-  # Copy www to out for running the server
-  $wwwOut = Join-Path $outDir "www"
+  # Copy www into the server runtime bundle
+  $wwwOut = Join-Path $binDir "www"
   if (Test-Path $wwwOut) { Remove-Item -Recurse -Force $wwwOut }
   Copy-Item -Recurse -Force (Join-Path $root "www") $wwwOut
-
-  $serverCertOut = Join-Path $binDir "cert"
-  if (Test-Path $serverCertOut) { Remove-Item -Recurse -Force $serverCertOut }
-  Copy-Item -Recurse -Force $certDir $serverCertOut
-
-  $serverWwwOut = Join-Path $binDir "www"
-  if (Test-Path $serverWwwOut) { Remove-Item -Recurse -Force $serverWwwOut }
-  Copy-Item -Recurse -Force $wwwOut $serverWwwOut
 
   Write-Section "Validate server output"
   Validate-ServerOutputLayout -ServerBinDir $binDir
@@ -293,16 +294,19 @@ if (Test-Path $pdbCandidate) {
 if ($Target -eq "desktop_host" -or $Target -eq "all") {
   Write-Section "Build desktop host app"
 
-  $sln = Join-Path $root "desktop_host\LanScreenShareHostApp\LanScreenShareHostApp.sln"
+  $sln = Join-Path $root "src\desktop_host\LanScreenShareHostApp.sln"
   if (-not (Test-Path $sln)) { Fail "Desktop host solution not found: $sln" }
 
   # Clean build artifacts to avoid NuGet restore issues
   Write-Host "Cleaning build artifacts..." -ForegroundColor Gray
-  $projDir = Join-Path $root "desktop_host\LanScreenShareHostApp\LanScreenShareHostApp"
-  $objDir = Join-Path $projDir "obj"
-  $binDir = Join-Path (Split-Path $sln -Parent) "bin"
-  if (Test-Path $objDir) { Remove-Item -Path $objDir -Recurse -Force -ErrorAction SilentlyContinue }
-  if (Test-Path $binDir) { Remove-Item -Path $binDir -Recurse -Force -ErrorAction SilentlyContinue }
+  $projDir = Join-Path $root "src\desktop_host"
+  $legacyObjDir = Join-Path $projDir "obj"
+  $legacyBinDir = Join-Path (Split-Path $sln -Parent) "bin"
+  $desktopObjDir = Join-Path $outDir "obj\desktop_host"
+  if (Test-Path $legacyObjDir) { Remove-Item -Path $legacyObjDir -Recurse -Force -ErrorAction SilentlyContinue }
+  if (Test-Path $legacyBinDir) { Remove-Item -Path $legacyBinDir -Recurse -Force -ErrorAction SilentlyContinue }
+  if (Test-Path $desktopObjDir) { Remove-Item -Path $desktopObjDir -Recurse -Force -ErrorAction SilentlyContinue }
+  if (Test-Path $desktopOutDir) { Remove-Item -Path $desktopOutDir -Recurse -Force -ErrorAction SilentlyContinue }
   Write-Host "Clean completed." -ForegroundColor Gray
 
   $msbuild = Find-MSBuild
@@ -315,6 +319,7 @@ if ($Target -eq "desktop_host" -or $Target -eq "all") {
   $msbArgs = @(
     $sln,
     "/m",
+    "/p:RestoreConfigFile=$root\\NuGet.Config",
     "/p:RestorePackagesConfig=true",
     "/p:Configuration=$Config",
     "/p:Platform=$Arch"
@@ -322,39 +327,39 @@ if ($Target -eq "desktop_host" -or $Target -eq "all") {
   if (-not $SkipDesktopHostRestore) { $msbArgs = @($sln, "/restore") + $msbArgs[1..($msbArgs.Count-1)] }
   Invoke-External $msbuild $msbArgs -Echo:$VerboseCommands -LogFile $logFile
 
-  # Output dir is defined in the vcxproj as: desktop_host/LanScreenShareHostApp/bin/<Platform>/<Config>/
-  $winOut = Join-Path $root "desktop_host\LanScreenShareHostApp\bin\$Arch\$Config"
+  # Output dir is defined in the vcxproj as: out/desktop_host/<Platform>/<Config>/
+  $winOut = $desktopOutDir
   if (-not (Test-Path $winOut)) {
     Write-Host "Desktop host output dir not found: $winOut" -ForegroundColor Yellow
   } else {
     Copy-VcpkgRuntimeDlls -RepoRoot $root -Triplet $Triplet -Config $Config -DestinationDir $winOut
 
     # Copy server + cert + www next to the desktop host exe (best-effort)
-    $serverBuilt = Join-Path $root "out\bin\$Config\lan_screenshare_server.exe"
+    $serverBuilt = Join-Path $serverOutDir "lan_screenshare_server.exe"
     if (Test-Path $serverBuilt) { Copy-Item -Force $serverBuilt (Join-Path $winOut "lan_screenshare_server.exe") }
 
-    $serverToolsBuilt = Join-Path $root "out\bin\$Config\tools"
+    $serverToolsBuilt = Join-Path $serverOutDir "tools"
     if (Test-Path $serverToolsBuilt) {
       $toolsOut = Join-Path $winOut "tools"
       if (Test-Path $toolsOut) { Remove-Item -Recurse -Force $toolsOut }
       Copy-Item -Recurse -Force $serverToolsBuilt $toolsOut
     }
 
-    $certBuilt = Join-Path $root "out\cert"
+    $certBuilt = Join-Path $serverOutDir "cert"
     if (Test-Path $certBuilt) {
       $certOut = Join-Path $winOut "cert"
       if (Test-Path $certOut) { Remove-Item -Recurse -Force $certOut }
       Copy-Item -Recurse -Force $certBuilt $certOut
     }
 
-    $wwwBuilt = Join-Path $root "out\www"
+    $wwwBuilt = Join-Path $serverOutDir "www"
     if (Test-Path $wwwBuilt) {
       $wwwOut = Join-Path $winOut "www"
       if (Test-Path $wwwOut) { Remove-Item -Recurse -Force $wwwOut }
       Copy-Item -Recurse -Force $wwwBuilt $wwwOut
     }
 
-    $webUiBuilt = Join-Path $root "desktop_host\LanScreenShareHostApp\LanScreenShareHostApp\webui"
+    $webUiBuilt = Join-Path $root "src\desktop_host\webui"
     if (Test-Path $webUiBuilt) {
       $webUiOut = Join-Path $winOut "webui"
       if (Test-Path $webUiOut) { Remove-Item -Recurse -Force $webUiOut }
@@ -367,3 +372,13 @@ Write-Section "Done"
 Write-Host "BuildDir: $buildDir"
 Write-Host "OutDir:   $outDir"
 Write-Host "LogFile:  $logFile"
+if ($needServer) {
+  $serverExeOut = Join-Path $serverOutDir "lan_screenshare_server.exe"
+  Write-Host "ServerDir: $serverOutDir"
+  Write-Host "ServerExe: $serverExeOut"
+}
+if ($needDesktopHost) {
+  $desktopExeOut = Join-Path $desktopOutDir "LanScreenShareHostApp.exe"
+  Write-Host "DesktopDir: $desktopOutDir"
+  Write-Host "DesktopExe: $desktopExeOut"
+}

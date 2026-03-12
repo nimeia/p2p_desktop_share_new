@@ -17,10 +17,9 @@ $scriptRoot = Split-Path -Parent $PSScriptRoot
 $root = Split-Path -Parent $scriptRoot
 
 # Paths to clean
-$projectDir = Join-Path $root "desktop_host\LanScreenShareHostApp\LanScreenShareHostApp"
-$objDir = Join-Path $projectDir "obj"
-$solutionDir = Split-Path -Parent $projectDir
-$binDir = Join-Path $solutionDir "bin"
+$projectDir = Join-Path $root "src\desktop_host"
+$objDir = Join-Path $root "out\obj\desktop_host"
+$binDir = Join-Path $root "out\desktop_host"
 
 Write-Host "Cleaning project build artifacts..." -ForegroundColor Yellow
 if (Test-Path $objDir) {

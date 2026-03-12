@@ -9,7 +9,7 @@ param(
 
 $root = Get-RepoRoot
 $outDir = Join-Path $root "out"
-$exe = Join-Path $outDir "bin\$Config\lan_screenshare_server.exe"
+$exe = Join-Path $outDir "server\$Config\lan_screenshare_server.exe"
 if (-not (Test-Path $exe)) { Fail "Server exe not found. Build first: scripts\windows\build.ps1 -Target server" }
 
 if (-not $SanIp) { $SanIp = Get-DefaultIPv4 }

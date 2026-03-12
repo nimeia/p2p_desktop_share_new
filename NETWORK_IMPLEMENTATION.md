@@ -111,7 +111,7 @@ struct ServerOptions {
 
 1. **启动应用**
    ```
-   D:\chatgpt-dev\lan_28\desktop_host\LanScreenShareHostApp\bin\x64\Debug\LanScreenShareHostApp.exe
+   D:\chatgpt-dev\lan_28\out\desktop_host\x64\Debug\LanScreenShareHostApp.exe
    ```
 
 2. **在 UI 中配置**

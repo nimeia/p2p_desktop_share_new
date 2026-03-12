@@ -20,7 +20,7 @@
     <ClInclude Include="UrlUtil.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="HttpClient.h"><Filter>Header Files</Filter></ClInclude>
     <ClInclude Include="WebViewHost.h"><Filter>Header Files</Filter></ClInclude>
-    <ClInclude Include="..\..\..\src\core\network\network_manager.h"><Filter>Header Files</Filter></ClInclude>
+    <ClInclude Include="..\core\network\network_manager.h"><Filter>Header Files</Filter></ClInclude>
   </ItemGroup>
 
   <ItemGroup>
@@ -33,6 +33,6 @@
     <ClCompile Include="UrlUtil.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="HttpClient.cpp"><Filter>Source Files</Filter></ClCompile>
     <ClCompile Include="WebViewHost.cpp"><Filter>Source Files</Filter></ClCompile>
-    <ClCompile Include="..\..\..\src\core\network\network_manager.cpp"><Filter>Source Files</Filter></ClCompile>
+    <ClCompile Include="..\core\network\network_manager.cpp"><Filter>Source Files</Filter></ClCompile>
   </ItemGroup>
 </Project>

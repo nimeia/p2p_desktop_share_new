@@ -1,5 +1,6 @@
 # Test script for LanScreenShareHostApp
-$appPath = "D:\chatgpt-dev\lan_28\desktop_host\LanScreenShareHostApp\bin\x64\Debug\LanScreenShareHostApp.exe"
+$root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
+$appPath = Join-Path $root "out\desktop_host\x64\Debug\LanScreenShareHostApp.exe"
 
 if (-not (Test-Path $appPath)) {
     Write-Error "Executable not found: $appPath"

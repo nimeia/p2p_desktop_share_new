@@ -31,10 +31,10 @@ Build only desktop host:
 
 Artifacts:
 
-- Server exe: `out/bin/<Config>/lan_screenshare_server.exe`
-- Cert: `out/cert/server.key|server.crt`
-- Web root: `out/www/*`
-- Desktop host exe: `desktop_host/LanScreenShareHostApp/bin/<Arch>/<Config>/LanScreenShareHostApp.exe`
+- Server exe: `out/server/<Config>/lan_screenshare_server.exe`
+- Cert: `out/server/<Config>/cert/server.key|server.crt`
+- Web root: `out/server/<Config>/www/*`
+- Desktop host exe: `out/desktop_host/<Arch>/<Config>/LanScreenShareHostApp.exe`
 
 ## Run
 
