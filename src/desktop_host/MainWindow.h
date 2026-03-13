@@ -93,6 +93,11 @@ private:
     void ShowQr();
     void ShowShareWizard();
     void ExportShareBundle();
+    void QuickFixNetwork();
+    void QuickFixCertificate();
+    void QuickFixSharing();
+    void QuickFixHandoff();
+    void QuickFixHotspot();
     void RunDesktopSelfCheck();
     void RefreshDiagnosticsBundle();
     void OpenDiagnosticsReport();
@@ -132,12 +137,19 @@ private:
     void SelectNetworkCandidate(std::size_t index);
     void AddTimelineEvent(std::wstring_view eventText);
     void RefreshFilteredLogs();
+    void CreateTrayIcon();
+    void RemoveTrayIcon();
+    void UpdateTrayIcon();
+    void ShowTrayMenu();
+    void MinimizeToTray(bool showBalloon);
+    void RestoreFromTray();
 
     void KickPoll();
     void HandlePollResult(DWORD status, std::size_t rooms, std::size_t viewers);
 
     std::wstring BuildHostUrlLocal() const;
     std::wstring BuildViewerUrl() const;
+    void BuildHandoffSummary(std::wstring* state, std::wstring* label, std::wstring* detail) const;
     fs::path AppDir() const;
     fs::path AdminUiDir() const;
     bool PreferHtmlAdminUi() const;
@@ -163,6 +175,12 @@ private:
     std::wstring m_logs;
     std::wstring m_timelineText;
     std::wstring m_lastErrorSummary = L"";
+    bool m_shareWizardOpened = false;
+    bool m_handoffStarted = false;
+    bool m_handoffDelivered = false;
+    bool m_exitRequested = false;
+    bool m_trayIconAdded = false;
+    bool m_trayBalloonShown = false;
     std::vector<LogEntry> m_logEntries;
     bool m_viewerUrlCopied = false;
     bool m_shareCardExported = false;

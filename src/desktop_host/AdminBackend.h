@@ -59,6 +59,12 @@ public:
         std::wstring logTail;
         bool viewerUrlCopied = false;
         bool shareBundleExported = false;
+        bool shareWizardOpened = false;
+        bool handoffStarted = false;
+        bool handoffDelivered = false;
+        std::wstring handoffState;
+        std::wstring handoffLabel;
+        std::wstring handoffDetail;
         std::wstring lastError;
         std::vector<AdapterCandidate> networkCandidates;
 
@@ -93,6 +99,12 @@ public:
         std::function<void()> openReport;
         std::function<void()> refreshBundle;
         std::function<void()> showShareWizard;
+        std::function<void()> showQr;
+        std::function<void()> quickFixNetwork;
+        std::function<void()> quickFixCertificate;
+        std::function<void()> quickFixSharing;
+        std::function<void()> quickFixHandoff;
+        std::function<void()> quickFixHotspot;
         std::function<void(std::size_t index)> selectNetworkCandidate;
         std::function<void()> startHotspot;
         std::function<void()> stopHotspot;

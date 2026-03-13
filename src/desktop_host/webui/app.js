@@ -223,6 +223,48 @@
     }).join("");
   }
 
+  function handoffSummary(payload) {
+    const stateName = String(payload.handoffState || "").toLowerCase();
+    const stateLabel = payload.handoffLabel || "Not started";
+    const stateDetail = payload.handoffDetail || "Open Share Wizard or copy the Viewer URL when you are ready to hand off the session.";
+    return [
+      ["State", stateLabel],
+      ["Share Wizard", payload.shareWizardOpened ? "Opened" : "Not opened yet"],
+      ["Handoff started", payload.handoffStarted ? "Yes" : "No"],
+      ["Viewer connected", payload.handoffDelivered ? "Yes" : "No"],
+      ["Next step", stateName === "delivered" ? "Keep sharing or monitor the session." : stateDetail]
+    ];
+  }
+
+  function quickFixItems(payload) {
+    const items = [];
+    if (!payload.serverRunning) {
+      items.push(["Service is not running", "Start the local share service again before handing off access.", "quick-fix-sharing", "Start sharing"]);
+    }
+    if (!payload.hostIp || payload.hostIp === "(not found)" || !payload.hostReachable) {
+      items.push(["LAN endpoint still needs attention", "Refresh adapter detection and re-check which address should be used as the main viewer entry.", "quick-fix-network", "Refresh network"]);
+    }
+    if (!payload.certReady) {
+      items.push(["Certificate or trust path needs attention", payload.certDetail || "Open diagnostics and refresh the current local certificate / trust path.", "quick-fix-certificate", "Open diagnostics"]);
+    }
+    if ((payload.shareWizardOpened || payload.handoffStarted) && !payload.handoffDelivered && payload.serverRunning && payload.healthReady && payload.hostReachable && payload.certReady) {
+      items.push(["Viewer handoff material is ready", "Copy the Viewer URL again or show the QR / share card while the other device connects.", "quick-fix-handoff", "Show QR + copy link"]);
+    }
+    if (!payload.hotspotRunning && (!payload.hostReachable || Number(payload.activeIpv4Candidates || 0) === 0)) {
+      items.push(["Fallback path may be needed", "If the current LAN path is unstable, open or start hotspot before retrying the viewer handoff.", "quick-fix-hotspot", "Open hotspot path"]);
+    }
+    if (!items.length) {
+      items.push(["No blocking issue detected", "The current session looks healthy. Open Share Wizard or keep monitoring viewer activity.", "show-share-wizard", "Open Share Wizard"]);
+    }
+    return items.slice(0, 4);
+  }
+
+  function renderQuickFixes(payload) {
+    $("dashboardQuickFixes").innerHTML = quickFixItems(payload).map(([title, detail, command, label]) => {
+      return '<article class="quick-fix"><div><h3>' + title + '</h3><p>' + detail + '</p></div><button class="secondary" data-command="' + command + '">' + label + '</button></article>';
+    }).join("");
+  }
+
   function render(payload) {
     Object.assign(state, payload || {});
     const nativeTab = normalizeTab(state.nativePage);
@@ -280,6 +322,8 @@
       ["WebView", state.webviewStatus]
     ]);
 
+    setPairs("dashboardHandoffCard", handoffSummary(state));
+    renderQuickFixes(state);
     renderSuggestions("suggestions", dashboardSuggestions(state));
 
     applySessionForm(state);

@@ -8,6 +8,7 @@
 
 #define WIN32_LEAN_AND_MEAN
 #include <iphlpapi.h>
+#include <shellapi.h>
 #pragma comment(lib, "iphlpapi.lib")
 
 #include <algorithm>
@@ -23,6 +24,9 @@ const UINT_PTR TIMER_ID = 1;
 const UINT WM_APP_LOG = WM_APP + 1;
 const UINT WM_APP_POLL = WM_APP + 2;
 const UINT WM_APP_WEBVIEW = WM_APP + 3;
+const UINT WM_APP_TRAYICON = WM_APP + 4;
+const UINT WM_APP_TRAY_RESHOW = WM_APP + 5;
+const UINT_PTR TRAY_ICON_UID = 1;
 
 // Control IDs
 enum {
@@ -102,6 +106,13 @@ enum {
     ID_BTN_NAV_SETTINGS = 1188,
     ID_BTN_SHELL_RETRY = 1189,
     ID_BTN_SHELL_OPEN_HOST = 1190,
+    ID_TRAY_OPEN_DASHBOARD = 1191,
+    ID_TRAY_START_SHARING = 1192,
+    ID_TRAY_STOP_SHARING = 1193,
+    ID_TRAY_COPY_VIEWER_URL = 1194,
+    ID_TRAY_SHOW_QR = 1195,
+    ID_TRAY_OPEN_SHARE_WIZARD = 1196,
+    ID_TRAY_EXIT = 1197,
 };
 
 struct PollResult {
@@ -2190,6 +2201,7 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
         </div>
         <h1>LAN Screen Share Wizard</h1>
         <p class="sub">This page is generated locally by the desktop host. It packages the current room, token, URLs, certificate hints, hotspot details, and Wi-Fi Direct guidance into one offline handoff bundle.</p>
+        <p class="small">After handing off the Viewer URL or QR, return to the desktop Dashboard or tray icon to confirm whether the session is now <strong>Ready For Handoff</strong>, <strong>Needs Fix</strong>, or already <strong>Delivered</strong>.</p>
         <div class="kv">
           <div>Mode</div><div id="modeText"></div>
           <div>Host IPv4</div><div id="hostIpText" class="mono"></div>
@@ -2922,11 +2934,126 @@ void MainWindow::Show() {
     OnSize(rc.right, rc.bottom);
     RefreshHtmlAdminPreview();
     RefreshShellFallback();
+    UpdateTrayIcon();
 }
 
 void MainWindow::Hide() {
     if (!m_hwnd) return;
     ShowWindow(m_hwnd, SW_HIDE);
+}
+
+void MainWindow::CreateTrayIcon() {
+    if (!m_hwnd || m_trayIconAdded) return;
+
+    NOTIFYICONDATAW nid{};
+    nid.cbSize = sizeof(nid);
+    nid.hWnd = m_hwnd;
+    nid.uID = TRAY_ICON_UID;
+    nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_SHOWTIP;
+    nid.uCallbackMessage = WM_APP_TRAYICON;
+    nid.hIcon = static_cast<HICON>(LoadImageW(GetModuleHandle(nullptr), MAKEINTRESOURCEW(1), IMAGE_ICON, 16, 16, LR_DEFAULTCOLOR));
+    if (!nid.hIcon) {
+        nid.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
+    }
+    lstrcpynW(nid.szTip, L"LAN Screen Share Host", _countof(nid.szTip));
+    if (Shell_NotifyIconW(NIM_ADD, &nid)) {
+        m_trayIconAdded = true;
+        nid.uVersion = NOTIFYICON_VERSION_4;
+        Shell_NotifyIconW(NIM_SETVERSION, &nid);
+        m_trayBalloonShown = true;
+        UpdateTrayIcon();
+    }
+}
+
+void MainWindow::RemoveTrayIcon() {
+    if (!m_hwnd || !m_trayIconAdded) return;
+    NOTIFYICONDATAW nid{};
+    nid.cbSize = sizeof(nid);
+    nid.hWnd = m_hwnd;
+    nid.uID = TRAY_ICON_UID;
+    Shell_NotifyIconW(NIM_DELETE, &nid);
+    m_trayIconAdded = false;
+}
+
+void MainWindow::UpdateTrayIcon() {
+    if (!m_hwnd || !m_trayIconAdded) return;
+
+    std::wstring tip = L"LAN Screen Share Host";
+    if (m_server && m_server->IsRunning()) {
+        if (m_lastViewers > 0) {
+            tip += L" - Sharing (" + std::to_wstring(m_lastViewers) + L" viewer(s))";
+        } else if (IsHostStateSharing(m_hostPageState)) {
+            tip += L" - Sharing (waiting for viewers)";
+        } else if (!m_lastErrorSummary.empty() || m_hostIp.empty()) {
+            tip += L" - Attention needed";
+        } else {
+            tip += L" - Ready to share";
+        }
+    } else {
+        tip += L" - Ready to share";
+    }
+
+    NOTIFYICONDATAW nid{};
+    nid.cbSize = sizeof(nid);
+    nid.hWnd = m_hwnd;
+    nid.uID = TRAY_ICON_UID;
+    nid.uFlags = NIF_TIP | NIF_SHOWTIP | NIF_INFO;
+    lstrcpynW(nid.szTip, tip.c_str(), _countof(nid.szTip));
+    if (!m_trayBalloonShown) {
+        lstrcpynW(nid.szInfoTitle, L"Running in tray", _countof(nid.szInfoTitle));
+        lstrcpynW(nid.szInfo, L"The window can stay hidden while the local sharing service remains available.", _countof(nid.szInfo));
+        nid.dwInfoFlags = NIIF_INFO;
+        m_trayBalloonShown = true;
+    }
+    Shell_NotifyIconW(NIM_MODIFY, &nid);
+}
+
+void MainWindow::ShowTrayMenu() {
+    if (!m_hwnd || !m_trayIconAdded) return;
+    HMENU menu = CreatePopupMenu();
+    if (!menu) return;
+    AppendMenuW(menu, MF_STRING, ID_TRAY_OPEN_DASHBOARD, L"Open Dashboard");
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    if (m_server && m_server->IsRunning()) {
+        AppendMenuW(menu, MF_STRING, ID_TRAY_STOP_SHARING, L"Stop Sharing");
+    } else {
+        AppendMenuW(menu, MF_STRING, ID_TRAY_START_SHARING, L"Start Sharing");
+    }
+    AppendMenuW(menu, MF_STRING, ID_TRAY_COPY_VIEWER_URL, L"Copy Viewer URL");
+    AppendMenuW(menu, MF_STRING, ID_TRAY_SHOW_QR, L"Show QR / Share Card");
+    AppendMenuW(menu, MF_STRING, ID_TRAY_OPEN_SHARE_WIZARD, L"Open Share Wizard");
+    AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
+    AppendMenuW(menu, MF_STRING, ID_TRAY_EXIT, L"Exit");
+
+    POINT pt{};
+    GetCursorPos(&pt);
+    SetForegroundWindow(m_hwnd);
+    TrackPopupMenu(menu, TPM_RIGHTBUTTON | TPM_BOTTOMALIGN | TPM_LEFTALIGN, pt.x, pt.y, 0, m_hwnd, nullptr);
+    DestroyMenu(menu);
+}
+
+void MainWindow::MinimizeToTray(bool showBalloon) {
+    if (!m_hwnd) return;
+    ShowWindow(m_hwnd, SW_HIDE);
+    if (showBalloon) {
+        m_trayBalloonShown = false;
+        UpdateTrayIcon();
+    }
+}
+
+void MainWindow::RestoreFromTray() {
+    if (!m_hwnd) return;
+    SetPage(UiPage::Dashboard);
+    ShowWindow(m_hwnd, IsIconic(m_hwnd) ? SW_RESTORE : SW_SHOW);
+    ShowWindow(m_hwnd, SW_RESTORE);
+    SetForegroundWindow(m_hwnd);
+    EnsureWebViewInitialized();
+    RECT rc{};
+    GetClientRect(m_hwnd, &rc);
+    OnSize(rc.right, rc.bottom);
+    RefreshHtmlAdminPreview();
+    RefreshShellFallback();
+    UpdateTrayIcon();
 }
 
 void MainWindow::OnCreate() {
@@ -2987,6 +3114,24 @@ void MainWindow::OnCreate() {
         };
         handlers.showShareWizard = [this]() {
             ShowShareWizard();
+        };
+        handlers.showQr = [this]() {
+            ShowQr();
+        };
+        handlers.quickFixNetwork = [this]() {
+            QuickFixNetwork();
+        };
+        handlers.quickFixCertificate = [this]() {
+            QuickFixCertificate();
+        };
+        handlers.quickFixSharing = [this]() {
+            QuickFixSharing();
+        };
+        handlers.quickFixHandoff = [this]() {
+            QuickFixHandoff();
+        };
+        handlers.quickFixHotspot = [this]() {
+            QuickFixHotspot();
         };
         handlers.selectNetworkCandidate = [this](std::size_t index) {
             SelectNetworkCandidate(index);
@@ -3483,6 +3628,7 @@ void MainWindow::OnCreate() {
     RefreshHostIp();
 
     SetTimer(m_hwnd, TIMER_ID, 1000, nullptr);
+    CreateTrayIcon();
 
     AppendLog(L"UI created");
     RefreshShareInfo();
@@ -3654,6 +3800,29 @@ void MainWindow::OnCommand(int id) {
         } else {
             OpenHostPage();
         }
+        break;
+    case ID_TRAY_OPEN_DASHBOARD:
+        RestoreFromTray();
+        break;
+    case ID_TRAY_START_SHARING:
+        RestoreFromTray();
+        StartServer();
+        break;
+    case ID_TRAY_STOP_SHARING:
+        StopServer();
+        break;
+    case ID_TRAY_COPY_VIEWER_URL:
+        CopyViewerUrl();
+        break;
+    case ID_TRAY_SHOW_QR:
+        ShowQr();
+        break;
+    case ID_TRAY_OPEN_SHARE_WIZARD:
+        ShowShareWizard();
+        break;
+    case ID_TRAY_EXIT:
+        m_exitRequested = true;
+        DestroyWindow(m_hwnd);
         break;
     case ID_EDIT_DIAG_LOG_SEARCH:
     case ID_COMBO_DIAG_LEVEL:
@@ -3865,6 +4034,9 @@ void MainWindow::GenerateRoomToken() {
     m_token = urlutil::RandomAlnum(16);
     m_viewerUrlCopied = false;
     m_shareCardExported = false;
+    m_shareWizardOpened = false;
+    m_handoffStarted = false;
+    m_handoffDelivered = false;
     if (m_roomEdit) SetWindowTextW(m_roomEdit, m_room.c_str());
     if (m_tokenEdit) SetWindowTextW(m_tokenEdit, m_token.c_str());
     RefreshShareInfo();
@@ -3980,6 +4152,7 @@ void MainWindow::OpenHostPage() {
 }
 
 void MainWindow::OpenViewerPage() {
+    m_handoffStarted = true;
     const auto url = BuildViewerUrl();
     std::wstring browserPath;
     const bool preferAppWindow = m_defaultViewerOpenMode == L"app-window-preferred" || m_defaultViewerOpenMode == L"app-window";
@@ -4005,6 +4178,7 @@ void MainWindow::CopyHostUrl() {
 }
 
 void MainWindow::CopyViewerUrl() {
+    m_handoffStarted = true;
     const auto url = BuildViewerUrl();
     if (urlutil::SetClipboardText(m_hwnd, url)) {
         m_viewerUrlCopied = true;
@@ -4016,6 +4190,7 @@ void MainWindow::CopyViewerUrl() {
 }
 
 void MainWindow::ShowQr() {
+    m_handoffStarted = true;
     fs::path shareCardPath;
     if (WriteShareArtifacts(&shareCardPath, nullptr, nullptr, nullptr)) {
         m_shareCardExported = true;
@@ -4026,14 +4201,19 @@ void MainWindow::ShowQr() {
 }
 
 void MainWindow::ShowShareWizard() {
+    m_shareWizardOpened = true;
+    m_handoffStarted = true;
     fs::path shareWizardPath;
     if (WriteShareArtifacts(nullptr, &shareWizardPath, nullptr, nullptr)) {
         ShellExecuteW(m_hwnd, L"open", shareWizardPath.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
         AppendLog(L"Opened share wizard");
+        AddTimelineEvent(L"Share Wizard opened");
     }
+    RefreshShareInfo();
 }
 
 void MainWindow::ExportShareBundle() {
+    m_handoffStarted = true;
     fs::path bundleJsonPath;
     if (WriteShareArtifacts(nullptr, nullptr, &bundleJsonPath, nullptr)) {
         m_shareCardExported = true;
@@ -4042,6 +4222,49 @@ void MainWindow::ExportShareBundle() {
         AddTimelineEvent(L"Diagnostics bundle generated");
     }
     RefreshDashboard();
+}
+
+void MainWindow::QuickFixNetwork() {
+    RefreshHostIp();
+    RefreshNetworkCapabilities();
+    RefreshHotspotState();
+    SetPage(UiPage::Network);
+    RefreshDiagnosticsBundle();
+    AppendLog(L"Quick fix: refreshed network path");
+}
+
+void MainWindow::QuickFixCertificate() {
+    RefreshDiagnosticsBundle();
+    OpenDiagnosticsReport();
+    SetPage(UiPage::Diagnostics);
+    AppendLog(L"Quick fix: opened diagnostics for certificate / trust issues");
+}
+
+void MainWindow::QuickFixSharing() {
+    StartAndOpenHost();
+    SetPage(UiPage::Setup);
+    AppendLog(L"Quick fix: started sharing flow");
+}
+
+void MainWindow::QuickFixHandoff() {
+    if (!BuildViewerUrl().empty()) {
+        CopyViewerUrl();
+        ShowQr();
+        SetPage(UiPage::Sharing);
+    } else {
+        ShowShareWizard();
+    }
+    AppendLog(L"Quick fix: refreshed handoff materials");
+}
+
+void MainWindow::QuickFixHotspot() {
+    if (m_hotspotSupported) {
+        StartHotspot();
+    } else {
+        OpenSystemHotspotSettings();
+    }
+    SetPage(UiPage::Network);
+    AppendLog(L"Quick fix: hotspot fallback path opened");
 }
 
 void MainWindow::RunDesktopSelfCheck() {
@@ -4353,6 +4576,11 @@ AdminBackend::Snapshot MainWindow::BuildAdminSnapshot() const {
     }
     if (snapshot.dashboardError.empty()) snapshot.dashboardError = L"none";
 
+    BuildHandoffSummary(&snapshot.handoffState, &snapshot.handoffLabel, &snapshot.handoffDetail);
+    snapshot.shareWizardOpened = m_shareWizardOpened;
+    snapshot.handoffStarted = m_handoffStarted || m_viewerUrlCopied || m_shareCardExported;
+    snapshot.handoffDelivered = m_handoffDelivered || m_lastViewers > 0;
+
     snapshot.canStartSharing = !IsHostStateSharing(m_hostPageState);
     snapshot.sharingActive = IsHostStateSharing(m_hostPageState);
     snapshot.serverRunning = runtime.serverProcessRunning;
@@ -4440,6 +4668,9 @@ void MainWindow::ApplySessionConfigFromAdmin(std::wstring room, std::wstring tok
 
     m_viewerUrlCopied = false;
     m_shareCardExported = false;
+    m_shareWizardOpened = false;
+    m_handoffStarted = false;
+    m_handoffDelivered = false;
     AppendLog(L"Admin shell applied session config");
     RefreshShareInfo();
     UpdateUiState();
@@ -5127,10 +5358,12 @@ void MainWindow::UpdateUiState() {
     RefreshSettingsPage();
     RefreshHtmlAdminPreview();
     RefreshShellFallback();
+    UpdateTrayIcon();
 }
 
 void MainWindow::OnDestroy() {
     KillTimer(m_hwnd, TIMER_ID);
+    RemoveTrayIcon();
     StopServer();
 }
 
@@ -5213,6 +5446,7 @@ void MainWindow::StopServer() {
     }
     m_server->Stop();
     m_hostPageState = L"stopped";
+    m_handoffDelivered = false;
     AppendLog(L"Server stopped");
     AddTimelineEvent(L"Service stopped");
     RefreshShareInfo();
@@ -5428,7 +5662,11 @@ void MainWindow::HandlePollResult(DWORD status, std::size_t rooms, std::size_t v
         ss << L"Rooms: -  Viewers: - (status=" << status << L")";
     }
     SetWindowTextW(m_statsText, ss.str().c_str());
+    if (m_lastViewers > 0) {
+        m_handoffDelivered = true;
+    }
     RefreshShareInfo();
+    UpdateTrayIcon();
 }
 
 std::wstring MainWindow::BuildHostUrlLocal() const {
@@ -5443,6 +5681,46 @@ std::wstring MainWindow::BuildViewerUrl() const {
     std::wstring host = m_hostIp.empty() ? L"127.0.0.1" : m_hostIp;
     ss << L"https://" << host << L":" << m_port << L"/view?room=" << m_room << L"&token=" << m_token;
     return ss.str();
+}
+
+void MainWindow::BuildHandoffSummary(std::wstring* state, std::wstring* label, std::wstring* detail) const {
+    const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, m_bindAddress, m_hostIp, m_port);
+    const auto certInfo = ProbeCertArtifacts(AppDir(), m_hostIp);
+
+    std::wstring computedState = L"not-started";
+    std::wstring computedLabel = L"Not started";
+    std::wstring computedDetail = L"Open Share Wizard or copy the Viewer URL when you are ready to hand off the session.";
+
+    if (m_lastViewers > 0 || m_handoffDelivered) {
+        computedState = L"delivered";
+        computedLabel = L"Delivered";
+        computedDetail = L"A viewer is connected. Keep sharing, or open diagnostics if the remote device still reports issues.";
+    } else if (m_shareWizardOpened || m_handoffStarted || m_viewerUrlCopied || m_shareCardExported) {
+        const bool blocked = !runtime.serverProcessRunning || !runtime.localHealthReady || !runtime.hostIpReachable || !certInfo.ready;
+        if (blocked) {
+            computedState = L"needs-fix";
+            computedLabel = L"Needs Fix";
+            if (!runtime.serverProcessRunning) {
+                computedDetail = L"The share handoff has started, but the local service is not running. Start sharing again before sending the link.";
+            } else if (!runtime.hostIpReachable) {
+                computedDetail = L"The share handoff has started, but the selected LAN address is still not reachable. Refresh network selection before handing off again.";
+            } else if (!certInfo.ready) {
+                computedDetail = certInfo.detail.empty()
+                    ? L"The share handoff has started, but the local certificate is not ready for the current host entries. Re-run diagnostics before handing off again."
+                    : certInfo.detail;
+            } else {
+                computedDetail = L"The share handoff has started, but one or more live checks are still failing. Re-run checks before handing off again.";
+            }
+        } else {
+            computedState = L"ready-for-handoff";
+            computedLabel = L"Ready For Handoff";
+            computedDetail = L"The session looks healthy. Copy the Viewer URL, show the QR, or keep Share Wizard open while the other device connects.";
+        }
+    }
+
+    if (state) *state = std::move(computedState);
+    if (label) *label = std::move(computedLabel);
+    if (detail) *detail = std::move(computedDetail);
 }
 
 fs::path MainWindow::AppDir() const {
@@ -5544,11 +5822,21 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM 
     if (self) {
         switch (msg) {
         case WM_SIZE:
+            if (wparam == SIZE_MINIMIZED) {
+                self->MinimizeToTray(true);
+                return 0;
+            }
             self->OnSize(LOWORD(lparam), HIWORD(lparam));
             return 0;
         case WM_COMMAND:
             self->OnCommand(LOWORD(wparam));
             return 0;
+        case WM_CLOSE:
+            if (!self->m_exitRequested) {
+                self->MinimizeToTray(true);
+                return 0;
+            }
+            break;
         case WM_TIMER:
             if (wparam == TIMER_ID) {
                 self->UpdateUiState();
@@ -5579,6 +5867,22 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM 
             }
             return 0;
         }
+        case WM_APP_TRAYICON:
+            switch (LOWORD(lparam)) {
+            case WM_LBUTTONUP:
+            case WM_LBUTTONDBLCLK:
+            case NIN_SELECT:
+            case NIN_KEYSELECT:
+                self->RestoreFromTray();
+                return 0;
+            case WM_CONTEXTMENU:
+            case WM_RBUTTONUP:
+                self->ShowTrayMenu();
+                return 0;
+            default:
+                break;
+            }
+            return 0;
         case WM_DESTROY:
             self->OnDestroy();
             PostQuitMessage(0);

@@ -164,6 +164,18 @@ AdminBackend::HandleResult AdminBackend::HandleMessage(std::wstring_view payload
         if (m_handlers.refreshBundle) m_handlers.refreshBundle();
     } else if (command == L"show-share-wizard") {
         if (m_handlers.showShareWizard) m_handlers.showShareWizard();
+    } else if (command == L"show-qr") {
+        if (m_handlers.showQr) m_handlers.showQr();
+    } else if (command == L"quick-fix-network") {
+        if (m_handlers.quickFixNetwork) m_handlers.quickFixNetwork();
+    } else if (command == L"quick-fix-certificate") {
+        if (m_handlers.quickFixCertificate) m_handlers.quickFixCertificate();
+    } else if (command == L"quick-fix-sharing") {
+        if (m_handlers.quickFixSharing) m_handlers.quickFixSharing();
+    } else if (command == L"quick-fix-handoff") {
+        if (m_handlers.quickFixHandoff) m_handlers.quickFixHandoff();
+    } else if (command == L"quick-fix-hotspot") {
+        if (m_handlers.quickFixHotspot) m_handlers.quickFixHotspot();
     } else if (command == L"select-adapter") {
         if (m_handlers.selectNetworkCandidate) {
             std::size_t index = 0;
@@ -253,6 +265,12 @@ std::wstring AdminBackend::BuildSnapshotEventJson(const Snapshot& snapshot) cons
     AppendJsonString(json, "logTail", snapshot.logTail);
     AppendJsonBool(json, "viewerUrlCopied", snapshot.viewerUrlCopied);
     AppendJsonBool(json, "shareBundleExported", snapshot.shareBundleExported);
+    AppendJsonBool(json, "shareWizardOpened", snapshot.shareWizardOpened);
+    AppendJsonBool(json, "handoffStarted", snapshot.handoffStarted);
+    AppendJsonBool(json, "handoffDelivered", snapshot.handoffDelivered);
+    AppendJsonString(json, "handoffState", snapshot.handoffState);
+    AppendJsonString(json, "handoffLabel", snapshot.handoffLabel);
+    AppendJsonString(json, "handoffDetail", snapshot.handoffDetail);
     AppendJsonString(json, "lastError", snapshot.lastError);
     AppendJsonInt(json, "defaultPort", static_cast<std::size_t>(snapshot.defaultPort));
     AppendJsonString(json, "defaultBind", snapshot.defaultBind);

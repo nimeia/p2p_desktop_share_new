@@ -217,3 +217,22 @@ This package is intentionally **not finished**. It is provided to prevent the ch
   - `desktop_self_check.html`
   - `share_diagnostics.txt`
   because all of them now prefer the same exported issue/action guidance instead of recomputing separate next-step text.
+
+
+## Incremental update (2026-03-13, dashboard handoff + tray hardening)
+- Added a first productized bridge between the exported Share Wizard workflow and the desktop Dashboard:
+  - snapshot payload now includes `shareWizardOpened`, `handoffStarted`, `handoffDelivered`, and a computed `handoffState / handoffLabel / handoffDetail` summary
+  - Dashboard now renders a dedicated `Share Wizard Handoff` card so the operator can tell whether the handoff has not started yet, is ready for handoff, needs fix, or is already delivered
+- Added dashboard-side `Quick Fix` actions with native command routing instead of only passive hints:
+  - `quick-fix-network` refreshes adapter detection and opens the Network page
+  - `quick-fix-certificate` refreshes diagnostics and opens the report path
+  - `quick-fix-sharing` restarts the share/start flow
+  - `quick-fix-handoff` refreshes the current QR / Viewer URL handoff material
+  - `quick-fix-hotspot` routes to hotspot fallback handling
+- Added a real Win32 system tray baseline for the desktop host:
+  - tray icon add/remove lifecycle
+  - minimize-to-tray / close-to-tray behavior
+  - restore-on-click behavior
+  - tray tooltip status refresh
+  - tray menu actions for Dashboard / Start Sharing / Stop Sharing / Copy Viewer URL / Show QR / Open Share Wizard / Exit
+- This round is still a code-level hardening pass rather than a true local Windows runtime verification pass; final behavior still needs validation on a Windows machine with WebView2 and the packaged server binary present.
