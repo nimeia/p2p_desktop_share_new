@@ -167,13 +167,7 @@ if ($needServer) {
 
   if (-not $SkipVcpkgInstall) {
     Write-Section "vcpkg install (manifest)"
-    # Use manifest mode in repo root
-    Push-Location $root
-    try {
-      & $vcpkgExe install --triplet $Triplet | Write-Host
-    } finally {
-      Pop-Location
-    }
+    Invoke-External $vcpkgExe @("install", "--triplet", $Triplet) -WorkingDir $root -Echo:$VerboseCommands -LogFile $logFile
   }
 
   $legacyServerBinDir = Join-Path $outDir "bin"

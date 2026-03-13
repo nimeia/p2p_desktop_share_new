@@ -3,6 +3,15 @@ param()
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
+function Initialize-ConsoleEncoding {
+  $utf8NoBom = New-Object System.Text.UTF8Encoding($false)
+  try { [Console]::InputEncoding = $utf8NoBom } catch {}
+  try { [Console]::OutputEncoding = $utf8NoBom } catch {}
+  try { $global:OutputEncoding = $utf8NoBom } catch {}
+}
+
+Initialize-ConsoleEncoding
+
 function Write-Section([string]$Title) {
   Write-Host ""
   Write-Host "==== $Title ====" -ForegroundColor Cyan
@@ -94,11 +103,19 @@ function Read-TextLinesAuto(
   } elseif ($bytes.Length -ge 2 -and $bytes[0] -eq 0xFE -and $bytes[1] -eq 0xFF) {
     $text = [System.Text.Encoding]::BigEndianUnicode.GetString($bytes, 2, $bytes.Length - 2)
   } else {
-    try {
-      $utf8Strict = New-Object System.Text.UTF8Encoding($false, $true)
-      $text = $utf8Strict.GetString($bytes)
-    } catch {
-      $text = [System.Text.Encoding]::Default.GetString($bytes)
+    $encodings = New-Object System.Collections.Generic.List[System.Text.Encoding]
+    $encodings.Add((New-Object System.Text.UTF8Encoding($false, $true)))
+
+    try { $encodings.Add([System.Text.Encoding]::GetEncoding([System.Globalization.CultureInfo]::CurrentCulture.TextInfo.ANSICodePage)) } catch {}
+    try { $encodings.Add([System.Text.Encoding]::GetEncoding([System.Globalization.CultureInfo]::CurrentCulture.TextInfo.OEMCodePage)) } catch {}
+    try { $encodings.Add([System.Text.Encoding]::Default) } catch {}
+
+    foreach ($encoding in $encodings) {
+      if ($null -eq $encoding) { continue }
+      try {
+        $text = $encoding.GetString($bytes)
+        break
+      } catch {}
     }
   }
 
@@ -119,66 +136,44 @@ function Invoke-External(
   $cmd = $File + " " + $argString
   if ($Echo) { Write-Host $cmd -ForegroundColor DarkGray }
 
-  if ([System.IO.Path]::GetFileName($File).Equals("MSBuild.exe", [System.StringComparison]::OrdinalIgnoreCase)) {
-    $savedLocation = $null
-    try {
-      if ($WorkingDir) {
-        $savedLocation = Get-Location
-        Push-Location $WorkingDir
-      }
+  # Use Start-Process with redirection to avoid PowerShell treating native stderr as an error record (PS 5.1 + $ErrorActionPreference=Stop),
+  # and to keep output decoding consistent across cmake, msbuild, and other native tools.
+  $tmpOut = [System.IO.Path]::GetTempFileName()
+  $tmpErr = [System.IO.Path]::GetTempFileName()
 
-      $lines = & $File @ArgList 2>&1 | ForEach-Object { $_.ToString() }
-      $code = $LASTEXITCODE
-
-      foreach ($l in $lines) { Write-Host $l }
-
-      if ($LogFile -and $lines.Count -gt 0) {
-        $parent = Split-Path -Parent $LogFile
-        if ($parent) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
-        $lines | Out-File -LiteralPath $LogFile -Append -Encoding utf8
-      }
-    } finally {
-      if ($savedLocation) { Pop-Location }
+  try {
+    $startInfo = @{
+      FilePath               = $File
+      ArgumentList           = $argString
+      Wait                   = $true
+      PassThru               = $true
+      NoNewWindow            = $true
+      RedirectStandardOutput = $tmpOut
+      RedirectStandardError  = $tmpErr
     }
-  } else {
-    # Use Start-Process with redirection to avoid PowerShell treating native stderr as an error record (PS 5.1 + $ErrorActionPreference=Stop).
-    $tmpOut = [System.IO.Path]::GetTempFileName()
-    $tmpErr = [System.IO.Path]::GetTempFileName()
+    if ($WorkingDir) { $startInfo["WorkingDirectory"] = $WorkingDir }
 
-    try {
-      $startInfo = @{
-        FilePath               = $File
-        ArgumentList           = $argString
-        Wait                   = $true
-        PassThru               = $true
-        NoNewWindow            = $true
-        RedirectStandardOutput = $tmpOut
-        RedirectStandardError  = $tmpErr
-      }
-      if ($WorkingDir) { $startInfo["WorkingDirectory"] = $WorkingDir }
+    $p = Start-Process @startInfo
+    $code = $p.ExitCode
 
-      $p = Start-Process @startInfo
-      $code = $p.ExitCode
+    $outLines = @()
+    $errLines = @()
+    if (Test-Path $tmpOut) { $outLines = Read-TextLinesAuto $tmpOut }
+    if (Test-Path $tmpErr) { $errLines = Read-TextLinesAuto $tmpErr }
 
-      $outLines = @()
-      $errLines = @()
-      if (Test-Path $tmpOut) { $outLines = Read-TextLinesAuto $tmpOut }
-      if (Test-Path $tmpErr) { $errLines = Read-TextLinesAuto $tmpErr }
+    foreach ($l in $outLines) { Write-Host $l }
+    foreach ($l in $errLines) { Write-Host $l }
 
-      foreach ($l in $outLines) { Write-Host $l }
-      foreach ($l in $errLines) { Write-Host $l }
-
-      if ($LogFile) {
-        $parent = Split-Path -Parent $LogFile
-        if ($parent) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
-        if (@($outLines).Count -gt 0) { $outLines | Out-File -LiteralPath $LogFile -Append -Encoding utf8 }
-        if (@($errLines).Count -gt 0) { $errLines | Out-File -LiteralPath $LogFile -Append -Encoding utf8 }
-      }
-
-    } finally {
-      Remove-Item -LiteralPath $tmpOut -Force -ErrorAction SilentlyContinue
-      Remove-Item -LiteralPath $tmpErr -Force -ErrorAction SilentlyContinue
+    if ($LogFile) {
+      $parent = Split-Path -Parent $LogFile
+      if ($parent) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
+      if (@($outLines).Count -gt 0) { $outLines | Out-File -LiteralPath $LogFile -Append -Encoding utf8 }
+      if (@($errLines).Count -gt 0) { $errLines | Out-File -LiteralPath $LogFile -Append -Encoding utf8 }
     }
+
+  } finally {
+    Remove-Item -LiteralPath $tmpOut -Force -ErrorAction SilentlyContinue
+    Remove-Item -LiteralPath $tmpErr -Force -ErrorAction SilentlyContinue
   }
 
   if (-not $NoThrow -and $code -ne 0) {
