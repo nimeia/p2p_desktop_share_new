@@ -84,6 +84,7 @@
     <ClInclude Include="UrlUtil.h" />
     <ClInclude Include="HttpClient.h" />
     <ClInclude Include="WebViewHost.h" />
+    <ClInclude Include="..\core\cert\cert_manager.h" />
     <ClInclude Include="..\core\network\network_manager.h" />
   </ItemGroup>
 
@@ -99,6 +100,9 @@
     <ClCompile Include="UrlUtil.cpp" />
     <ClCompile Include="HttpClient.cpp" />
     <ClCompile Include="WebViewHost.cpp" />
+    <ClCompile Include="..\core\cert\cert_manager.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="..\core\network\network_manager.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>

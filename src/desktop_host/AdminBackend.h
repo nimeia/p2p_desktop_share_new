@@ -27,6 +27,8 @@ public:
         bool healthReady = false;
         bool hostReachable = false;
         bool certReady = false;
+        std::wstring certDetail;
+        std::wstring certExpectedSans;
         bool wifiAdapterPresent = false;
         bool hotspotSupported = false;
         bool hotspotRunning = false;

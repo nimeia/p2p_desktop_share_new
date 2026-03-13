@@ -375,7 +375,7 @@ private:
     std::wstring m_defaultIpStrategy = L"prefer-private-wifi";
     int m_autoDetectFrequencySec = 15;
     std::wstring m_hotspotPasswordRule = L"windows-suggested";
-    std::wstring m_defaultViewerOpenMode = L"system-browser";
+    std::wstring m_defaultViewerOpenMode = L"app-window-preferred";
     bool m_autoCopyViewerLink = true;
     bool m_autoGenerateQr = true;
     bool m_autoExportBundle = true;

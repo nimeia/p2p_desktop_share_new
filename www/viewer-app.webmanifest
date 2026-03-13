@@ -1,0 +1,21 @@
+{
+  "id": "/view",
+  "name": "LAN Screen Share Viewer",
+  "short_name": "LAN Viewer",
+  "description": "A fullscreen local network receiver for LAN Screen Share.",
+  "lang": "en",
+  "start_url": "/view",
+  "scope": "/view",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#050816",
+  "theme_color": "#050816",
+  "icons": [
+    {
+      "src": "/assets/viewer_app_icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ]
+}

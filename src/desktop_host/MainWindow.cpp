@@ -3,6 +3,7 @@
 
 #include "UrlUtil.h"
 #include "HttpClient.h"
+#include "../core/cert/cert_manager.h"
 #include "../core/network/network_manager.h"
 
 #define WIN32_LEAN_AND_MEAN
@@ -133,6 +134,93 @@ static std::wstring NowDateTime() {
     wchar_t buf[64];
     wcsftime(buf, _countof(buf), L"%Y-%m-%d %H:%M:%S", &t);
     return buf;
+}
+
+static bool FileExistsW(std::wstring_view path) {
+    const DWORD attr = GetFileAttributesW(std::wstring(path).c_str());
+    return attr != INVALID_FILE_ATTRIBUTES && !(attr & FILE_ATTRIBUTE_DIRECTORY);
+}
+
+static std::wstring QuoteProcessArg(std::wstring_view value) {
+    std::wstring out;
+    out.reserve(value.size() + 2);
+    out.push_back(L'"');
+    for (wchar_t ch : value) {
+        if (ch == L'"') {
+            out.push_back(L'\\');
+        }
+        out.push_back(ch);
+    }
+    out.push_back(L'"');
+    return out;
+}
+
+static std::wstring FindChromiumAppBrowser() {
+    auto searchExecutable = [](const wchar_t* exeName) -> std::wstring {
+        wchar_t buf[MAX_PATH]{};
+        const DWORD len = SearchPathW(nullptr, exeName, nullptr, _countof(buf), buf, nullptr);
+        if (len > 0 && len < _countof(buf)) {
+            return buf;
+        }
+        return L"";
+    };
+
+    const std::array<const wchar_t*, 4> exeNames = {
+        L"msedge.exe",
+        L"chrome.exe",
+        L"brave.exe",
+        L"vivaldi.exe"
+    };
+    for (const auto* exeName : exeNames) {
+        const auto found = searchExecutable(exeName);
+        if (!found.empty()) return found;
+    }
+
+    wchar_t pf86[MAX_PATH]{};
+    wchar_t pf[MAX_PATH]{};
+    wchar_t localAppData[MAX_PATH]{};
+    GetEnvironmentVariableW(L"ProgramFiles(x86)", pf86, _countof(pf86));
+    GetEnvironmentVariableW(L"ProgramFiles", pf, _countof(pf));
+    GetEnvironmentVariableW(L"LOCALAPPDATA", localAppData, _countof(localAppData));
+
+    const std::vector<std::wstring> candidates = {
+        std::wstring(pf86) + L"\\Microsoft\\Edge\\Application\\msedge.exe",
+        std::wstring(pf) + L"\\Microsoft\\Edge\\Application\\msedge.exe",
+        std::wstring(localAppData) + L"\\Microsoft\\Edge\\Application\\msedge.exe",
+        std::wstring(pf86) + L"\\Google\\Chrome\\Application\\chrome.exe",
+        std::wstring(pf) + L"\\Google\\Chrome\\Application\\chrome.exe",
+        std::wstring(localAppData) + L"\\Google\\Chrome\\Application\\chrome.exe",
+        std::wstring(localAppData) + L"\\BraveSoftware\\Brave-Browser\\Application\\brave.exe",
+        std::wstring(pf) + L"\\BraveSoftware\\Brave-Browser\\Application\\brave.exe"
+    };
+    for (const auto& candidate : candidates) {
+        if (!candidate.empty() && FileExistsW(candidate)) {
+            return candidate;
+        }
+    }
+
+    return L"";
+}
+
+static bool LaunchUrlInAppWindow(std::wstring_view url, std::wstring* browserPath = nullptr) {
+    const auto browser = FindChromiumAppBrowser();
+    if (browser.empty()) return false;
+
+    std::wstring cmd = QuoteProcessArg(browser) + L" --app=" + QuoteProcessArg(url);
+    STARTUPINFOW si{};
+    si.cb = sizeof(si);
+    PROCESS_INFORMATION pi{};
+
+    std::vector<wchar_t> mutableCmd(cmd.begin(), cmd.end());
+    mutableCmd.push_back(L'\0');
+
+    const BOOL ok = CreateProcessW(nullptr, mutableCmd.data(), nullptr, nullptr, FALSE, 0, nullptr, nullptr, &si, &pi);
+    if (!ok) return false;
+
+    CloseHandle(pi.hThread);
+    CloseHandle(pi.hProcess);
+    if (browserPath) *browserPath = browser;
+    return true;
 }
 
 static std::wstring DetectBestIPv4() {
@@ -354,7 +442,48 @@ struct CertArtifactsInfo {
     fs::path keyFile;
     bool certExists = false;
     bool keyExists = false;
+    bool ready = false;
+    std::wstring detail;
+    std::wstring expectedSans;
+    std::wstring missingSans;
 };
+
+static std::wstring LocalComputerHostName() {
+    wchar_t buf[MAX_COMPUTERNAME_LENGTH + 1]{};
+    DWORD size = _countof(buf);
+    if (GetComputerNameW(buf, &size) && size > 0) {
+        return buf;
+    }
+    return L"";
+}
+
+static std::wstring JoinWideValues(const std::vector<std::wstring>& values) {
+    std::wstringstream ss;
+    for (std::size_t i = 0; i < values.size(); ++i) {
+        if (i != 0) ss << L", ";
+        ss << values[i];
+    }
+    return ss.str();
+}
+
+static std::wstring BuildExpectedCertSans(std::wstring_view hostIp) {
+    std::vector<std::wstring> entries;
+    auto addUnique = [&](std::wstring value) {
+        if (value.empty()) return;
+        if (std::find(entries.begin(), entries.end(), value) == entries.end()) {
+            entries.push_back(std::move(value));
+        }
+    };
+
+    const std::wstring host(hostIp);
+    if (!host.empty() && host != L"(not found)" && host != L"0.0.0.0") {
+        addUnique(host);
+    }
+    addUnique(L"127.0.0.1");
+    addUnique(L"localhost");
+    addUnique(LocalComputerHostName());
+    return JoinWideValues(entries);
+}
 
 struct RuntimeDiagnosticsSnapshot {
     bool serverProcessRunning = false;
@@ -373,13 +502,38 @@ struct RuntimeDiagnosticsSnapshot {
     std::wstring adapterHint;
 };
 
-static CertArtifactsInfo ProbeCertArtifacts(const fs::path& appDir) {
+static CertArtifactsInfo ProbeCertArtifacts(const fs::path& appDir, std::wstring_view hostIp) {
     CertArtifactsInfo info;
     info.certDir = appDir / L"cert";
     info.certFile = info.certDir / L"server.crt";
     info.keyFile = info.certDir / L"server.key";
     info.certExists = fs::exists(info.certFile);
     info.keyExists = fs::exists(info.keyFile);
+    info.expectedSans = BuildExpectedCertSans(hostIp);
+
+    lan::cert::CertStatus status;
+    std::string err;
+    if (lan::cert::CertManager::InspectCertificate(urlutil::WideToUtf8(info.certFile.wstring()),
+                                                   urlutil::WideToUtf8(info.keyFile.wstring()),
+                                                   urlutil::WideToUtf8(info.expectedSans),
+                                                   status,
+                                                   err)) {
+        info.certExists = status.certExists;
+        info.keyExists = status.keyExists;
+        info.ready = status.ready;
+        info.detail = urlutil::Utf8ToWide(status.detail);
+        if (!status.missingAltNames.empty()) {
+            std::vector<std::wstring> missing;
+            missing.reserve(status.missingAltNames.size());
+            for (const auto& item : status.missingAltNames) {
+                missing.push_back(urlutil::Utf8ToWide(item));
+            }
+            info.missingSans = JoinWideValues(missing);
+        }
+    } else {
+        info.ready = false;
+        info.detail = urlutil::Utf8ToWide(err.empty() ? "Certificate inspection failed." : err);
+    }
     return info;
 }
 
@@ -985,8 +1139,8 @@ static SelfCheckReport BuildSelfCheckReport(std::wstring_view hostState,
                                             std::wstring_view viewerUrl,
                                             std::size_t viewers,
                                             bool serverProcessRunning,
-                                            bool certFileExists,
-                                            bool certKeyExists,
+                                            bool certReady,
+                                            std::wstring_view certDetail,
                                             bool portReady,
                                             std::wstring_view portDetail,
                                             bool localHealthReady,
@@ -1012,7 +1166,6 @@ static SelfCheckReport BuildSelfCheckReport(std::wstring_view hostState,
     const bool hostSharing = IsHostStateSharing(hostState);
     const bool networkReady = !hostIp.empty() && hostIp != L"(not found)" && hostIp != L"0.0.0.0";
     const bool viewerReady = !viewerUrl.empty();
-    const bool certReady = certFileExists && certKeyExists;
     const bool hotspotControlReady = hotspotSupported || hotspotRunning;
     const std::string portDetailUtf8 = urlutil::WideToUtf8(std::wstring(portDetail));
     const std::string localHealthDetailUtf8 = urlutil::WideToUtf8(std::wstring(localHealthDetail));
@@ -1020,6 +1173,7 @@ static SelfCheckReport BuildSelfCheckReport(std::wstring_view hostState,
     const std::string lanBindDetailUtf8 = urlutil::WideToUtf8(std::wstring(lanBindDetail));
     const std::string adapterHintUtf8 = urlutil::WideToUtf8(std::wstring(adapterHint));
     const std::string embeddedHostStatusUtf8 = urlutil::WideToUtf8(std::wstring(embeddedHostStatus));
+    const std::string certDetailUtf8 = urlutil::WideToUtf8(std::wstring(certDetail));
 
     AddSelfCheckItem(report,
                      "server-reachability",
@@ -1125,8 +1279,12 @@ static SelfCheckReport BuildSelfCheckReport(std::wstring_view hostState,
                      "certificate-files",
                      "Certificate files",
                      certReady,
-                     "Certificate files are present for the local HTTPS endpoint.",
-                     "Certificate files are missing or incomplete. Start the local server once to generate them, then reopen the bundle.",
+                     certReady
+                         ? "Certificate files are present and match the current host entries."
+                         : (certDetailUtf8.empty() ? "Certificate files are missing or do not match the current host entries." : certDetailUtf8),
+                     certDetailUtf8.empty()
+                         ? "Certificate files are missing, expired, or no longer match the current host entries."
+                         : certDetailUtf8,
                      "P0",
                      "certificate");
     AddSelfCheckItem(report,
@@ -1216,9 +1374,11 @@ static SelfCheckReport BuildSelfCheckReport(std::wstring_view hostState,
     }
     if (!certReady) {
         AddFailureHint(report,
-            "Certificate files missing",
-            "The local HTTPS server expects self-signed certificate files in the cert folder. Start the host once so it can generate them, then trust the browser warning for this session.",
-            "Start the local server once so cert/server.crt and cert/server.key are created, then reopen the bundle and trust the certificate warning for this session.",
+            "Certificate is not ready for the current host",
+            certDetailUtf8.empty()
+                ? "The local HTTPS certificate is missing, expired, or does not match the current host IP / hostname."
+                : certDetailUtf8,
+            "Restart the local server so it can regenerate the certificate for the current host entries, then reopen the host/viewer URL and trust the browser warning for this session.",
             "P0",
             "certificate");
     }
@@ -1729,7 +1889,7 @@ static std::string BuildDesktopSelfCheckHtml(std::string_view bundleJson) {
       setText('viewersText', data.viewers || 0);
       setText('viewerUrlText', (data.links && data.links.viewerUrl) || '');
       setText('hotspotText', (hotspot.running ? 'running' : 'stopped') + (hotspot.ssid ? ' · ' + hotspot.ssid : ''));
-      setText('certText', cert.ready ? 'ready' : 'missing / incomplete');
+      setText('certText', cert.ready ? 'ready' : (cert.detail || 'not ready'));
       setText('summaryText', (selfCheck.passed || 0) + ' / ' + (selfCheck.total || 0));
       const pill = document.getElementById('summaryPill');
       if (pill) {
@@ -1856,7 +2016,10 @@ static std::string BuildShareBundleJson(std::wstring_view networkMode,
                                         std::wstring_view certFile,
                                         std::wstring_view certKeyFile,
                                         bool certFileExists,
-                                        bool certKeyExists) {
+                                        bool certKeyExists,
+                                        bool certReady,
+                                        std::wstring_view certDetail,
+                                        std::wstring_view certExpectedSans) {
     auto q = [](std::wstring_view value) {
         return std::string(1, '"') + JsonEscapeUtf8(urlutil::WideToUtf8(std::wstring(value))) + std::string(1, '"');
     };
@@ -1866,9 +2029,8 @@ static std::string BuildShareBundleJson(std::wstring_view networkMode,
     const bool hostSharing = IsHostStateSharing(hostState);
     const bool networkReady = !hostIp.empty() && hostIp != L"(not found)" && hostIp != L"0.0.0.0";
     const bool viewerReady = !viewerUrl.empty();
-    const bool certReady = certFileExists && certKeyExists;
     const auto report = BuildSelfCheckReport(hostState, hostIp, viewerUrl, viewers, serverProcessRunning,
-                                             certFileExists, certKeyExists, portReady, portDetail,
+                                             certReady, certDetail, portReady, portDetail,
                                              localHealthReady, localHealthDetail, hostIpReachable, hostIpReachableDetail,
                                              lanBindReady, lanBindDetail, activeIpv4Candidates, selectedIpRecommended, adapterHint,
                                              embeddedHostReady, embeddedHostStatus,
@@ -1912,6 +2074,8 @@ static std::string BuildShareBundleJson(std::wstring_view networkMode,
     json << R"JSON(    "certExists": )JSON" << (certFileExists ? "true" : "false") << ",\n";
     json << R"JSON(    "keyExists": )JSON" << (certKeyExists ? "true" : "false") << ",\n";
     json << R"JSON(    "ready": )JSON" << (certReady ? "true" : "false") << ",\n";
+    json << R"JSON(    "detail": )JSON" << q(certDetail) << ",\n";
+    json << R"JSON(    "expectedSans": )JSON" << q(certExpectedSans) << ",\n";
     json << R"JSON(    "trustHint": "If the browser warns about a self-signed certificate, trust it for this local session."
   },
   "checks": {
@@ -2588,9 +2752,12 @@ static std::string BuildShareDiagnosticsText(std::wstring_view generatedAt,
                                              std::wstring_view certFile,
                                              std::wstring_view certKeyFile,
                                              bool certFileExists,
-                                             bool certKeyExists) {
+                                             bool certKeyExists,
+                                             bool certReady,
+                                             std::wstring_view certDetail,
+                                             std::wstring_view certExpectedSans) {
     const auto report = BuildSelfCheckReport(hostState, hostIp, viewerUrl, viewers, serverProcessRunning,
-                                             certFileExists, certKeyExists, portReady, portDetail,
+                                             certReady, certDetail, portReady, portDetail,
                                              localHealthReady, localHealthDetail, hostIpReachable, hostIpReachableDetail,
                                              lanBindReady, lanBindDetail, activeIpv4Candidates, selectedIpRecommended, adapterHint,
                                              embeddedHostReady, embeddedHostStatus,
@@ -2617,6 +2784,9 @@ static std::string BuildShareDiagnosticsText(std::wstring_view generatedAt,
     out << "Cert dir: " << urlutil::WideToUtf8(std::wstring(certDir)) << "\r\n";
     out << "Cert file: " << urlutil::WideToUtf8(std::wstring(certFile)) << " (" << (certFileExists ? "present" : "missing") << ")\r\n";
     out << "Key file: " << urlutil::WideToUtf8(std::wstring(certKeyFile)) << " (" << (certKeyExists ? "present" : "missing") << ")\r\n";
+    out << "Certificate ready: " << (certReady ? "yes" : "no") << "\r\n";
+    out << "Certificate detail: " << urlutil::WideToUtf8(std::wstring(certDetail)) << "\r\n";
+    out << "Expected SANs: " << urlutil::WideToUtf8(std::wstring(certExpectedSans)) << "\r\n";
     out << "Trust note: If the browser warns about a self-signed certificate, trust it for this local session.\r\n\r\n";
     out << "Host URL: " << urlutil::WideToUtf8(std::wstring(hostUrl)) << "\r\n";
     out << "Viewer URL: " << urlutil::WideToUtf8(std::wstring(viewerUrl)) << "\r\n\r\n";
@@ -3804,8 +3974,16 @@ void MainWindow::OpenHostPage() {
 
 void MainWindow::OpenViewerPage() {
     const auto url = BuildViewerUrl();
+    std::wstring browserPath;
+    const bool preferAppWindow = m_defaultViewerOpenMode == L"app-window-preferred" || m_defaultViewerOpenMode == L"app-window";
+    if (preferAppWindow && LaunchUrlInAppWindow(url, &browserPath)) {
+        AppendLog(L"Opened Viewer page in app window: " + browserPath);
+        AddTimelineEvent(L"Viewer page opened in app window");
+        return;
+    }
+
     ShellExecuteW(m_hwnd, L"open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
-    AppendLog(L"Opened Viewer page");
+    AppendLog(L"Opened Viewer page in browser");
     AddTimelineEvent(L"Viewer page opened in browser");
 }
 
@@ -3925,11 +4103,11 @@ bool MainWindow::WriteShareArtifacts(fs::path* shareCardPath,
     const auto viewerUrl = BuildViewerUrl();
     const auto generatedAt = NowDateTime();
     const auto wifiDirectAlias = BuildWifiDirectSessionAlias();
-    const auto certInfo = ProbeCertArtifacts(AppDir());
+    const auto certInfo = ProbeCertArtifacts(AppDir(), m_hostIp);
     const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, m_bindAddress, m_hostIp, m_port);
     const auto selfCheckReport = BuildSelfCheckReport(m_hostPageState, m_hostIp, viewerUrl, m_lastViewers,
                                                       runtime.serverProcessRunning,
-                                                      certInfo.certExists, certInfo.keyExists,
+                                                      certInfo.ready, certInfo.detail,
                                                       runtime.portReady, runtime.portDetail,
                                                       runtime.localHealthReady, runtime.localHealthDetail,
                                                       runtime.hostIpReachable, runtime.hostIpReachableDetail,
@@ -3975,7 +4153,10 @@ bool MainWindow::WriteShareArtifacts(fs::path* shareCardPath,
         certInfo.certFile.wstring(),
         certInfo.keyFile.wstring(),
         certInfo.certExists,
-        certInfo.keyExists);
+        certInfo.keyExists,
+        certInfo.ready,
+        certInfo.detail,
+        certInfo.expectedSans);
 
     const fs::path shareCard = outDir / L"share_card.html";
     const fs::path shareWizard = outDir / L"share_wizard.html";
@@ -4030,7 +4211,8 @@ bool MainWindow::WriteShareArtifacts(fs::path* shareCardPath,
                                                          runtime.embeddedHostReady,
                                                          runtime.embeddedHostStatus,
                                                          certInfo.certDir.wstring(), certInfo.certFile.wstring(), certInfo.keyFile.wstring(),
-                                                         certInfo.certExists, certInfo.keyExists));
+                                                         certInfo.certExists, certInfo.keyExists,
+                                                         certInfo.ready, certInfo.detail, certInfo.expectedSans));
     writeUtf8(desktopSelfCheckHtmlFile, BuildDesktopSelfCheckHtml(bundleJson));
     writeUtf8(desktopSelfCheckTxtFile, BuildDesktopSelfCheckText(generatedAt, hostUrl, viewerUrl, selfCheckReport));
     writeUtf8(viewerUrlFile, urlutil::WideToUtf8(viewerUrl) + "\r\n");
@@ -4128,12 +4310,12 @@ void MainWindow::HandleAdminShellMessage(std::wstring_view payload) {
 
 AdminBackend::Snapshot MainWindow::BuildAdminSnapshot() const {
     const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, m_bindAddress, m_hostIp, m_port);
-    const auto certInfo = ProbeCertArtifacts(AppDir());
+    const auto certInfo = ProbeCertArtifacts(AppDir(), m_hostIp);
     const auto candidates = CollectActiveIpv4Candidates();
     const auto viewerUrl = BuildViewerUrl();
     const auto report = BuildSelfCheckReport(m_hostPageState, m_hostIp, viewerUrl, m_lastViewers,
                                              runtime.serverProcessRunning,
-                                             certInfo.certExists, certInfo.keyExists,
+                                             certInfo.ready, certInfo.detail,
                                              runtime.portReady, runtime.portDetail,
                                              runtime.localHealthReady, runtime.localHealthDetail,
                                              runtime.hostIpReachable, runtime.hostIpReachableDetail,
@@ -4169,7 +4351,9 @@ AdminBackend::Snapshot MainWindow::BuildAdminSnapshot() const {
     snapshot.serverRunning = runtime.serverProcessRunning;
     snapshot.healthReady = runtime.localHealthReady;
     snapshot.hostReachable = runtime.hostIpReachable;
-    snapshot.certReady = certInfo.certExists && certInfo.keyExists;
+    snapshot.certReady = certInfo.ready;
+    snapshot.certDetail = certInfo.detail;
+    snapshot.certExpectedSans = certInfo.expectedSans;
     snapshot.wifiAdapterPresent = m_wifiAdapterPresent;
     snapshot.hotspotSupported = m_hotspotSupported;
     snapshot.hotspotRunning = m_hotspotRunning;
@@ -4391,12 +4575,12 @@ void MainWindow::RefreshShellFallback() {
 
 void MainWindow::RefreshDashboard() {
     if (PreferHtmlAdminUi()) return;
-    const auto certInfo = ProbeCertArtifacts(AppDir());
+    const auto certInfo = ProbeCertArtifacts(AppDir(), m_hostIp);
     const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, m_bindAddress, m_hostIp, m_port);
     const auto viewerUrl = BuildViewerUrl();
     const auto report = BuildSelfCheckReport(m_hostPageState, m_hostIp, viewerUrl, m_lastViewers,
                                              runtime.serverProcessRunning,
-                                             certInfo.certExists, certInfo.keyExists,
+                                             certInfo.ready, certInfo.detail,
                                              runtime.portReady, runtime.portDetail,
                                              runtime.localHealthReady, runtime.localHealthDetail,
                                              runtime.hostIpReachable, runtime.hostIpReachableDetail,
@@ -4443,7 +4627,10 @@ void MainWindow::RefreshDashboard() {
     serviceCard << L"Service\r\n";
     serviceCard << L"Server Exe: " << (AppDir() / L"lan_screenshare_server.exe").wstring() << L"\r\n";
     serviceCard << L"Bind + Port: " << m_bindAddress << L":" << m_port << L"\r\n";
-    serviceCard << L"Cert State: " << ((certInfo.certExists && certInfo.keyExists) ? L"ready" : L"missing");
+    serviceCard << L"Cert State: " << (certInfo.ready ? L"ready" : L"needs refresh");
+    if (!certInfo.detail.empty()) {
+        serviceCard << L"\r\nCert Detail: " << certInfo.detail;
+    }
     SetTextIfPresent(m_dashboardServiceCard, serviceCard.str());
 
     std::wstringstream shareCard;
@@ -4488,10 +4675,14 @@ void MainWindow::RefreshDashboard() {
                       L"Hotspot is not running",
                       m_hotspotSupported ? L"You can try starting hotspot directly. If that fails, open Windows Mobile Hotspot settings." : L"This machine does not expose controllable hotspot support. Open system hotspot settings.");
     }
-    if (certInfo.certExists && certInfo.keyExists) {
+    if (certInfo.ready) {
         addSuggestion(DashboardSuggestionKind::NoteSelfSignedCert,
                       L"Certificate is self-signed",
                       L"On first LAN access, the browser may prompt for certificate trust. That is expected for the current local HTTPS MVP.");
+    } else {
+        addSuggestion(DashboardSuggestionKind::StartServer,
+                      L"Certificate is not ready for current host entries",
+                      certInfo.detail.empty() ? L"Restart the local server to regenerate a certificate for the current LAN IP and hostname." : certInfo.detail);
     }
     if (runtime.portReady) {
         addSuggestion(DashboardSuggestionKind::PortReady,
@@ -4523,13 +4714,13 @@ void MainWindow::RefreshDashboard() {
 
 void MainWindow::RefreshSessionSetup() {
     if (PreferHtmlAdminUi()) return;
-    const auto certInfo = ProbeCertArtifacts(AppDir());
+    const auto certInfo = ProbeCertArtifacts(AppDir(), m_hostIp);
     const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, m_bindAddress, m_hostIp, m_port);
     const std::wstring hostUrl = BuildHostUrlLocal();
     const std::wstring viewerUrl = BuildViewerUrl();
 
     if (m_sanIpValue) {
-        std::wstring san = m_hostIp.empty() ? L"127.0.0.1" : (m_hostIp + L",127.0.0.1");
+        std::wstring san = BuildExpectedCertSans(m_hostIp);
         SetWindowTextW(m_sanIpValue, san.c_str());
     }
 
@@ -4566,7 +4757,10 @@ void MainWindow::RefreshSessionSetup() {
         }
         ss << L"Action: Open Host in the system browser.\r\n";
         ss << L"Host URL: " << hostUrl << L"\r\n";
-        ss << L"Cert State: " << ((certInfo.certExists && certInfo.keyExists) ? L"ready" : L"missing");
+        ss << L"Cert State: " << (certInfo.ready ? L"ready" : L"needs refresh");
+        if (!certInfo.detail.empty()) {
+            ss << L"\r\nCert Detail: " << certInfo.detail;
+        }
         SetWindowTextW(m_hostPreviewPlaceholder, ss.str().c_str());
         const bool placeholderVisible = !m_webview.IsReady() && !IsHtmlAdminActive();
         ShowWindow(m_hostPreviewPlaceholder, (m_currentPage == UiPage::Setup && placeholderVisible) ? SW_SHOW : SW_HIDE);
@@ -4741,7 +4935,7 @@ void MainWindow::RefreshFilteredLogs() {
 
 void MainWindow::RefreshDiagnosticsPage() {
     if (PreferHtmlAdminUi()) return;
-    const auto certInfo = ProbeCertArtifacts(AppDir());
+    const auto certInfo = ProbeCertArtifacts(AppDir(), m_hostIp);
     const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, m_bindAddress, m_hostIp, m_port);
     if (m_diagChecklistCard) {
         std::wstringstream ss;
@@ -4752,8 +4946,12 @@ void MainWindow::RefreshDiagnosticsPage() {
         ss << L"  Fix: start service, then test Host URL in browser.\r\n\r\n";
         ss << L"[" << (runtime.embeddedHostReady ? L"OK" : L"FIX") << L"] WebView2 available\r\n";
         ss << L"  Fix: install/repair WebView2 Runtime or use browser fallback.\r\n\r\n";
-        ss << L"[" << ((certInfo.certExists && certInfo.keyExists) ? L"OK" : L"FIX") << L"] Certificate ready\r\n";
-        ss << L"  Fix: start service once to generate cert files.\r\n\r\n";
+        ss << L"[" << (certInfo.ready ? L"OK" : L"FIX") << L"] Certificate ready\r\n";
+        ss << L"  Fix: restart service to regenerate certificate for current IP/hostname.\r\n";
+        if (!certInfo.detail.empty()) {
+            ss << L"  Detail: " << certInfo.detail << L"\r\n";
+        }
+        ss << L"\r\n";
         ss << L"[" << (!m_hostIp.empty() ? L"OK" : L"FIX") << L"] LAN IP determined\r\n";
         ss << L"  Fix: re-detect network or choose main IP manually.\r\n\r\n";
         ss << L"[" << (m_shareCardExported ? L"OK" : L"FIX") << L"] Share bundle exported\r\n";
@@ -4785,7 +4983,7 @@ void MainWindow::RefreshDiagnosticsPage() {
 
 void MainWindow::RefreshSettingsPage() {
     if (PreferHtmlAdminUi()) return;
-    const auto certInfo = ProbeCertArtifacts(AppDir());
+    const auto certInfo = ProbeCertArtifacts(AppDir(), m_hostIp);
     const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, m_bindAddress, m_hostIp, m_port);
     const auto serverExe = AppDir() / L"lan_screenshare_server.exe";
     const auto wwwDir = AppDir() / L"www";
@@ -4865,7 +5063,10 @@ void MainWindow::RefreshSettingsPage() {
         ss << L"Startup Hook: " << m_startupHook << L"\r\n\r\n";
         ss << L"Runtime Flags\r\n";
         ss << L"WebView Ready: " << (runtime.embeddedHostReady ? L"yes" : L"no") << L"\r\n";
-        ss << L"Cert Ready: " << ((certInfo.certExists && certInfo.keyExists) ? L"yes" : L"no");
+        ss << L"Cert Ready: " << (certInfo.ready ? L"yes" : L"no");
+        if (!certInfo.detail.empty()) {
+            ss << L"\r\nCert Detail: " << certInfo.detail;
+        }
         SetWindowTextW(m_settingsAdvancedCard, ss.str().c_str());
     }
 
@@ -4978,11 +5179,7 @@ void MainWindow::StartServer() {
     opt.bind = m_bindAddress;
     opt.port = std::to_wstring(m_port);
 
-    if (!m_hostIp.empty()) {
-        opt.sanIp = m_hostIp + L",127.0.0.1";
-    } else {
-        opt.sanIp = L"127.0.0.1";
-    }
+    opt.sanIp = BuildExpectedCertSans(m_hostIp);
 
     auto r = m_server->Start(opt);
     if (!r.ok) {
@@ -5095,11 +5292,11 @@ void MainWindow::RefreshShareInfo() {
     ss << L"Password: " << (m_hotspotPassword.empty() ? L"(not configured)" : m_hotspotPassword) << L"\r\n";
     ss << L"Wi-Fi Direct API: " << (m_wifiDirectApiAvailable ? L"available" : L"not detected") << L"\r\n";
     ss << L"Wi-Fi Direct Alias: " << BuildWifiDirectSessionAlias() << L"\r\n";
-    const auto certInfo = ProbeCertArtifacts(AppDir());
+    const auto certInfo = ProbeCertArtifacts(AppDir(), m_hostIp);
     const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, m_bindAddress, m_hostIp, m_port);
     const auto selfCheckReport = BuildSelfCheckReport(m_hostPageState, m_hostIp, BuildViewerUrl(), m_lastViewers,
                                                      runtime.serverProcessRunning,
-                                                     certInfo.certExists, certInfo.keyExists,
+                                                     certInfo.ready, certInfo.detail,
                                                      runtime.portReady, runtime.portDetail,
                                                      runtime.localHealthReady, runtime.localHealthDetail,
                                                      runtime.hostIpReachable, runtime.hostIpReachableDetail,
@@ -5109,7 +5306,13 @@ void MainWindow::RefreshShareInfo() {
                                                      m_wifiAdapterPresent, m_hotspotSupported,
                                                      m_wifiDirectApiAvailable, m_hotspotRunning, true);
     ss << L"QR Renderer: local SVG (offline)\r\n";
-    ss << L"Cert Files: " << (certInfo.certExists && certInfo.keyExists ? L"ready" : L"missing / incomplete") << L"\r\n";
+    ss << L"Certificate: " << (certInfo.ready ? L"ready" : L"needs refresh") << L"\r\n";
+    if (!certInfo.detail.empty()) {
+        ss << L"Certificate Detail: " << certInfo.detail << L"\r\n";
+    }
+    if (!certInfo.expectedSans.empty()) {
+        ss << L"Expected SANs: " << certInfo.expectedSans << L"\r\n";
+    }
     ss << L"Port Check: " << (runtime.portReady ? L"ready" : L"attention") << L" (" << runtime.portDetail << L")\r\n";
     ss << L"Local Health: " << (runtime.localHealthReady ? L"ok" : L"attention") << L" (" << runtime.localHealthDetail << L")\r\n";
     ss << L"LAN Bind: " << (runtime.lanBindReady ? L"ready" : L"attention") << L" (" << runtime.lanBindDetail << L")\r\n";

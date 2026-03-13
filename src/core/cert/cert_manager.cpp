@@ -1,12 +1,20 @@
 #include "cert_manager.h"
 
+#include <algorithm>
+#include <cctype>
 #include <filesystem>
 #include <fstream>
+#include <set>
 #include <sstream>
 #include <vector>
 
 #if defined(_WIN32)
+  #include <winsock2.h>
+  #include <ws2tcpip.h>
   #include <windows.h>
+  #include <wincrypt.h>
+  #pragma comment(lib, "ws2_32.lib")
+  #pragma comment(lib, "crypt32.lib")
 #endif
 
 namespace lan::cert {
@@ -31,6 +39,53 @@ static std::vector<std::string> SplitIps(const std::string& s) {
 }
 
 #if defined(_WIN32)
+static std::string ToLower(std::string value) {
+  for (char& ch : value) {
+    ch = static_cast<char>(std::tolower(static_cast<unsigned char>(ch)));
+  }
+  return value;
+}
+
+static std::string Trim(std::string value) {
+  while (!value.empty() && std::isspace(static_cast<unsigned char>(value.back()))) {
+    value.pop_back();
+  }
+  std::size_t start = 0;
+  while (start < value.size() && std::isspace(static_cast<unsigned char>(value[start]))) {
+    ++start;
+  }
+  return value.substr(start);
+}
+
+static bool LooksLikeIpv4(const std::string& value) {
+  IN_ADDR addr{};
+  return InetPtonA(AF_INET, value.c_str(), &addr) == 1;
+}
+
+static std::string NormalizeDnsName(std::string value) {
+  value = ToLower(Trim(std::move(value)));
+  while (!value.empty() && value.back() == '.') {
+    value.pop_back();
+  }
+  return value;
+}
+
+static std::vector<std::string> SplitSanEntries(const std::string& value) {
+  std::vector<std::string> entries = SplitIps(value);
+  std::vector<std::string> out;
+  std::set<std::string> seen;
+  for (auto& item : entries) {
+    item = Trim(std::move(item));
+    if (item.empty()) continue;
+    const std::string normalized = LooksLikeIpv4(item) ? item : NormalizeDnsName(item);
+    if (normalized.empty()) continue;
+    if (seen.insert(normalized).second) {
+      out.push_back(normalized);
+    }
+  }
+  return out;
+}
+
 static std::wstring Utf8ToWide(const std::string& s) {
   if (s.empty()) return L"";
   int n = MultiByteToWideChar(CP_UTF8, 0, s.c_str(), (int)s.size(), nullptr, 0);
@@ -128,6 +183,131 @@ static std::wstring FindOpenSsl(std::string& err) {
   return L"";
 }
 
+static std::string JoinValues(const std::vector<std::string>& values) {
+  std::ostringstream ss;
+  for (std::size_t i = 0; i < values.size(); ++i) {
+    if (i != 0) ss << ", ";
+    ss << values[i];
+  }
+  return ss.str();
+}
+
+static bool InspectCertificateInternal(const std::string& certFile,
+                                       const std::string& keyFile,
+                                       const std::string& sanIp,
+                                       CertStatus& status,
+                                       std::string& err) {
+  status = {};
+  status.certExists = fs::exists(certFile);
+  status.keyExists = fs::exists(keyFile);
+  status.expectedAltNames = SplitSanEntries(sanIp);
+
+  if (!status.certExists || !status.keyExists) {
+    status.detail = !status.certExists && !status.keyExists
+        ? "Certificate and key files are missing."
+        : (!status.certExists ? "Certificate file is missing." : "Certificate key file is missing.");
+    err.clear();
+    return true;
+  }
+
+  const std::wstring certPath = Utf8ToWide(certFile);
+  DWORD encoding = 0;
+  DWORD contentType = 0;
+  DWORD formatType = 0;
+  HCERTSTORE store = nullptr;
+  HCRYPTMSG message = nullptr;
+  const void* context = nullptr;
+
+  const BOOL ok = CryptQueryObject(CERT_QUERY_OBJECT_FILE,
+                                   certPath.c_str(),
+                                   CERT_QUERY_CONTENT_FLAG_CERT,
+                                   CERT_QUERY_FORMAT_FLAG_ALL,
+                                   0,
+                                   &encoding,
+                                   &contentType,
+                                   &formatType,
+                                   &store,
+                                   &message,
+                                   &context);
+  if (!ok || !context) {
+    err = "CryptQueryObject failed for certificate file.";
+    status.detail = "Certificate file exists, but Windows could not parse it.";
+    if (store) CertCloseStore(store, 0);
+    if (message) CryptMsgClose(message);
+    return false;
+  }
+
+  auto* certCtx = static_cast<PCCERT_CONTEXT>(context);
+  status.certParsable = true;
+
+  FILETIME now{};
+  GetSystemTimeAsFileTime(&now);
+  status.validNow =
+      CompareFileTime(&certCtx->pCertInfo->NotBefore, &now) <= 0 &&
+      CompareFileTime(&certCtx->pCertInfo->NotAfter, &now) >= 0;
+
+  const PCERT_EXTENSION ext = CertFindExtension(szOID_SUBJECT_ALT_NAME2,
+                                                certCtx->pCertInfo->cExtension,
+                                                certCtx->pCertInfo->rgExtension);
+  if (ext) {
+    CERT_ALT_NAME_INFO* altInfo = nullptr;
+    DWORD altSize = 0;
+    if (CryptDecodeObjectEx(X509_ASN_ENCODING | PKCS_7_ASN_ENCODING,
+                            X509_ALTERNATE_NAME,
+                            ext->Value.pbData,
+                            ext->Value.cbData,
+                            CRYPT_DECODE_ALLOC_FLAG,
+                            nullptr,
+                            &altInfo,
+                            &altSize) && altInfo) {
+      for (DWORD i = 0; i < altInfo->cAltEntry; ++i) {
+        const CERT_ALT_NAME_ENTRY& entry = altInfo->rgAltEntry[i];
+        if (entry.dwAltNameChoice == CERT_ALT_NAME_DNS_NAME && entry.pwszDNSName) {
+          status.presentDnsSans.push_back(NormalizeDnsName(WideToUtf8(entry.pwszDNSName)));
+        } else if (entry.dwAltNameChoice == CERT_ALT_NAME_IP_ADDRESS && entry.IPAddress.cbData > 0) {
+          char ipBuf[INET6_ADDRSTRLEN]{};
+          if (entry.IPAddress.cbData == 4 &&
+              InetNtopA(AF_INET, entry.IPAddress.pbData, ipBuf, static_cast<DWORD>(std::size(ipBuf)))) {
+            status.presentIpSans.push_back(ipBuf);
+          } else if (entry.IPAddress.cbData == 16 &&
+                     InetNtopA(AF_INET6, entry.IPAddress.pbData, ipBuf, static_cast<DWORD>(std::size(ipBuf)))) {
+            status.presentIpSans.push_back(ToLower(ipBuf));
+          }
+        }
+      }
+      LocalFree(altInfo);
+    }
+  }
+
+  for (const auto& expected : status.expectedAltNames) {
+    const bool isIp = LooksLikeIpv4(expected);
+    const auto& present = isIp ? status.presentIpSans : status.presentDnsSans;
+    const bool matched = std::find(present.begin(), present.end(), expected) != present.end();
+    if (!matched) {
+      status.missingAltNames.push_back(expected);
+    }
+  }
+
+  status.sanMatches = status.missingAltNames.empty();
+  status.ready = status.certParsable && status.validNow && status.sanMatches;
+
+  if (!status.certParsable) {
+    status.detail = "Certificate file is not parseable.";
+  } else if (!status.validNow) {
+    status.detail = "Certificate is expired or not yet valid.";
+  } else if (!status.sanMatches) {
+    status.detail = "Certificate SAN does not match the current host entries. Missing: " + JoinValues(status.missingAltNames);
+  } else {
+    status.detail = "Certificate matches the current host entries.";
+  }
+
+  CertFreeCertificateContext(certCtx);
+  if (store) CertCloseStore(store, 0);
+  if (message) CryptMsgClose(message);
+  err.clear();
+  return true;
+}
+
 static bool RunProcessCapture(const std::wstring& cmdLine, const std::wstring& workdir, std::string& out, std::string& errOut) {
   SECURITY_ATTRIBUTES sa{};
   sa.nLength = sizeof(sa);
@@ -207,15 +387,30 @@ bool CertManager::EnsureSelfSigned(const std::string& outDir, const std::string&
   paths.keyFile = (fs::path(outDir) / "server.key").string();
   paths.certFile = (fs::path(outDir) / "server.crt").string();
 
-  if (fs::exists(paths.keyFile) && fs::exists(paths.certFile)) {
+  CertStatus current{};
+  std::string inspectErr;
+  if (InspectCertificate(paths.certFile, paths.keyFile, sanIp, current, inspectErr) && current.ready) {
+    err.clear();
     return true;
   }
 
-  // Build SAN list (comma/space separated supported).
-  auto ips = SplitIps(sanIp);
-  if (ips.empty()) {
-    ips.push_back("127.0.0.1");
+  std::vector<std::string> sans = SplitSanEntries(sanIp);
+  if (sans.empty()) {
+    sans.push_back("127.0.0.1");
+    sans.push_back("localhost");
+  } else {
+    if (std::find(sans.begin(), sans.end(), "127.0.0.1") == sans.end()) {
+      sans.push_back("127.0.0.1");
+    }
+    if (std::find(sans.begin(), sans.end(), "localhost") == sans.end()) {
+      sans.push_back("localhost");
+    }
   }
+
+  std::error_code removeEc;
+  fs::remove(paths.keyFile, removeEc);
+  removeEc.clear();
+  fs::remove(paths.certFile, removeEc);
 
   // Create openssl config with SAN.
   fs::path cnf = fs::path(outDir) / "openssl_san.cnf";
@@ -242,8 +437,14 @@ bool CertManager::EnsureSelfSigned(const std::string& outDir, const std::string&
     f << "extendedKeyUsage = serverAuth\n\n";
 
     f << "[ alt_names ]\n";
-    for (size_t i = 0; i < ips.size(); ++i) {
-      f << "IP." << (i + 1) << " = " << ips[i] << "\n";
+    std::size_t ipIndex = 1;
+    std::size_t dnsIndex = 1;
+    for (const auto& entry : sans) {
+      if (LooksLikeIpv4(entry)) {
+        f << "IP." << ipIndex++ << " = " << entry << "\n";
+      } else {
+        f << "DNS." << dnsIndex++ << " = " << entry << "\n";
+      }
     }
   }
 
@@ -276,6 +477,16 @@ bool CertManager::EnsureSelfSigned(const std::string& outDir, const std::string&
     return false;
   }
 
+  CertStatus finalStatus{};
+  if (!InspectCertificate(paths.certFile, paths.keyFile, sanIp, finalStatus, inspectErr)) {
+    err = inspectErr.empty() ? "Certificate generation succeeded, but validation failed." : inspectErr;
+    return false;
+  }
+  if (!finalStatus.ready) {
+    err = finalStatus.detail.empty() ? "Generated certificate does not match the requested SANs." : finalStatus.detail;
+    return false;
+  }
+
   return true;
 #else
   // Non-Windows: attempt to call system openssl.
@@ -295,6 +506,27 @@ bool CertManager::EnsureSelfSigned(const std::string& outDir, const std::string&
     err = "openssl did not produce expected files";
     return false;
   }
+  return true;
+#endif
+}
+
+bool CertManager::InspectCertificate(const std::string& certFile,
+                                     const std::string& keyFile,
+                                     const std::string& sanIp,
+                                     CertStatus& status,
+                                     std::string& err) {
+#if defined(_WIN32)
+  return InspectCertificateInternal(certFile, keyFile, sanIp, status, err);
+#else
+  status = {};
+  status.certExists = fs::exists(certFile);
+  status.keyExists = fs::exists(keyFile);
+  status.certParsable = status.certExists;
+  status.validNow = status.certExists;
+  status.sanMatches = status.certExists;
+  status.ready = status.certExists && status.keyExists;
+  status.detail = status.ready ? "Certificate file exists." : "Certificate or key file is missing.";
+  err.clear();
   return true;
 #endif
 }

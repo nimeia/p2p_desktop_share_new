@@ -2,29 +2,58 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="theme-color" content="#050816"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="LAN Viewer"/>
   <title>LAN Screen Share - Viewer</title>
+  <link rel="manifest" href="/viewer-app.webmanifest"/>
+  <link rel="icon" type="image/svg+xml" href="/assets/viewer_app_icon.svg"/>
   <link rel="stylesheet" href="/assets/style.css"/>
 </head>
-<body>
-  <main class="container">
-    <h1>Viewer</h1>
-    <div class="status">
-      <div>Room: <span id="room"></span></div>
-      <div>State: <span id="state">connecting</span></div>
-    </div>
-
+<body class="viewer-page">
+  <main class="viewer-shell" id="viewerShell">
     <video id="video" autoplay playsinline muted></video>
 
-    <div id="playHint" class="status" style="display:none;">
-      <div>Browser blocked autoplay.</div>
-      <button id="btnPlay" type="button">Click To Play</button>
-    </div>
+    <div class="viewer-backdrop"></div>
 
-    <details>
-      <summary>Debug Log</summary>
+    <section class="viewer-overlay viewer-top" id="viewerTopBar">
+      <div class="viewer-brand">
+        <span class="viewer-badge">Viewer</span>
+        <span class="viewer-room" id="roomLabel">Room <span id="room"></span></span>
+      </div>
+      <div class="viewer-status-strip">
+        <span class="viewer-pill" id="statePill">connecting</span>
+        <span class="viewer-pill" id="displayModePill">browser</span>
+      </div>
+    </section>
+
+    <section class="viewer-overlay viewer-center" id="viewerCenterCard">
+      <div class="viewer-card">
+        <h1>LAN Viewer</h1>
+        <p id="viewerHintText">Opening in fullscreen or installed app mode hides most browser chrome and feels closer to a native receiver.</p>
+        <div class="viewer-action-row">
+          <button id="btnInstall" type="button" hidden>Install App</button>
+          <button id="btnFullscreen" type="button">Enter Fullscreen</button>
+          <button id="btnPlay" type="button" hidden>Tap To Play</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="viewer-overlay viewer-bottom" id="viewerBottomBar">
+      <button class="viewer-chip" id="btnToggleChrome" type="button">Hide HUD</button>
+      <button class="viewer-chip" id="btnToggleDebug" type="button">Debug</button>
+    </section>
+
+    <section class="viewer-debug is-hidden" id="debugPanel">
+      <div class="viewer-debug-header">
+        <span>Debug Log</span>
+        <button class="viewer-chip" id="btnCloseDebug" type="button">Close</button>
+      </div>
       <pre id="log" class="log"></pre>
-    </details>
+    </section>
   </main>
 
   <script src="/assets/common.js"></script>

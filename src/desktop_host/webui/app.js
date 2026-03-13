@@ -126,7 +126,10 @@
       items.push(["Check adapter selection", "The selected host address is not responding to the reachability probe."]);
     }
     if (!payload.certReady) {
-      items.push(["Generate local certificates", "Certificate artifacts are missing or incomplete."]);
+      items.push([
+        "Regenerate local certificates",
+        payload.certDetail || "The local certificate is missing, expired, or does not match the current host entries."
+      ]);
     }
     if (!payload.shareBundleExported) {
       items.push(["Refresh offline materials", "The share bundle has not been exported for this session yet."]);
@@ -142,7 +145,7 @@
       ["Port listening", payload.canStartSharing ? "Ready or blocked by sharing state" : "Sharing active"],
       ["Local /health", payload.healthReady ? "OK" : "Needs attention"],
       ["Selected host IP", payload.hostReachable ? "Reachable" : "Not reachable yet"],
-      ["Certificate", payload.certReady ? "Ready" : "Missing / incomplete"],
+      ["Certificate", payload.certReady ? "Ready" : (payload.certDetail || "Not ready")],
       ["Bundle export", payload.shareBundleExported ? "Exported" : "Not exported"],
       ["WebView runtime", payload.webviewStatus || "Unknown"]
     ];

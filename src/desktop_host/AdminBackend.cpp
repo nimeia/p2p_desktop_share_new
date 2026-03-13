@@ -221,6 +221,8 @@ std::wstring AdminBackend::BuildSnapshotEventJson(const Snapshot& snapshot) cons
     AppendJsonBool(json, "healthReady", snapshot.healthReady);
     AppendJsonBool(json, "hostReachable", snapshot.hostReachable);
     AppendJsonBool(json, "certReady", snapshot.certReady);
+    AppendJsonString(json, "certDetail", snapshot.certDetail);
+    AppendJsonString(json, "certExpectedSans", snapshot.certExpectedSans);
     AppendJsonBool(json, "wifiAdapterPresent", snapshot.wifiAdapterPresent);
     AppendJsonBool(json, "hotspotSupported", snapshot.hotspotSupported);
     AppendJsonBool(json, "hotspotRunning", snapshot.hotspotRunning);

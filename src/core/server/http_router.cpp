@@ -62,6 +62,8 @@ std::string HttpRouter::MapPath(std::string_view target) const {
   // Minimal routing
   if (t.rfind("/host", 0) == 0) return wwwRoot_ + "/host.html";
   if (t.rfind("/view", 0) == 0) return wwwRoot_ + "/viewer.html";
+  if (t == "/viewer-app.webmanifest") return wwwRoot_ + "/viewer-app.webmanifest";
+  if (t == "/viewer-sw.js") return wwwRoot_ + "/viewer-sw.js";
   if (t.rfind("/assets/", 0) == 0) return wwwRoot_ + t;
   return {};
 }
@@ -69,7 +71,10 @@ std::string HttpRouter::MapPath(std::string_view target) const {
 std::string HttpRouter::GuessMime(std::string_view path) {
   if (path.ends_with(".html")) return "text/html; charset=utf-8";
   if (path.ends_with(".js")) return "application/javascript; charset=utf-8";
+  if (path.ends_with(".webmanifest")) return "application/manifest+json; charset=utf-8";
+  if (path.ends_with(".json")) return "application/json; charset=utf-8";
   if (path.ends_with(".css")) return "text/css; charset=utf-8";
+  if (path.ends_with(".svg")) return "image/svg+xml";
   return "application/octet-stream";
 }
 
