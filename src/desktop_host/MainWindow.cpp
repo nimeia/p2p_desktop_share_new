@@ -3967,8 +3967,15 @@ void MainWindow::OpenSystemHotspotSettings() {
 
 void MainWindow::OpenHostPage() {
     const auto url = BuildHostUrlLocal();
+    std::wstring browserPath;
+    if (LaunchUrlInAppWindow(url, &browserPath)) {
+        AppendLog(L"Opened Host page in app window: " + browserPath);
+        AddTimelineEvent(L"Host page opened in app window");
+        return;
+    }
+
     ShellExecuteW(m_hwnd, L"open", url.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
-    AppendLog(L"Opened Host page");
+    AppendLog(L"Opened Host page in browser");
     AddTimelineEvent(L"Host page opened in browser");
 }
 

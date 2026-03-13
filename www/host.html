@@ -2,30 +2,70 @@
 <html lang="zh-CN">
 <head>
   <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width,initial-scale=1"/>
+  <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
+  <meta name="theme-color" content="#07111f"/>
+  <meta name="mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-capable" content="yes"/>
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent"/>
+  <meta name="apple-mobile-web-app-title" content="LAN Host"/>
   <title>LAN Screen Share - Host</title>
+  <link rel="manifest" href="/host-app.webmanifest"/>
+  <link rel="icon" type="image/svg+xml" href="/assets/host_app_icon.svg"/>
   <link rel="stylesheet" href="/assets/style.css"/>
 </head>
-<body>
-  <main class="container">
-    <h1>Host</h1>
-    <p id="info"></p>
+<body class="host-page">
+  <main class="host-shell" id="hostShell">
+    <div class="host-stage-glow"></div>
 
-    <div class="actions">
-      <button id="btnStart">开始共享</button>
-      <button id="btnStop" disabled>停止共享</button>
-    </div>
+    <section class="host-topbar">
+      <div class="host-brand">
+        <span class="host-badge">Host</span>
+        <span class="host-pill">Room <strong id="room"></strong></span>
+        <span class="host-pill">Viewers <strong id="viewers">0</strong></span>
+      </div>
+      <div class="host-statusbar">
+        <span class="host-state-pill" id="statePill">idle</span>
+        <span class="host-pill" id="displayModePill">browser</span>
+      </div>
+    </section>
 
-    <div class="status">
-      <div>Room: <span id="room"></span></div>
-      <div>Viewers: <span id="viewers">0</span></div>
-      <div>State: <span id="state">idle</span></div>
-    </div>
+    <section class="host-hero" id="hostHero">
+      <article class="host-panel host-primary-panel">
+        <div class="host-kicker">Native-style sharing console</div>
+        <h1>Start sharing without a browser-looking shell.</h1>
+        <p id="info">Open this page with <span class="mono">/host?room=&lt;ROOM&gt;&amp;token=&lt;TOKEN&gt;</span>, then start screen sharing.</p>
+        <div class="host-actions">
+          <button id="btnStart" type="button">Start Sharing</button>
+          <button id="btnStop" type="button" disabled>Stop Sharing</button>
+          <button id="btnInstall" type="button" hidden>Install App</button>
+          <button id="btnFullscreen" type="button">Enter Fullscreen</button>
+        </div>
+      </article>
 
-    <details>
-      <summary>调试日志</summary>
+      <article class="host-panel host-side-panel">
+        <div class="host-mini-label">Session</div>
+        <dl class="host-facts">
+          <div><dt>Room</dt><dd id="factRoom">(missing)</dd></div>
+          <div><dt>Token</dt><dd id="factToken">(missing)</dd></div>
+          <div><dt>Signal</dt><dd id="factSignal">connecting</dd></div>
+          <div><dt>Capture</dt><dd id="factCapture">not started</dd></div>
+        </dl>
+        <p class="host-note" id="hostHintText">Installing the host or opening fullscreen removes most browser chrome and feels closer to a dedicated sender app.</p>
+      </article>
+    </section>
+
+    <section class="host-bottomdock">
+      <button class="host-chip" id="btnToggleChrome" type="button">Hide HUD</button>
+      <button class="host-chip" id="btnToggleDebug" type="button">Debug</button>
+    </section>
+
+    <section class="host-debug is-hidden" id="debugPanel">
+      <div class="host-debug-header">
+        <span>Debug Log</span>
+        <button class="host-chip" id="btnCloseDebug" type="button">Close</button>
+      </div>
       <pre id="log" class="log"></pre>
-    </details>
+    </section>
   </main>
 
   <script src="/assets/common.js"></script>

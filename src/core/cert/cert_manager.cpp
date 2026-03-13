@@ -2,11 +2,23 @@
 
 #include <algorithm>
 #include <cctype>
+#include <ctime>
 #include <filesystem>
 #include <fstream>
 #include <set>
 #include <sstream>
 #include <vector>
+
+#if defined(LAN_CERT_USE_OPENSSL_API)
+  #include <openssl/evp.h>
+  #include <openssl/pem.h>
+  #include <openssl/rsa.h>
+  #include <openssl/x509.h>
+  #include <openssl/x509v3.h>
+  #if defined(_WIN32)
+    #include <openssl/applink.c>
+  #endif
+#endif
 
 #if defined(_WIN32)
   #include <winsock2.h>
@@ -62,6 +74,15 @@ static bool LooksLikeIpv4(const std::string& value) {
   return InetPtonA(AF_INET, value.c_str(), &addr) == 1;
 }
 
+static bool LooksLikeIpv6(const std::string& value) {
+  IN6_ADDR addr6{};
+  return InetPtonA(AF_INET6, value.c_str(), &addr6) == 1;
+}
+
+static bool LooksLikeIpAddress(const std::string& value) {
+  return LooksLikeIpv4(value) || LooksLikeIpv6(value);
+}
+
 static std::string NormalizeDnsName(std::string value) {
   value = ToLower(Trim(std::move(value)));
   while (!value.empty() && value.back() == '.') {
@@ -77,7 +98,7 @@ static std::vector<std::string> SplitSanEntries(const std::string& value) {
   for (auto& item : entries) {
     item = Trim(std::move(item));
     if (item.empty()) continue;
-    const std::string normalized = LooksLikeIpv4(item) ? item : NormalizeDnsName(item);
+    const std::string normalized = LooksLikeIpAddress(item) ? item : NormalizeDnsName(item);
     if (normalized.empty()) continue;
     if (seen.insert(normalized).second) {
       out.push_back(normalized);
@@ -192,6 +213,169 @@ static std::string JoinValues(const std::vector<std::string>& values) {
   return ss.str();
 }
 
+#if defined(LAN_CERT_USE_OPENSSL_API)
+static std::string ChooseCommonName(const std::vector<std::string>& sans) {
+  for (const auto& entry : sans) {
+    if (!LooksLikeIpAddress(entry)) return entry;
+  }
+  for (const auto& entry : sans) {
+    if (LooksLikeIpv4(entry)) return entry;
+  }
+  if (!sans.empty()) return sans.front();
+  return "LAN Screen Share";
+}
+
+static std::string BuildSubjectAltNameValue(const std::vector<std::string>& sans) {
+  std::ostringstream ss;
+  for (std::size_t i = 0; i < sans.size(); ++i) {
+    if (i != 0) ss << ",";
+    ss << (LooksLikeIpAddress(sans[i]) ? "IP:" : "DNS:") << sans[i];
+  }
+  return ss.str();
+}
+
+static bool AddX509Extension(X509* cert,
+                             X509V3_CTX* ctx,
+                             int nid,
+                             const std::string& value,
+                             std::string& err) {
+  X509_EXTENSION* ext = X509V3_EXT_conf_nid(nullptr, ctx, nid, const_cast<char*>(value.c_str()));
+  if (!ext) {
+    err = "OpenSSL failed to create X509 extension nid=" + std::to_string(nid);
+    return false;
+  }
+  const int addOk = X509_add_ext(cert, ext, -1);
+  X509_EXTENSION_free(ext);
+  if (addOk != 1) {
+    err = "OpenSSL failed to append X509 extension nid=" + std::to_string(nid);
+    return false;
+  }
+  return true;
+}
+
+static bool GenerateSelfSignedWithOpenSslApi(const std::string& keyFile,
+                                             const std::string& certFile,
+                                             const std::vector<std::string>& sans,
+                                             std::string& err) {
+  EVP_PKEY_CTX* pkeyCtx = nullptr;
+  EVP_PKEY* pkey = nullptr;
+  X509* cert = nullptr;
+  FILE* keyFp = nullptr;
+  FILE* certFp = nullptr;
+
+  auto cleanup = [&]() {
+    if (keyFp) fclose(keyFp);
+    if (certFp) fclose(certFp);
+    if (cert) X509_free(cert);
+    if (pkey) EVP_PKEY_free(pkey);
+    if (pkeyCtx) EVP_PKEY_CTX_free(pkeyCtx);
+  };
+
+  pkeyCtx = EVP_PKEY_CTX_new_id(EVP_PKEY_RSA, nullptr);
+  if (!pkeyCtx) {
+    err = "OpenSSL failed to allocate EVP_PKEY context.";
+    cleanup();
+    return false;
+  }
+  if (EVP_PKEY_keygen_init(pkeyCtx) <= 0 ||
+      EVP_PKEY_CTX_set_rsa_keygen_bits(pkeyCtx, 2048) <= 0 ||
+      EVP_PKEY_keygen(pkeyCtx, &pkey) <= 0) {
+    err = "OpenSSL failed to generate RSA private key.";
+    cleanup();
+    return false;
+  }
+
+  cert = X509_new();
+  if (!cert) {
+    err = "OpenSSL failed to allocate X509 certificate.";
+    cleanup();
+    return false;
+  }
+
+  if (X509_set_version(cert, 2) != 1) {
+    err = "OpenSSL failed to set X509 version.";
+    cleanup();
+    return false;
+  }
+  ASN1_INTEGER_set(X509_get_serialNumber(cert), static_cast<long>(std::time(nullptr)));
+  X509_gmtime_adj(X509_getm_notBefore(cert), 0);
+  X509_gmtime_adj(X509_getm_notAfter(cert), 60L * 60L * 24L * 3650L);
+  if (X509_set_pubkey(cert, pkey) != 1) {
+    err = "OpenSSL failed to attach public key to certificate.";
+    cleanup();
+    return false;
+  }
+
+  X509_NAME* subject = X509_get_subject_name(cert);
+  const std::string commonName = ChooseCommonName(sans);
+  if (!subject ||
+      X509_NAME_add_entry_by_txt(subject,
+                                 "CN",
+                                 MBSTRING_ASC,
+                                 reinterpret_cast<const unsigned char*>(commonName.c_str()),
+                                 -1,
+                                 -1,
+                                 0) != 1) {
+    err = "OpenSSL failed to set certificate subject CN.";
+    cleanup();
+    return false;
+  }
+  if (X509_set_issuer_name(cert, subject) != 1) {
+    err = "OpenSSL failed to set certificate issuer.";
+    cleanup();
+    return false;
+  }
+
+  X509V3_CTX ctx{};
+  X509V3_set_ctx_nodb(&ctx);
+  X509V3_set_ctx(&ctx, cert, cert, nullptr, nullptr, 0);
+
+  if (!AddX509Extension(cert, &ctx, NID_basic_constraints, "critical,CA:FALSE", err) ||
+      !AddX509Extension(cert, &ctx, NID_key_usage, "critical,digitalSignature,keyEncipherment", err) ||
+      !AddX509Extension(cert, &ctx, NID_ext_key_usage, "serverAuth", err) ||
+      !AddX509Extension(cert, &ctx, NID_subject_alt_name, BuildSubjectAltNameValue(sans), err)) {
+    cleanup();
+    return false;
+  }
+
+  if (X509_sign(cert, pkey, EVP_sha256()) <= 0) {
+    err = "OpenSSL failed to sign certificate.";
+    cleanup();
+    return false;
+  }
+
+  keyFp = _wfopen(Utf8ToWide(keyFile).c_str(), L"wb");
+  if (!keyFp) {
+    err = "failed to open private key output file";
+    cleanup();
+    return false;
+  }
+  if (PEM_write_PrivateKey(keyFp, pkey, nullptr, nullptr, 0, nullptr, nullptr) != 1) {
+    err = "OpenSSL failed to write PEM private key.";
+    cleanup();
+    return false;
+  }
+  fclose(keyFp);
+  keyFp = nullptr;
+
+  certFp = _wfopen(Utf8ToWide(certFile).c_str(), L"wb");
+  if (!certFp) {
+    err = "failed to open certificate output file";
+    cleanup();
+    return false;
+  }
+  if (PEM_write_X509(certFp, cert) != 1) {
+    err = "OpenSSL failed to write PEM certificate.";
+    cleanup();
+    return false;
+  }
+
+  cleanup();
+  err.clear();
+  return true;
+}
+#endif
+
 static bool InspectCertificateInternal(const std::string& certFile,
                                        const std::string& keyFile,
                                        const std::string& sanIp,
@@ -280,7 +464,7 @@ static bool InspectCertificateInternal(const std::string& certFile,
   }
 
   for (const auto& expected : status.expectedAltNames) {
-    const bool isIp = LooksLikeIpv4(expected);
+    const bool isIp = LooksLikeIpAddress(expected);
     const auto& present = isIp ? status.presentIpSans : status.presentDnsSans;
     const bool matched = std::find(present.begin(), present.end(), expected) != present.end();
     if (!matched) {
@@ -440,7 +624,7 @@ bool CertManager::EnsureSelfSigned(const std::string& outDir, const std::string&
     std::size_t ipIndex = 1;
     std::size_t dnsIndex = 1;
     for (const auto& entry : sans) {
-      if (LooksLikeIpv4(entry)) {
+      if (LooksLikeIpAddress(entry)) {
         f << "IP." << ipIndex++ << " = " << entry << "\n";
       } else {
         f << "DNS." << dnsIndex++ << " = " << entry << "\n";
@@ -448,7 +632,11 @@ bool CertManager::EnsureSelfSigned(const std::string& outDir, const std::string&
     }
   }
 
-#if defined(_WIN32)
+#if defined(LAN_CERT_USE_OPENSSL_API)
+  if (!GenerateSelfSignedWithOpenSslApi(paths.keyFile, paths.certFile, sans, err)) {
+    return false;
+  }
+#elif defined(_WIN32)
   std::string ferr;
   std::wstring openssl = FindOpenSsl(ferr);
   if (openssl.empty()) {
@@ -476,18 +664,6 @@ bool CertManager::EnsureSelfSigned(const std::string& outDir, const std::string&
     err = "openssl did not produce expected files. stdout=" + out + " stderr=" + errOut;
     return false;
   }
-
-  CertStatus finalStatus{};
-  if (!InspectCertificate(paths.certFile, paths.keyFile, sanIp, finalStatus, inspectErr)) {
-    err = inspectErr.empty() ? "Certificate generation succeeded, but validation failed." : inspectErr;
-    return false;
-  }
-  if (!finalStatus.ready) {
-    err = finalStatus.detail.empty() ? "Generated certificate does not match the requested SANs." : finalStatus.detail;
-    return false;
-  }
-
-  return true;
 #else
   // Non-Windows: attempt to call system openssl.
   // (Best effort; keep MVP simple.)
@@ -506,8 +682,19 @@ bool CertManager::EnsureSelfSigned(const std::string& outDir, const std::string&
     err = "openssl did not produce expected files";
     return false;
   }
-  return true;
 #endif
+
+  CertStatus finalStatus{};
+  if (!InspectCertificate(paths.certFile, paths.keyFile, sanIp, finalStatus, inspectErr)) {
+    err = inspectErr.empty() ? "Certificate generation succeeded, but validation failed." : inspectErr;
+    return false;
+  }
+  if (!finalStatus.ready) {
+    err = finalStatus.detail.empty() ? "Generated certificate does not match the requested SANs." : finalStatus.detail;
+    return false;
+  }
+
+  return true;
 }
 
 bool CertManager::InspectCertificate(const std::string& certFile,

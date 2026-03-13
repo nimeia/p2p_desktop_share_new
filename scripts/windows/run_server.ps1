@@ -17,8 +17,15 @@ $serverDir = Split-Path -Parent $exe
 $certDir = Join-Path $serverDir "cert"
 $wwwDir = Join-Path $serverDir "www"
 
-if (-not (Test-Path (Join-Path $certDir "server.crt"))) { Fail "Server cert not found: $certDir. Rebuild with scripts\\build.ps1 -Target server" }
 if (-not (Test-Path (Join-Path $wwwDir "host.html"))) { Fail "Server www not found: $wwwDir. Rebuild with scripts\\build.ps1 -Target server" }
+
+if (-not (Test-Path $certDir)) {
+  New-Item -ItemType Directory -Force -Path $certDir | Out-Null
+}
+
+if (-not (Test-Path (Join-Path $certDir "server.crt"))) {
+  Write-Host "Server cert not found under $certDir. The server will generate a self-signed certificate on first start." -ForegroundColor Yellow
+}
 
 Write-Section "Run server"
 Write-Host "Open: https://$SanIp`:$Port/host?room=test&token=test"

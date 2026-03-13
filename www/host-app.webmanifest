@@ -1,0 +1,21 @@
+{
+  "id": "/host",
+  "name": "LAN Screen Share Host",
+  "short_name": "LAN Host",
+  "description": "A native-style local network sender console for LAN Screen Share.",
+  "lang": "en",
+  "start_url": "/host",
+  "scope": "/host",
+  "display": "standalone",
+  "orientation": "landscape",
+  "background_color": "#07111f",
+  "theme_color": "#07111f",
+  "icons": [
+    {
+      "src": "/assets/host_app_icon.svg",
+      "type": "image/svg+xml",
+      "sizes": "any",
+      "purpose": "any maskable"
+    }
+  ]
+}

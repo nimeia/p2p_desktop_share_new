@@ -37,6 +37,9 @@ add_library(lan_screenshare_core
 )
 
 target_include_directories(lan_screenshare_core PUBLIC src)
+if (WIN32)
+  target_compile_definitions(lan_screenshare_core PRIVATE LAN_CERT_USE_OPENSSL_API=1)
+endif()
 
 target_link_libraries(lan_screenshare_core PUBLIC
   Boost::system

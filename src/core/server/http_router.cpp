@@ -62,6 +62,8 @@ std::string HttpRouter::MapPath(std::string_view target) const {
   // Minimal routing
   if (t.rfind("/host", 0) == 0) return wwwRoot_ + "/host.html";
   if (t.rfind("/view", 0) == 0) return wwwRoot_ + "/viewer.html";
+  if (t == "/host-app.webmanifest") return wwwRoot_ + "/host-app.webmanifest";
+  if (t == "/host-sw.js") return wwwRoot_ + "/host-sw.js";
   if (t == "/viewer-app.webmanifest") return wwwRoot_ + "/viewer-app.webmanifest";
   if (t == "/viewer-sw.js") return wwwRoot_ + "/viewer-sw.js";
   if (t.rfind("/assets/", 0) == 0) return wwwRoot_ + t;

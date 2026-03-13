@@ -119,45 +119,66 @@ function Invoke-External(
   $cmd = $File + " " + $argString
   if ($Echo) { Write-Host $cmd -ForegroundColor DarkGray }
 
-  # Use Start-Process with redirection to avoid PowerShell treating native stderr as an error record (PS 5.1 + $ErrorActionPreference=Stop).
-  $tmpOut = [System.IO.Path]::GetTempFileName()
-  $tmpErr = [System.IO.Path]::GetTempFileName()
+  if ([System.IO.Path]::GetFileName($File).Equals("MSBuild.exe", [System.StringComparison]::OrdinalIgnoreCase)) {
+    $savedLocation = $null
+    try {
+      if ($WorkingDir) {
+        $savedLocation = Get-Location
+        Push-Location $WorkingDir
+      }
 
-  try {
-    $startInfo = @{
-      FilePath               = $File
-      ArgumentList           = $argString
-      Wait                   = $true
-      PassThru               = $true
-      NoNewWindow            = $true
-      RedirectStandardOutput = $tmpOut
-      RedirectStandardError  = $tmpErr
+      $lines = & $File @ArgList 2>&1 | ForEach-Object { $_.ToString() }
+      $code = $LASTEXITCODE
+
+      foreach ($l in $lines) { Write-Host $l }
+
+      if ($LogFile -and $lines.Count -gt 0) {
+        $parent = Split-Path -Parent $LogFile
+        if ($parent) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
+        $lines | Out-File -LiteralPath $LogFile -Append -Encoding utf8
+      }
+    } finally {
+      if ($savedLocation) { Pop-Location }
     }
-    if ($WorkingDir) { $startInfo["WorkingDirectory"] = $WorkingDir }
+  } else {
+    # Use Start-Process with redirection to avoid PowerShell treating native stderr as an error record (PS 5.1 + $ErrorActionPreference=Stop).
+    $tmpOut = [System.IO.Path]::GetTempFileName()
+    $tmpErr = [System.IO.Path]::GetTempFileName()
 
-    $p = Start-Process @startInfo
-    $code = $p.ExitCode
+    try {
+      $startInfo = @{
+        FilePath               = $File
+        ArgumentList           = $argString
+        Wait                   = $true
+        PassThru               = $true
+        NoNewWindow            = $true
+        RedirectStandardOutput = $tmpOut
+        RedirectStandardError  = $tmpErr
+      }
+      if ($WorkingDir) { $startInfo["WorkingDirectory"] = $WorkingDir }
 
-    $outLines = @()
-    $errLines = @()
-    if (Test-Path $tmpOut) { $outLines = Read-TextLinesAuto $tmpOut }
-    if (Test-Path $tmpErr) { $errLines = Read-TextLinesAuto $tmpErr }
+      $p = Start-Process @startInfo
+      $code = $p.ExitCode
 
-    # Print to console
-    foreach ($l in $outLines) { Write-Host $l }
-    foreach ($l in $errLines) { Write-Host $l }
+      $outLines = @()
+      $errLines = @()
+      if (Test-Path $tmpOut) { $outLines = Read-TextLinesAuto $tmpOut }
+      if (Test-Path $tmpErr) { $errLines = Read-TextLinesAuto $tmpErr }
 
-    # Append to log file if requested
-    if ($LogFile) {
-      $parent = Split-Path -Parent $LogFile
-      if ($parent) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
-      if (@($outLines).Count -gt 0) { $outLines | Out-File -LiteralPath $LogFile -Append -Encoding utf8 }
-      if (@($errLines).Count -gt 0) { $errLines | Out-File -LiteralPath $LogFile -Append -Encoding utf8 }
+      foreach ($l in $outLines) { Write-Host $l }
+      foreach ($l in $errLines) { Write-Host $l }
+
+      if ($LogFile) {
+        $parent = Split-Path -Parent $LogFile
+        if ($parent) { New-Item -ItemType Directory -Force -Path $parent | Out-Null }
+        if (@($outLines).Count -gt 0) { $outLines | Out-File -LiteralPath $LogFile -Append -Encoding utf8 }
+        if (@($errLines).Count -gt 0) { $errLines | Out-File -LiteralPath $LogFile -Append -Encoding utf8 }
+      }
+
+    } finally {
+      Remove-Item -LiteralPath $tmpOut -Force -ErrorAction SilentlyContinue
+      Remove-Item -LiteralPath $tmpErr -Force -ErrorAction SilentlyContinue
     }
-
-  } finally {
-    Remove-Item -LiteralPath $tmpOut -Force -ErrorAction SilentlyContinue
-    Remove-Item -LiteralPath $tmpErr -Force -ErrorAction SilentlyContinue
   }
 
   if (-not $NoThrow -and $code -ne 0) {
