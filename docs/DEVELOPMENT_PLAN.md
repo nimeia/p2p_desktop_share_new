@@ -10,10 +10,12 @@ Goal:
 
 Work:
 
-- package certificate-generation dependency or remove external `openssl.exe` requirement
+- continue certificate/trust UX work now that generation is handled in-process through platform providers
 - formalize runtime DLL copying for Debug and Release
 - verify desktop output directory contains all required server/runtime assets
 - add a basic startup smoke check for server launch
+- baseline Windows stage/zip packaging plus install/upgrade/uninstall scripts
+- baseline Windows WebView2 Runtime / certificate bootstrap helpers
 
 Exit criteria:
 
@@ -30,8 +32,9 @@ Work:
 
 - improve hotspot/manual fallback guidance
 - improve multi-adapter IP selection messaging
+  status: partially done; the desktop shell now ranks active IPv4 candidates, publishes per-candidate LAN probe results, and can export a remote-device probe guide.
 - add clearer LAN/firewall/port diagnostics
-  status: in progress; local port bind checks and local `/health` probing are now wired into desktop self-check/exported diagnostics
+  status: in progress; local port bind checks, local `/health` probing, Windows Firewall readiness, and remote-device probe orchestration are now wired into desktop self-check/exported diagnostics.
 - harden desktop self-check output and action suggestions
   status: in progress; exported self-check now prioritizes port, health, and embedded-host runtime failures
 - make WebView2 dependency and failure states explicit in UI
@@ -90,8 +93,11 @@ Work:
 - add unit tests for protocol/util/network helpers
 - add integration tests for server routes and signaling
 - add browser smoke tests for host/viewer handshake
+  status: baseline done; `tests/shared/browser_smoke_tests.cpp` now validates HTTPS host/view pages plus WSS signaling handshake.
 - add build/release checklist
 - add CI for build + smoke validation
+- add desktop release validation for the packaged desktop payload
+  status: baseline done; `scripts/windows/validate_release.ps1` now validates copied runtime payload and startup survival.
 
 Exit criteria:
 
@@ -113,3 +119,28 @@ Reasoning:
 - session hardening matters after the product reliably starts.
 - tests should arrive before the codebase grows much further.
 - security hardening should be done with the final runtime/UX model in mind.
+
+
+## Cross-platform runtime extraction
+
+Goal:
+
+- separate reusable server runtime concerns from Windows-only host orchestration
+
+Current status:
+
+- Iter 2 complete: `lan_screenshare_server` now depends on provider interfaces (`ICertProvider`, `INetworkService`) instead of directly calling `CertManager` / `NetworkManager`
+- Iter 4 complete: shared endpoint-selection rules now live in `src/core/network/endpoint_selection.*`, and `NetworkManager` is now a compatibility shim over platform probe/action helpers.
+- Windows provider implementations currently wrap the existing managers
+- POSIX provider implementations now give the CLI a first portable path on Linux/macOS
+- Iter 3 complete: certificate types/SAN parsing/inspection are now shared, and self-signed generation moved into the platform provider layer
+- Iter 9 complete: desktop host refresh probing now flows through `host_runtime_coordinator` + `host_runtime_refresh_pipeline`.
+- Iter 10 complete: desktop host start/stop/open/export user actions now flow through `host_action_coordinator`.
+- Iter 11 complete: desktop host session/config editing and admin/backend sync now flow through `host_session_coordinator`.
+- Iter 15 complete: native setup-form synchronization, dirty/pending-apply policy, and setup-page button labels now flow through `desktop_edit_session_presenter`.
+- Iter 16 complete: tray/menu/balloon/status-tip shell chrome state now flows through `shell_chrome_presenter`, keeping shell-chrome copy and tray command routing out of `MainWindow.cpp`.
+
+
+- Iter 18 added a shell bridge presenter / message adapter layer so admin-shell snapshot serialization and host/admin inbound message parsing no longer live directly inside MainWindow/AdminBackend.
+
+- Iter 23 complete: host shell startup/show/restore/close/destroy flow now routes through `host_shell_lifecycle_coordinator`, further reducing Win32-specific lifecycle branching inside `MainWindow.cpp`.

@@ -2,15 +2,27 @@ param(
   [ValidateSet("Debug","Release")] [string]$Config = "Debug",
   [string]$BindHost = "127.0.0.1",
   [int]$Port = 9443,
-  [int]$RunFor = 15
+  [int]$RunFor = 15,
+  [string]$ServerExe = "",
+  [string]$WwwRoot = "",
+  [string]$CertDir = ""
 )
 
 . (Join-Path $PSScriptRoot "common.ps1")
 
 $root = Get-RepoRoot
-$exe = Join-Path $root "out\server\$Config\lan_screenshare_server.exe"
+$exe = if ($ServerExe) { $ServerExe } else { Join-Path $root "out\server\$Config\lan_screenshare_server.exe" }
 if (-not (Test-Path $exe)) {
   Fail "Server exe not found: $exe"
+}
+
+$resolvedWwwRoot = if ($WwwRoot) { $WwwRoot } else { Join-Path (Split-Path -Parent $exe) "www" }
+$resolvedCertDir = if ($CertDir) { $CertDir } else { Join-Path (Split-Path -Parent $exe) "cert" }
+if (-not (Test-Path $resolvedWwwRoot)) {
+  Fail "www root not found: $resolvedWwwRoot"
+}
+if (-not (Test-Path $resolvedCertDir)) {
+  Fail "cert dir not found: $resolvedCertDir"
 }
 
 $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
@@ -19,7 +31,14 @@ if (-not $curl) {
 }
 
 Write-Section "Start server"
-$args = @("--bind", $BindHost, "--port", "$Port", "--run-for", "$RunFor", "--no-stdin")
+$args = @(
+  "--bind", $BindHost,
+  "--port", "$Port",
+  "--www", $resolvedWwwRoot,
+  "--certdir", $resolvedCertDir,
+  "--run-for", "$RunFor",
+  "--no-stdin"
+)
 $proc = Start-Process -FilePath $exe -ArgumentList $args -PassThru -WindowStyle Hidden
 
 try {

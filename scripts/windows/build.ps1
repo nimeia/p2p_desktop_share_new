@@ -11,6 +11,8 @@ param(
   [string]$SanIp = "",
   [switch]$SkipVcpkgInstall,
   [switch]$SkipServerSmoke,
+  [switch]$SkipBrowserSmoke,
+  [switch]$SkipDesktopValidation,
   [switch]$SkipDesktopHostRestore,
   [switch]$VerboseCommands,
   [string]$BuildRoot = "auto"
@@ -283,6 +285,11 @@ if (Test-Path $pdbCandidate) {
     Write-Section "Smoke test server output"
     & (Join-Path $root "scripts\windows\smoke_server.ps1") -Config $Config
   }
+
+  if (-not $SkipBrowserSmoke) {
+    Write-Section "Browser smoke validation"
+    & (Join-Path $root "scripts\windows\browser_smoke.ps1") -Config $Config -Triplet $Triplet -Generator $Generator -BuildDir $buildDir
+  }
 }
 
 if ($Target -eq "desktop_host" -or $Target -eq "all") {
@@ -358,6 +365,10 @@ if ($Target -eq "desktop_host" -or $Target -eq "all") {
       $webUiOut = Join-Path $winOut "webui"
       if (Test-Path $webUiOut) { Remove-Item -Recurse -Force $webUiOut }
       Copy-Item -Recurse -Force $webUiBuilt $webUiOut
+    }
+    if (-not $SkipDesktopValidation) {
+      Write-Section "Desktop release validation"
+      & (Join-Path $root "scripts\windows\validate_release.ps1") -Config $Config -Arch $Arch -DesktopDir $winOut
     }
   }
 }

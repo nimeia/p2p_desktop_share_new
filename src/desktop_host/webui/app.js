@@ -125,6 +125,12 @@
     if (payload.serverRunning && !payload.hostReachable) {
       items.push(["Check adapter selection", "The selected host address is not responding to the reachability probe."]);
     }
+    if (payload.serverRunning && !payload.firewallReady) {
+      items.push(["Review inbound firewall policy", payload.firewallDetail || "Windows Firewall does not yet show a clear inbound allow path for the current viewer entry."]);
+    }
+    if (payload.serverRunning && !payload.remoteViewerReady) {
+      items.push(["Validate remote viewer reachability", payload.remoteViewerDetail || "The current Viewer URL is not yet validated for another device on the LAN."]);
+    }
     if (!payload.certReady) {
       items.push([
         "Regenerate local certificates",
@@ -145,6 +151,8 @@
       ["Port listening", payload.canStartSharing ? "Ready or blocked by sharing state" : "Sharing active"],
       ["Local /health", payload.healthReady ? "OK" : "Needs attention"],
       ["Selected host IP", payload.hostReachable ? "Reachable" : "Not reachable yet"],
+      ["Firewall inbound path", payload.firewallReady ? "Ready" : (payload.firewallDetail || "Needs attention")],
+      ["Remote viewer path", payload.remoteViewerReady ? "Ready" : (payload.remoteViewerDetail || "Needs attention")],
       ["Certificate", payload.certReady ? "Ready" : (payload.certDetail || "Not ready")],
       ["Bundle export", payload.shareBundleExported ? "Exported" : "Not exported"],
       ["WebView runtime", payload.webviewStatus || "Unknown"]
@@ -155,8 +163,9 @@
     return [
       ["Same LAN", "Keep the viewer device on the same router or switch as the host and open the Viewer URL."],
       ["Hotspot mode", payload.hotspotRunning ? "Host hotspot is active. Join the SSID shown in Network, then open the Viewer URL." : "If no shared LAN is available, start hotspot in the Network tab first."],
-      ["Certificate reminder", "First access may show a self-signed certificate prompt. Accept it for this local session."],
-      ["Common failure", payload.hostReachable ? "If a viewer still fails, test the Viewer URL directly in a browser." : "If viewers fail, re-check the selected adapter and reachability first."]
+      ["Certificate reminder", "First access may show a self-signed certificate prompt. Accept it only for loopback or private-LAN host URLs in this local session."],
+      ["Firewall", payload.firewallReady ? "Firewall looks compatible with inbound viewer traffic on this machine." : (payload.firewallDetail || "Open Windows Firewall settings and confirm there is an inbound allow rule for the current server path or port.")],
+      ["Common failure", payload.remoteViewerReady ? "If a viewer still fails, test the Viewer URL directly in a browser." : (payload.remoteViewerDetail || "If viewers fail, re-check adapter selection, firewall policy, and same-LAN reachability first.")]
     ];
   }
 
@@ -246,6 +255,18 @@
     }
     if (!payload.certReady) {
       items.push(["Certificate or trust path needs attention", payload.certDetail || "Open diagnostics and refresh the current local certificate / trust path.", "quick-fix-certificate", "Open diagnostics"]);
+    }
+    if (payload.webviewStatus === "runtime-unavailable" || payload.webviewStatus === "controller-unavailable") {
+      items.push(["Embedded admin preview needs WebView2 runtime attention", "Run the runtime helper or install/repair Evergreen WebView2 Runtime, then reopen the admin shell.", "check-webview-runtime", "Check WebView2 runtime"]);
+    }
+    if (payload.serverRunning && !payload.firewallReady) {
+      items.push(["Firewall inbound path still needs attention", payload.firewallDetail || "Open Windows Firewall settings and confirm an inbound allow rule exists for the current share path.", "open-firewall-settings", "Open firewall settings"]);
+    }
+    if (payload.serverRunning && !payload.remoteViewerReady) {
+      items.push(["Remote viewer path still needs validation", payload.remoteViewerDetail || "Collect a local network diagnostics report before retrying from another device.", "run-network-diagnostics", "Run diagnostics"]);
+      if (payload.remoteProbeAction) {
+        items.push(["Prepare a remote-device test guide", payload.remoteProbeAction, "export-remote-probe-guide", "Export guide"]);
+      }
     }
     if ((payload.shareWizardOpened || payload.handoffStarted) && !payload.handoffDelivered && payload.serverRunning && payload.healthReady && payload.hostReachable && payload.certReady) {
       items.push(["Viewer handoff material is ready", "Copy the Viewer URL again or show the QR / share card while the other device connects.", "quick-fix-handoff", "Show QR + copy link"]);
@@ -352,9 +373,20 @@
       ["Recommended IPv4", state.hostIp],
       ["Current Bind", state.bind],
       ["Reachability", state.localReachability],
+      ["Firewall Path", state.firewallReady ? "Ready" : "Needs attention"],
+      ["Remote Viewer Path", state.remoteViewerReady ? "Ready" : "Needs attention"],
       ["Wi-Fi Adapter", state.wifiAdapterPresent],
       ["Hotspot Supported", state.hotspotSupported],
       ["Current Hotspot State", state.hotspotStatus]
+    ]);
+
+    setPairs("networkDiagnosticsCard", [
+      ["Firewall Path", state.firewallReady ? "Ready" : "Needs attention"],
+      ["Firewall Detail", state.firewallDetail],
+      ["Remote Viewer Path", state.remoteViewerReady ? "Ready" : "Needs attention"],
+      ["Remote Viewer Detail", state.remoteViewerDetail],
+      ["Probe Summary", state.remoteProbeLabel],
+      ["Next Action", state.remoteProbeAction]
     ]);
 
     setPairs("wifiDirectCard", [
@@ -393,11 +425,19 @@
     $("logTailText").textContent = state.logTail || "No logs yet.";
 
     renderChecklist(state);
-    renderSuggestions("diagActions", [
-      ["Check subnet alignment", "Confirm the viewer device and the host still sit on the same local network."],
-      ["Test URL directly", "If Viewer fails, paste the Viewer URL directly into a browser first."],
-      ["Fallback to system hotspot", "If hotspot start fails, open the Windows hotspot settings and start it manually."]
-    ]);
+    const diagActions = [
+      ["Check subnet alignment", "Confirm the viewer device and the host still sit on the same local network."]
+    ];
+    if (state.serverRunning && !state.firewallReady) {
+      diagActions.push(["Open Windows Firewall settings", state.firewallDetail || "Confirm an inbound allow rule exists for the current share executable or TCP port."]);
+    }
+    if (state.serverRunning && !state.remoteViewerReady) {
+      diagActions.push(["Collect a local network diagnostics report", state.remoteViewerDetail || "Run the helper report before retrying from another device."]);
+      diagActions.push(["Export a remote-device probe guide", state.remoteProbeAction || "Generate a checklist with candidate LAN URLs and remote browser test steps."]);
+    }
+    diagActions.push(["Test URL directly", "If Viewer fails, paste the Viewer URL directly into a browser first."]);
+    diagActions.push(["Fallback to system hotspot", "If hotspot start fails, open the Windows hotspot settings and start it manually."]);
+    renderSuggestions("diagActions", diagActions);
     setPairs("diagPaths", [
       ["Output Dir", state.outputDir],
       ["Bundle Dir", state.bundleDir],

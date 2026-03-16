@@ -182,7 +182,7 @@
               </div>
             </div>
 
-            <p class="preview-note" id="hostPreviewNote">The preview will reuse the existing WebView2 certificate bypass path for this desktop session.</p>
+            <p class="preview-note" id="hostPreviewNote">The preview only bypasses local self-signed certificates for loopback or private-LAN URLs in this desktop session.</p>
           </section>
         </article>
       </section>
@@ -203,6 +203,23 @@
           <div class="action-row">
             <button class="secondary" data-command="open-connected-devices">Open Connected Devices</button>
             <button class="ghost" data-command="open-hotspot-settings">Open System Settings</button>
+          </div>
+        </article>
+      </section>
+
+      <section class="summary-grid">
+        <article class="card">
+          <div class="card-head">
+            <h2>Remote Viewer Path</h2>
+            <button class="ghost" data-command="run-network-diagnostics">Run Diagnostics</button>
+          </div>
+          <dl id="networkDiagnosticsCard"></dl>
+          <div class="action-row">
+            <button data-command="open-firewall-settings">Open Firewall Settings</button>
+            <button class="secondary" data-command="run-network-diagnostics">Collect Report</button>
+            <button class="secondary" data-command="check-webview-runtime">Check WebView2 Runtime</button>
+            <button class="secondary" data-command="trust-local-certificate">Trust Local Certificate</button>
+            <button class="ghost" data-command="export-remote-probe-guide">Export Probe Guide</button>
           </div>
         </article>
       </section>
@@ -318,6 +335,13 @@
         <article class="card">
           <h2>Current Warning</h2>
           <p class="muted" id="diagWarningText">None</p>
+          <div class="action-row compact">
+            <button data-command="open-firewall-settings">Open Firewall Settings</button>
+            <button class="secondary" data-command="run-network-diagnostics">Run Network Diagnostics</button>
+            <button class="secondary" data-command="check-webview-runtime">Check WebView2 Runtime</button>
+            <button class="secondary" data-command="trust-local-certificate">Trust Local Certificate</button>
+            <button class="ghost" data-command="export-remote-probe-guide">Export Probe Guide</button>
+          </div>
         </article>
       </section>
     </section>

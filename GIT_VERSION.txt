@@ -1,0 +1,17 @@
+LanScreenShareHost - Git version manifest
+
+Current packaged commit: 5a0d567
+Commit message: Add packaging and WebView2 bootstrap baseline
+
+Related commits on this release-prep line:
+- efa51cf  Add browser smoke and release validation baseline
+- 3f3da0d  Add multi-adapter probe orchestration baseline
+- 541eddc  Add firewall and network diagnostics baseline
+- 2913458  Finalize WebView2 bootstrap and certificate guidance
+- b1ded88  Add Windows packaging and installer baseline
+- 283f75b  Add server integration test baseline
+- 6b965a2  Add release-readiness plan and CI baseline
+
+Note:
+- This package includes Git version information as a manifest file.
+- A full .git directory is not included in this artifact because it is not available in the current sandbox workspace.

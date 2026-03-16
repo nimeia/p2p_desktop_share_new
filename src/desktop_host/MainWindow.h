@@ -11,8 +11,25 @@
 #include "ServerController.h"
 #include "AdminBackend.h"
 #include "WebViewHost.h"
+#include "WebViewShellAdapter.h"
+#include "core/runtime/desktop_runtime_snapshot.h"
+#include "core/runtime/desktop_shell_presenter.h"
+#include "core/runtime/desktop_layout_presenter.h"
+#include "core/runtime/desktop_edit_session_presenter.h"
+#include "core/runtime/shell_chrome_presenter.h"
+#include "core/runtime/admin_shell_coordinator.h"
+#include "core/runtime/host_runtime_coordinator.h"
+#include "core/runtime/host_action_coordinator.h"
+#include "core/runtime/host_session_coordinator.h"
+#include "core/runtime/host_observability_coordinator.h"
+#include "core/runtime/admin_view_model_assembler.h"
+#include "core/runtime/diagnostics_view_model_assembler.h"
+#include "platform/abstraction/platform_service_facade.h"
 
 namespace fs = std::filesystem;
+
+class DesktopHostPageBuilders;
+namespace lan::desktop { class ShellEffectExecutor; }
 
 class MainWindow {
 public:
@@ -28,6 +45,9 @@ public:
     static LRESULT CALLBACK WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM lparam);
 
 private:
+    friend class DesktopHostPageBuilders;
+    friend class lan::desktop::ShellEffectExecutor;
+
     enum class UiPage {
         Dashboard,
         Setup,
@@ -44,38 +64,47 @@ private:
         HtmlAdminPreview,
     };
 
-    struct LogEntry {
-        std::wstring timestamp;
-        std::wstring level;
-        std::wstring source;
-        std::wstring message;
-    };
+    using LogEntry = lan::runtime::HostObservabilityLogEntry;
 
-    enum class DashboardSuggestionKind {
-        None,
-        StartServer,
-        OpenQuickWizard,
-        OpenDiagnostics,
-        OpenHostExternally,
-        StartHotspot,
-        OpenHotspotSettings,
-        RefreshIp,
-        NoteSelfSignedCert,
-        PortReady,
-    };
+    using DashboardSuggestionKind = lan::runtime::AdminDashboardSuggestionKind;
 
     void OnCreate();
     void OnSize(int width, int height);
     void OnCommand(int id);
     void OnDestroy();
 
+    void ExecuteDesktopShellCommand(const lan::runtime::DesktopShellCommandRoute& route);
+    lan::runtime::DesktopLayoutStateInput BuildDesktopLayoutStateInput() const;
+    void ApplyDesktopPageVisibility(const lan::runtime::DesktopPageVisibility& visibility);
+    void ApplyNativeCommandButtonPolicy(const lan::runtime::NativeCommandButtonPolicy& policy);
+    void ApplyDashboardButtonPolicy(const lan::runtime::DashboardButtonPolicy& policy);
+    void ApplyNetworkButtonPolicy(const lan::runtime::NetworkButtonPolicy& policy);
+
     void StartServer();
     void StopServer();
     void RestartServer();
+    void ExecuteHostAction(lan::runtime::HostActionKind kind);
+    void ApplyHostActionResult(const lan::runtime::HostActionResult& result);
+    lan::runtime::HostActionContext BuildHostActionContext() const;
+    lan::runtime::HostSessionState BuildHostSessionState() const;
+    lan::runtime::AdminViewModelInput BuildAdminViewModelInput() const;
+    void ApplyHostSessionState(const lan::runtime::HostSessionState& state, bool updateControls = true);
+    void ApplyAdminShellSessionRequest(const lan::runtime::AdminShellSessionRequest& request);
+    void ApplyAdminShellHotspotRequest(const lan::runtime::AdminShellHotspotRequest& request);
+    lan::runtime::DesktopEditSessionDraft BuildDesktopEditSessionDraftFromControls() const;
+    lan::runtime::DesktopEditSessionInput BuildDesktopEditSessionInput() const;
+    void ApplyDesktopEditSessionDraftToControls(const lan::runtime::DesktopEditSessionDraft& draft);
+    lan::runtime::HostSessionMutationResult SyncHostSessionStateFromControls();
+    void ApplyDesktopEditSessionViewModel(const lan::runtime::DesktopEditSessionViewModel& viewModel);
+    lan::runtime::HostActionOperation PerformStartServerAction();
+    lan::runtime::HostActionOperation PerformStopServerAction();
+    lan::runtime::HostActionOperation PerformOpenHostPageAction();
+    lan::runtime::HostActionOperation PerformOpenViewerPageAction();
+    lan::runtime::HostActionOperation PerformEnsureShareArtifactsAction(const lan::runtime::HostActionArtifactRequest& request,
+                                                                       lan::runtime::HostActionArtifactPaths& paths);
+    lan::runtime::HostActionOperation PerformOpenPathAction(const fs::path& path);
 
-    void RefreshHostIp();
-    void RefreshNetworkCapabilities();
-    void RefreshHotspotState();
+    void RefreshHostRuntime();
     void GenerateRoomToken();
     void EnsureHotspotDefaults();
 
@@ -83,6 +112,11 @@ private:
     void StopHotspot();
     void OpenWifiDirectPairing();
     void OpenSystemHotspotSettings();
+    void OpenFirewallSettings();
+    void RunNetworkDiagnostics();
+    void CheckWebViewRuntime();
+    void TrustLocalCertificate();
+    void ExportRemoteProbeGuide();
 
     void OpenHostPage();
     void StartServiceOnly();
@@ -108,15 +142,20 @@ private:
                              fs::path* bundleJsonPath = nullptr,
                              fs::path* desktopSelfCheckPath = nullptr);
     std::wstring BuildWifiDirectSessionAlias() const;
+    lan::runtime::DesktopRuntimeSnapshot BuildDesktopRuntimeSnapshot(bool liveReady = true) const;
 
+    lan::desktop::WebViewShellState BuildWebViewShellState() const;
+    lan::desktop::WebViewShellContext BuildWebViewShellContext() const;
+    lan::desktop::WebViewShellHooks BuildWebViewShellHooks();
+    void ApplyWebViewShellState(const lan::desktop::WebViewShellState& state);
+    void RestoreWebViewShellState();
     void NavigateHostInWebView();
     void NavigateHtmlAdminInWebView();
     void EnsureWebViewInitialized();
     void RefreshHtmlAdminPreview();
+    void PublishAdminShellRuntime();
     void HandleAdminShellMessage(std::wstring_view payload);
-    AdminBackend::Snapshot BuildAdminSnapshot() const;
-    void ApplySessionConfigFromAdmin(std::wstring room, std::wstring token, std::wstring bind, int port);
-    void ApplyHotspotConfigFromAdmin(std::wstring ssid, std::wstring password);
+    lan::runtime::AdminShellCoordinatorHooks BuildAdminShellCoordinatorHooks();
 
     void AppendLog(std::wstring_view line);
     void RefreshShellFallback();
@@ -129,12 +168,15 @@ private:
     void RefreshSettingsPage();
     void UpdateUiState();
     void RefreshShareInfo();
+    void ApplyHostRuntimeRefresh(const lan::runtime::HostRuntimeRefreshResult& refresh);
     void HandleWebViewMessage(std::wstring_view payload);
     void SetPage(UiPage page);
     void UpdatePageVisibility();
     void ExecuteDashboardSuggestionFix(std::size_t index);
     void ExecuteDashboardSuggestionInfo(std::size_t index);
     void SelectNetworkCandidate(std::size_t index);
+    lan::runtime::HostObservabilityState BuildHostObservabilityState() const;
+    void ApplyHostObservabilityState(const lan::runtime::HostObservabilityState& state);
     void AddTimelineEvent(std::wstring_view eventText);
     void RefreshFilteredLogs();
     void CreateTrayIcon();
@@ -143,7 +185,13 @@ private:
     void ShowTrayMenu();
     void MinimizeToTray(bool showBalloon);
     void RestoreFromTray();
+    lan::runtime::ShellChromeStateInput BuildShellChromeStateInput() const;
+    void ApplyShellChromeStatusViewModel(const lan::runtime::ShellChromeStatusViewModel& viewModel);
+    void ExecuteTrayShellCommand(const lan::runtime::TrayShellCommandRoute& route);
+    lan::runtime::HostShellLifecycleInput BuildHostShellLifecycleInput(lan::runtime::HostShellLifecycleEvent event, bool showBalloon = false) const;
+    void ApplyHostShellLifecyclePlan(const lan::runtime::HostShellLifecyclePlan& plan);
 
+    void HandleRuntimeTick();
     void KickPoll();
     void HandlePollResult(DWORD status, std::size_t rooms, std::size_t viewers);
 
@@ -163,6 +211,7 @@ private:
     // server + webview
     std::unique_ptr<AdminBackend> m_adminBackend;
     std::unique_ptr<ServerController> m_server;
+    std::unique_ptr<lan::platform::PlatformServiceFacade> m_platformServices;
     WebViewHost m_webview;
 
     // state
@@ -187,8 +236,10 @@ private:
     bool m_adminShellReady = false;
     bool m_htmlAdminNavigated = false;
     WebViewSurfaceMode m_webviewMode = WebViewSurfaceMode::Hidden;
+    bool m_shellStartButtonEnabled = true;
 
     std::atomic<bool> m_polling{false};
+    lan::runtime::HostRuntimeTickState m_runtimeTickState{};
     UiPage m_currentPage = UiPage::Dashboard;
 
     // Shared left pane controls
@@ -401,7 +452,7 @@ private:
     std::wstring m_outputDir = L"";
     int m_diagnosticsRetentionDays = 7;
     bool m_saveStdStreams = true;
-    std::wstring m_certBypassPolicy = L"allow-local-self-signed";
+    std::wstring m_certBypassPolicy = L"allow-loopback-and-private-lan-self-signed";
     std::wstring m_webViewBehavior = L"embedded-when-available";
     std::wstring m_startupHook = L"(not configured)";
 };

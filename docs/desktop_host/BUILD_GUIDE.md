@@ -10,14 +10,14 @@ From repo root:
   - `cmake --build out/build --config Release`
 
 Targets:
-- `lan_screenshare_server` (new, WIP)
+- `lan_screenshare_server` (from `apps/server_cli`)
 - `lan_demo` (if existing)
 
 ## 2) Generate certificate
 - `scripts/gen_self_signed_cert.ps1 -OutDir .\cert -SanIp <host-ip>`
 
 Notes:
-- The script will try to find `openssl.exe` automatically (PATH -> vcpkg tool -> common locations).
+- The server-side certificate path now uses in-process OpenSSL generation; desktop trust/bootstrap UX still needs follow-up polish.
 - Recommended: set `VCPKG_ROOT` (or use `scripts\windows\build.ps1`, which passes it automatically).
 
 ## 3) Run server (manual, WIP)
@@ -38,3 +38,6 @@ Or use scripts:
 Runtime output directories:
 - server: `out\server\<Config>\`
 - desktop host: `out\desktop_host\<Arch>\<Config>\`
+
+
+`--san-ip auto` is now supported on the CLI. On Windows it resolves via the Windows network provider; on Linux/macOS it resolves via the POSIX provider and falls back to loopback when discovery is unavailable.

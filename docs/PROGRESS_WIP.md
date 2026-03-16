@@ -25,16 +25,12 @@ This package is intentionally **not finished**. It is provided to prevent the ch
 - Desktop host Step3 spawn `lan_screenshare_server.exe` and poll `/api/status`.
 - Desktop host Step4 embed WebView2 host page and allow self-signed cert.
 - Desktop host Step5 generate QR and copy/open buttons.
-- CertManager + NetworkManager are still TODO (MVP relies on scripts).
+- The original `CertManager` has been split for the CLI path, but `NetworkManager` still needs the same treatment.
 
 ## Quick notes
 - Generate self-signed cert via:
-  - `scripts/gen_self_signed_cert.ps1 -OutDir .\cert -SanIp <host-ip>`
-  - The script will try to locate `openssl.exe` automatically (in this order):
-    - `openssl` in `PATH`
-    - vcpkg tool: `$VCPKG_ROOT\installed\<triplet>\tools\openssl\openssl.exe` (recommended)
-    - common install locations (Git for Windows / OpenSSL-Win64 / MSYS2)
-  - If not found, install OpenSSL (e.g. `winget install -e --id ShiningLight.OpenSSL`) or ensure `VCPKG_ROOT` is set.
+  - `scripts/gen_self_signed_cert.ps1 -OutDir .\cert -SanIp <host-ip>` for legacy/manual flows
+  - The current server CLI path now generates certificates in-process through the linked OpenSSL library, so it no longer depends on locating `openssl.exe` first.
 
 ## Build fixes (2026-01-28)
 - Fixed missing Boost.Beast/Asio includes:

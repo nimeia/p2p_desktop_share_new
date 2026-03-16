@@ -1,6 +1,8 @@
 #include "pch.h"
 #include "HttpClient.h"
 
+#include "core/runtime/bootstrap_policy.h"
+
 #include <winhttp.h>
 #pragma comment(lib, "winhttp.lib")
 
@@ -60,8 +62,7 @@ HttpResponse HttpClient::Get(const std::wstring& url, DWORD timeoutMs) {
         return out;
     }
 
-    if (isHttps) {
-        // Ignore self-signed / invalid certs for LAN MVP.
+    if (isHttps && lan::runtime::ShouldBypassLocalCertificateForUrl(url)) {
         DWORD secFlags = SECURITY_FLAG_IGNORE_UNKNOWN_CA |
                          SECURITY_FLAG_IGNORE_CERT_CN_INVALID |
                          SECURITY_FLAG_IGNORE_CERT_DATE_INVALID |

@@ -125,17 +125,17 @@ Browser Pages
 
 The project is still an MVP. Important missing or weak areas:
 
-- packaging and installer story
-- `openssl.exe` bootstrap dependency
-- incomplete WebView2 productization
+- packaging and installer story is now present as a Windows-first baseline, but still needs true field validation and possible MSI/MSIX follow-up
+- certificate trust/bootstrap UX now has a Windows helper baseline, but field validation and non-Windows parity are still pending.
+- WebView2 productization now has a Windows Evergreen-runtime baseline plus runtime-check helper, but release validation is still incomplete.
 - Wi-Fi Direct is still pairing guidance plus capability reporting, not a full automated UX
 - hotspot support still depends on Windows hosted-network/manual fallback behavior
-- firewall and remote-device reachability diagnostics are still incomplete
-- host IP selection still needs clearer handling when multiple active adapters exist
+- firewall readiness, operator-triggered local network diagnostics, and remote-device probe orchestration are implemented on Windows; follow-up is mostly around true field validation and broader platform parity
+- host IP selection is clearer than before because active IPv4 candidates are ranked and probe-scored, but the final UX for automatic switching still needs refinement
 - no TURN/STUN or non-LAN transport path
 - no reconnect/resume strategy
-- no automated tests
-- no CI/release pipeline
+- shared/unit test coverage exists, but browser/desktop/release validation is still incomplete
+- Shared/runtime validation now includes a real HTTPS/WSS browser smoke target and a Windows desktop release-validation script, but full browser UI automation and repeated field validation are still incomplete
 
 ## Development Priorities
 
@@ -148,5 +148,5 @@ Priority order should be:
 
 Detailed open items and phase planning live in:
 
-- [Unfinished Features](C:\Users\huang\Downloads\lan_work_p14_unified_issue_actions_20260309\docs\UNFINISHED_FEATURES.md)
-- [Development Plan](C:\Users\huang\Downloads\lan_work_p14_unified_issue_actions_20260309\docs\DEVELOPMENT_PLAN.md)
+- [Unfinished Features](UNFINISHED_FEATURES.md)
+- [Development Plan](DEVELOPMENT_PLAN.md)

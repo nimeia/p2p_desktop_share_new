@@ -1,0 +1,15 @@
+{
+  "project": "LanScreenShareHost",
+  "current_commit": "5a0d567",
+  "current_message": "Add packaging and WebView2 bootstrap baseline",
+  "related_commits": [
+    {"commit": "efa51cf", "message": "Add browser smoke and release validation baseline"},
+    {"commit": "3f3da0d", "message": "Add multi-adapter probe orchestration baseline"},
+    {"commit": "541eddc", "message": "Add firewall and network diagnostics baseline"},
+    {"commit": "2913458", "message": "Finalize WebView2 bootstrap and certificate guidance"},
+    {"commit": "b1ded88", "message": "Add Windows packaging and installer baseline"},
+    {"commit": "283f75b", "message": "Add server integration test baseline"},
+    {"commit": "6b965a2", "message": "Add release-readiness plan and CI baseline"}
+  ],
+  "note": "This artifact carries Git version information as manifest files; a full .git directory is not included because it is not present in the current sandbox workspace."
+}

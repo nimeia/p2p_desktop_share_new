@@ -139,6 +139,7 @@ void WsSession::HandleWebrtcForward(boost::json::object obj) {
   }
 
   // The sender id is maintained by the server.
+  obj.erase("token");
   obj["from"] = peerId_;
   obj["room"] = room_;
 

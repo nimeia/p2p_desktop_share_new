@@ -1,6 +1,9 @@
 #include "pch.h"
 #include "WebViewHost.h"
 
+#include "WebViewRuntimeDetector.h"
+#include "core/runtime/bootstrap_policy.h"
+
 #include <wrl.h>
 #include <wrl/event.h>
 #include <sstream>
@@ -63,6 +66,7 @@ struct WebViewHost::Impl {
     std::function<void(std::wstring)> log;
     std::function<void(std::wstring)> webMessage;
     std::wstring pendingUrl;
+    std::wstring currentUrl;
     std::wstring status = L"not-initialized";
     std::wstring detail;
     std::wstring userDataFolder;
@@ -130,10 +134,21 @@ bool WebViewHost::Initialize(HWND parent, const RECT& bounds, std::function<void
     m_impl->Log(L"WebView2 SDK header not found at build time; embedded host view is disabled.");
     return false;
 #else
+    const auto runtimeProbe = DetectWebView2Runtime();
+    if (!runtimeProbe.installed) {
+        m_impl->status = L"runtime-unavailable";
+        m_impl->detail = runtimeProbe.detail;
+        m_impl->Log(L"WebView2: " + runtimeProbe.detail);
+        return false;
+    }
+
     if (!m_impl->userDataFolder.empty()) {
         m_impl->Log(L"WebView2: user data folder " + m_impl->userDataFolder);
     } else {
         m_impl->Log(L"WebView2: user data folder fallback to default runtime location");
+    }
+    if (!runtimeProbe.version.empty()) {
+        m_impl->Log(L"WebView2: detected runtime version " + runtimeProbe.version);
     }
 
     HRESULT hr = CreateCoreWebView2EnvironmentWithOptions(
@@ -183,8 +198,15 @@ bool WebViewHost::Initialize(HWND parent, const RECT& bounds, std::function<void
                                         Callback<ICoreWebView2ServerCertificateErrorDetectedEventHandler>(
                                             [this](ICoreWebView2*, ICoreWebView2ServerCertificateErrorDetectedEventArgs* args) -> HRESULT {
                                                 if (!args) return S_OK;
-                                                args->put_Action(COREWEBVIEW2_SERVER_CERTIFICATE_ERROR_ACTION_ALWAYS_ALLOW);
-                                                if (m_impl) m_impl->Log(L"WebView2: allowed server certificate error");
+                                                if (!m_impl) return S_OK;
+                                                const std::wstring activeUrl = !m_impl->currentUrl.empty() ? m_impl->currentUrl : m_impl->pendingUrl;
+                                                if (lan::runtime::ShouldBypassLocalCertificateForUrl(activeUrl)) {
+                                                    args->put_Action(COREWEBVIEW2_SERVER_CERTIFICATE_ERROR_ACTION_ALWAYS_ALLOW);
+                                                    m_impl->Log(L"WebView2: allowed local certificate error for " + activeUrl);
+                                                } else {
+                                                    args->put_Action(COREWEBVIEW2_SERVER_CERTIFICATE_ERROR_ACTION_CANCEL);
+                                                    m_impl->Log(L"WebView2: blocked certificate bypass for non-local URL " + activeUrl);
+                                                }
                                                 return S_OK;
                                             }).Get(),
                                         &tok);
@@ -208,6 +230,7 @@ bool WebViewHost::Initialize(HWND parent, const RECT& bounds, std::function<void
                                 current->detail.clear();
                                 current->Log(L"WebView2: controller ready");
                                 if (!current->pendingUrl.empty()) {
+                                    current->currentUrl = current->pendingUrl;
                                     current->webview->Navigate(current->pendingUrl.c_str());
                                     current->pendingUrl.clear();
                                 }
@@ -242,9 +265,11 @@ void WebViewHost::Navigate(const std::wstring& url) {
 
 #if LAN_HAS_WEBVIEW2
     if (m_impl->webview) {
+        m_impl->currentUrl = url;
         m_impl->webview->Navigate(url.c_str());
     } else {
         m_impl->pendingUrl = url;
+        m_impl->currentUrl = url;
     }
 #else
     m_impl->pendingUrl = url;

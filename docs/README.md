@@ -5,3 +5,6 @@
 - SIGNALING_PROTOCOL.md：信令协议（JSON 消息定义）
 - ARCHITECTURE.md：架构决策说明
 - CODE_STYLE.md：编码规范与最佳实践
+- RELEASE_VALIDATION.md：browser smoke 与 desktop release validation 基线
+- WINDOWS_PACKAGING.md：Windows 打包 / 安装 / 升级 / 卸载基线
+- WINDOWS_BOOTSTRAP_GUIDE.md：WebView2 Runtime 与本地证书 bootstrap 指引
