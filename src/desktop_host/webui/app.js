@@ -13,6 +13,13 @@
     pendingCommand: null,
     inFlightRequestId: "",
     timeoutHandle: 0,
+    lastBlockedReason: "",
+    lastStatusKey: "",
+  };
+
+  const debugState = {
+    entries: [],
+    maxEntries: 120,
   };
 
   const guidedState = {
@@ -39,6 +46,41 @@
       hotspotStarted: false,
       serverStarted: false,
     };
+  }
+
+  function debugNow() {
+    const now = new Date();
+    return now.toLocaleTimeString("zh-CN", { hour12: false });
+  }
+
+  function formatDebugExtra(extra) {
+    if (extra === undefined || extra === null || extra === "") {
+      return "";
+    }
+    if (typeof extra === "string") {
+      return extra;
+    }
+    try {
+      return JSON.stringify(extra);
+    } catch {
+      return String(extra);
+    }
+  }
+
+  function debugLog(message, extra) {
+    const suffix = formatDebugExtra(extra);
+    const line = "[" + debugNow() + "] " + message + (suffix ? " | " + suffix : "");
+    debugState.entries.push(line);
+    if (debugState.entries.length > debugState.maxEntries) {
+      debugState.entries.splice(0, debugState.entries.length - debugState.maxEntries);
+    }
+    const logNode = $("shareDebugLog");
+    if (logNode) {
+      logNode.textContent = debugState.entries.join("\n");
+    }
+    if (window.console && typeof window.console.log === "function") {
+      window.console.log("[simple-share]", line);
+    }
   }
 
   function $(id) {
@@ -68,8 +110,12 @@
 
   function send(message) {
     if (!window.chrome || !window.chrome.webview || typeof window.chrome.webview.postMessage !== "function") {
+      debugLog("native bridge unavailable", message && message.kind ? message.kind : "");
       setText("bridgeStatus", "Bridge unavailable");
       return;
+    }
+    if (message && (message.kind === "command" || message.kind === "request-snapshot" || message.kind === "ready")) {
+      debugLog("send native", message);
     }
     window.chrome.webview.postMessage(JSON.stringify({ source: "admin-shell", ...message }));
   }
@@ -533,6 +579,7 @@
     if (!pending || pending.requestId !== requestId) {
       return;
     }
+    debugLog("queued host bridge timeout", { requestId, command: pending.command });
     hostBridge.pendingCommand = null;
     clearHostBridgeTimeout();
     if (pending.stopServerAfter) {
@@ -553,6 +600,7 @@
     if (!pending || pending.requestId !== requestId) {
       return;
     }
+    debugLog("in-flight host bridge timeout", { requestId, command: pending.command });
     hostBridge.pendingCommand = null;
     if (pending.stopServerAfter) {
       guidedState.pendingHostOpen = false;
@@ -569,11 +617,35 @@
     if (!pending || hostBridge.inFlightRequestId) return false;
 
     const frame = $("hostPreviewFrame");
-    if (!frame || !frame.contentWindow) return false;
-    if (!previewLoaded || !hostBridge.ready || !state.hostUrl) return false;
+    let blockedReason = "";
+    if (!frame || !frame.contentWindow) {
+      blockedReason = "frame-missing";
+    } else if (!previewLoaded) {
+      blockedReason = "preview-not-loaded";
+    } else if (!hostBridge.ready) {
+      blockedReason = "host-bridge-not-ready";
+    } else if (!state.hostUrl) {
+      blockedReason = "host-url-empty";
+    }
+    if (blockedReason) {
+      if (hostBridge.lastBlockedReason !== blockedReason) {
+        hostBridge.lastBlockedReason = blockedReason;
+        debugLog("host bridge blocked", {
+          blockedReason,
+          requestId: pending.requestId,
+          command: pending.command,
+          previewLoaded,
+          hostReady: hostBridge.ready,
+          hostUrl: state.hostUrl || "",
+        });
+      }
+      return false;
+    }
+    hostBridge.lastBlockedReason = "";
 
     hostBridge.inFlightRequestId = pending.requestId;
     clearHostBridgeTimeout();
+    debugLog("flush host bridge command", { requestId: pending.requestId, command: pending.command });
     hostBridge.timeoutHandle = window.setTimeout(() => {
       handleHostBridgeTimeout(pending.requestId);
     }, pending.timeoutMs || 9000);
@@ -589,6 +661,11 @@
 
   function queueHostBridgeCommand(command, options) {
     if (hostBridge.pendingCommand || hostBridge.inFlightRequestId) {
+      debugLog("host bridge already busy", {
+        command,
+        pendingCommand: hostBridge.pendingCommand ? hostBridge.pendingCommand.command : "",
+        inFlightRequestId: hostBridge.inFlightRequestId,
+      });
       return hostBridge.pendingCommand ? hostBridge.pendingCommand.requestId : hostBridge.inFlightRequestId;
     }
     const pending = {
@@ -600,6 +677,7 @@
     };
     hostBridge.pendingCommand = pending;
     guidedState.pendingHostOpen = true;
+    debugLog("queue host bridge command", pending);
     clearHostBridgeTimeout();
     hostBridge.timeoutHandle = window.setTimeout(() => {
       handleQueuedHostBridgeTimeout(pending.requestId);
@@ -609,6 +687,13 @@
   }
 
   function startGuidedShareCommand(command) {
+    debugLog("startGuidedShareCommand", {
+      command,
+      serverRunning: state.serverRunning,
+      hostUrl: state.hostUrl || "",
+      previewLoaded,
+      hostReady: hostBridge.ready,
+    });
     guidedState.justStopped = false;
     const starting = command === "choose-share"
       ? "正在打开共享选择，请在系统弹窗中选择窗口或屏幕。"
@@ -628,6 +713,11 @@
   }
 
   function stopGuidedShareCommand() {
+    debugLog("stopGuidedShareCommand", {
+      serverRunning: state.serverRunning,
+      hostState: state.hostState || "",
+      captureState: state.captureState || "",
+    });
     guidedState.pendingHostOpen = false;
     guidedState.justStopped = true;
     guidedState.hostWindowHint = "正在结束本次共享。";
@@ -1444,10 +1534,26 @@
     }
   }
 
+  function renderShareDebug(payload) {
+    setPairs("shareDebugMeta", [
+      ["route", currentRoute],
+      ["previewLoaded", previewLoaded],
+      ["hostBridge.ready", hostBridge.ready],
+      ["pendingCommand", hostBridge.pendingCommand ? (hostBridge.pendingCommand.command + " / " + hostBridge.pendingCommand.requestId) : "-"],
+      ["inFlightRequestId", hostBridge.inFlightRequestId || "-"],
+      ["hostUrl", payload.hostUrl || "-"],
+      ["hostState", payload.hostState || "-"],
+      ["captureState", payload.captureState || "-"],
+      ["captureLabel", payload.captureLabel || "-"]
+    ]);
+    setText("shareDebugLog", debugState.entries.length ? debugState.entries.join("\n") : "No debug entries yet.");
+  }
+
   function renderSimpleMode(payload) {
     renderGuide(payload);
     renderPrepare(payload);
     renderShareSimple(payload);
+    renderShareDebug(payload);
   }
 
   function applySession() {
@@ -1494,6 +1600,7 @@
   }
 
   function handleCommand(command, extra) {
+    debugLog("handleCommand", { command, extra: extra || null });
     if (command === "request-snapshot") {
       send({ kind: "request-snapshot" });
       return;
@@ -1536,6 +1643,13 @@
   }
 
   function runGuidedAction(action) {
+    debugLog("runGuidedAction", {
+      action,
+      route: currentRoute,
+      disabledStart: $("shareStartBtn") ? $("shareStartBtn").disabled : null,
+      disabledChoose: $("shareChooseBtn") ? $("shareChooseBtn").disabled : null,
+      disabledStop: $("shareStopBtn") ? $("shareStopBtn").disabled : null,
+    });
     switch (action) {
       case "resume-share":
         switchRoute("share");
@@ -1591,6 +1705,12 @@
   }
 
   function handleLocalAction(action) {
+    if (action === "clear-share-debug") {
+      debugState.entries = [];
+      debugLog("debug log cleared");
+      requestRender();
+      return;
+    }
     if (action === "reload-preview") {
       const frame = $("hostPreviewFrame");
       if (!frame) return;
@@ -1606,9 +1726,19 @@
     }
   }
 
+  function resolveButtonFromEventTarget(target) {
+    if (target && typeof target.closest === "function") {
+      return target.closest("button");
+    }
+    if (target && target.parentElement && typeof target.parentElement.closest === "function") {
+      return target.parentElement.closest("button");
+    }
+    return null;
+  }
+
   function bindButtons() {
     document.addEventListener("click", (event) => {
-      const button = event.target.closest("button");
+      const button = resolveButtonFromEventTarget(event.target);
       if (!button) return;
 
       if (button.hasAttribute("data-route-target")) {
@@ -1647,6 +1777,42 @@
       handleCommand(command, index === null ? {} : { index: Number(index) });
     });
 
+    const shareStartBtn = $("shareStartBtn");
+    if (shareStartBtn) {
+      shareStartBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        debugLog("shareStartBtn click", { disabled: shareStartBtn.disabled });
+        if (!shareStartBtn.disabled) {
+          runGuidedAction("open-share");
+        }
+      });
+    }
+
+    const shareStopBtn = $("shareStopBtn");
+    if (shareStopBtn) {
+      shareStopBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        debugLog("shareStopBtn click", { disabled: shareStopBtn.disabled });
+        if (!shareStopBtn.disabled) {
+          runGuidedAction("stop-share");
+        }
+      });
+    }
+
+    const shareChooseBtn = $("shareChooseBtn");
+    if (shareChooseBtn) {
+      shareChooseBtn.addEventListener("click", (event) => {
+        event.preventDefault();
+        event.stopPropagation();
+        debugLog("shareChooseBtn click", { disabled: shareChooseBtn.disabled });
+        if (!shareChooseBtn.disabled) {
+          runGuidedAction("choose-share");
+        }
+      });
+    }
+
     ["roomInput", "tokenInput", "bindInput", "portInput"].forEach((id) => {
       const node = $(id);
       if (!node) return;
@@ -1666,6 +1832,7 @@
     const previewFrame = $("hostPreviewFrame");
     if (previewFrame) {
       previewFrame.addEventListener("load", () => {
+        debugLog("hostPreviewFrame load", { src: previewFrame.src || "" });
         previewLoaded = true;
         updateHostPreview(state);
         tryFlushHostBridgeCommand();
@@ -1682,6 +1849,12 @@
     window.chrome.webview.addEventListener("message", (event) => {
       const message = event.data || {};
       if (message.name === "state.snapshot") {
+        debugLog("recv state.snapshot", {
+          serverRunning: !!(message.payload && message.payload.serverRunning),
+          hostUrl: message.payload && message.payload.hostUrl ? message.payload.hostUrl : "",
+          hostState: message.payload && message.payload.hostState ? message.payload.hostState : "",
+          captureState: message.payload && message.payload.captureState ? message.payload.captureState : "",
+        });
         render(message.payload || {});
       }
     });
@@ -1691,6 +1864,13 @@
       if (message.source !== "lan-share-host") {
         return;
       }
+      debugLog("recv host message", {
+        kind: message.kind || "",
+        requestId: message.requestId || "",
+        state: message.state || "",
+        captureState: message.captureState || "",
+        captureLabel: message.captureLabel || "",
+      });
 
       if (message.kind === "bridge-ready") {
         hostBridge.ready = true;
@@ -1976,5 +2156,6 @@
   bindButtons();
   switchRoute(currentRoute);
   switchTab(activeTab, false);
+  debugLog("simple shell initialized", { route: currentRoute });
   bindBridge();
 })();
