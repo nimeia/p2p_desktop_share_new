@@ -7,7 +7,6 @@
 #include <oleauto.h>
 #pragma comment(lib, "ole32.lib")
 #pragma comment(lib, "oleaut32.lib")
-#pragma comment(lib, "FirewallAPI.lib")
 #endif
 
 #include <algorithm>
@@ -144,8 +143,12 @@ FirewallProbeResult ProbeFirewallReadiness(const std::filesystem::path& serverEx
   }
 
   const long profileMask = currentProfiles == 0 ? NET_FW_PROFILE2_ALL : currentProfiles;
-  const long profilesToInspect[] = {NET_FW_PROFILE2_DOMAIN, NET_FW_PROFILE2_PRIVATE, NET_FW_PROFILE2_PUBLIC};
-  for (long profile : profilesToInspect) {
+  const NET_FW_PROFILE_TYPE2 profilesToInspect[] = {
+      NET_FW_PROFILE2_DOMAIN,
+      NET_FW_PROFILE2_PRIVATE,
+      NET_FW_PROFILE2_PUBLIC,
+  };
+  for (const auto profile : profilesToInspect) {
     if ((profileMask & profile) == 0) continue;
     VARIANT_BOOL enabled = VARIANT_FALSE;
     if (SUCCEEDED(policy->get_FirewallEnabled(profile, &enabled)) && enabled == VARIANT_TRUE) {
@@ -179,8 +182,8 @@ FirewallProbeResult ProbeFirewallReadiness(const std::filesystem::path& serverEx
           }
 
           VARIANT_BOOL enabled = VARIANT_FALSE;
-          long direction = 0;
-          long action = 0;
+          NET_FW_RULE_DIRECTION direction = NET_FW_RULE_DIR_IN;
+          NET_FW_ACTION action = NET_FW_ACTION_ALLOW;
           long ruleProfiles = 0;
           if (FAILED(rule->get_Enabled(&enabled)) || enabled != VARIANT_TRUE ||
               FAILED(rule->get_Direction(&direction)) || direction != NET_FW_RULE_DIR_IN ||

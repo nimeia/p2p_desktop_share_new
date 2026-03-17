@@ -22,6 +22,8 @@
 #include "core/runtime/host_action_coordinator.h"
 #include "core/runtime/host_session_coordinator.h"
 #include "core/runtime/host_observability_coordinator.h"
+#include "core/runtime/host_shell_lifecycle_coordinator.h"
+#include "core/runtime/host_runtime_scheduler.h"
 #include "core/runtime/admin_view_model_assembler.h"
 #include "core/runtime/diagnostics_view_model_assembler.h"
 #include "platform/abstraction/platform_service_facade.h"
@@ -29,6 +31,7 @@
 namespace fs = std::filesystem;
 
 class DesktopHostPageBuilders;
+class DesktopHostPageBuilderImpl;
 namespace lan::desktop { class ShellEffectExecutor; }
 
 class MainWindow {
@@ -46,6 +49,7 @@ public:
 
 private:
     friend class DesktopHostPageBuilders;
+    friend class DesktopHostPageBuilderImpl;
     friend class lan::desktop::ShellEffectExecutor;
 
     enum class UiPage {

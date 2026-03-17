@@ -45,6 +45,10 @@
     <OutDir>$(SolutionDir)..\..\out\desktop_host\$(Platform)\$(Configuration)\</OutDir>
     <IntDir>$(SolutionDir)..\..\out\obj\desktop_host\$(MSBuildProjectName)\$(Platform)\$(Configuration)\</IntDir>
     <RepoRoot>$(MSBuildThisFileDirectory)..\..\</RepoRoot>
+    <VcpkgTriplet>x64-windows</VcpkgTriplet>
+    <VcpkgInstalledRoot>$(RepoRoot)vcpkg_installed\$(VcpkgTriplet)\</VcpkgInstalledRoot>
+    <VcpkgLibDir Condition="'$(Configuration)'=='Debug'">$(VcpkgInstalledRoot)debug\lib\</VcpkgLibDir>
+    <VcpkgLibDir Condition="'$(Configuration)'!='Debug'">$(VcpkgInstalledRoot)lib\</VcpkgLibDir>
     <NuGetPackagesRoot>$(RepoRoot)third_party\nuget\</NuGetPackagesRoot>
     <WebView2Targets>$(NuGetPackagesRoot)microsoft.web.webview2\1.0.2592.51\build\native\Microsoft.Web.WebView2.targets</WebView2Targets>
 
@@ -67,12 +71,14 @@
       <TreatWarningAsError>false</TreatWarningAsError>
       <PrecompiledHeader>Use</PrecompiledHeader>
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
-      <AdditionalIncludeDirectories>$(ProjectDir);%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)..\;$(VcpkgInstalledRoot)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
       <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
+      <AdditionalLibraryDirectories>$(VcpkgLibDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>libssl.lib;libcrypto.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
 
@@ -116,6 +122,7 @@
     <ClInclude Include="..\core\runtime\host_observability_coordinator.h" />
     <ClInclude Include="..\core\runtime\host_runtime_scheduler.h" />
     <ClInclude Include="..\core\runtime\host_shell_lifecycle_coordinator.h" />
+    <ClInclude Include="..\core\runtime\remote_probe_orchestrator.h" />
     <ClInclude Include="DesktopCommandIds.h" />
     <ClInclude Include="..\platform\abstraction\system_actions.h" />
     <ClInclude Include="..\platform\abstraction\platform_service_facade.h" />
@@ -188,6 +195,9 @@
     <ClCompile Include="..\core\runtime\network_diagnostics_policy.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
+    <ClCompile Include="..\core\runtime\remote_probe_orchestrator.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
     <ClCompile Include="..\core\runtime\bootstrap_policy.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
@@ -225,6 +235,9 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="..\platform\platform_service_facade.cpp">
+      <PrecompiledHeader>NotUsing</PrecompiledHeader>
+    </ClCompile>
+    <ClCompile Include="..\platform\host_runtime_refresh_pipeline.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="..\platform\windows\network_probe_win.cpp">

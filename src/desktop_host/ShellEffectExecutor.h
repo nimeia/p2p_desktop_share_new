@@ -4,6 +4,7 @@
 
 #include "../core/runtime/desktop_shell_presenter.h"
 #include "../core/runtime/host_shell_lifecycle_coordinator.h"
+#include "../core/runtime/shell_chrome_presenter.h"
 
 class MainWindow;
 

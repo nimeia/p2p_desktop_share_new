@@ -19,6 +19,8 @@ struct NativePageLayoutMetrics {
     static constexpr int setupTop = pad + 42;
 };
 
+} // namespace
+
 class DesktopHostPageBuilderImpl {
 public:
     explicit DesktopHostPageBuilderImpl(MainWindow& window)
@@ -384,8 +386,6 @@ private:
     MainWindow& window_;
     NativeControlFactory factory_;
 };
-
-} // namespace
 
 void DesktopHostPageBuilders::BuildAll(MainWindow& window) {
     DesktopHostPageBuilderImpl(window).BuildAll();

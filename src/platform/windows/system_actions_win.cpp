@@ -2,8 +2,8 @@
 
 #if defined(_WIN32)
 #define WIN32_LEAN_AND_MEAN
-#include <shellapi.h>
 #include <windows.h>
+#include <shellapi.h>
 #endif
 
 #include <string>
