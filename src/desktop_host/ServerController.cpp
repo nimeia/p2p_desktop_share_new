@@ -61,8 +61,8 @@ ServerStartResult ServerController::Start(const ServerOptions& opt) {
     std::filesystem::path www = opt.wwwDir;
     if (www.empty()) www = std::filesystem::current_path() / L"www";
 
-    std::filesystem::path cert = opt.certDir;
-    if (cert.empty()) cert = std::filesystem::current_path() / L"cert";
+    std::filesystem::path admin = opt.adminDir;
+    if (admin.empty()) admin = std::filesystem::current_path() / L"webui";
 
     if (!std::filesystem::exists(exe)) {
         res.ok = false;
@@ -79,11 +79,16 @@ ServerStartResult ServerController::Start(const ServerOptions& opt) {
         res.message = L"server www dir is incomplete: " + www.wstring();
         return res;
     }
-    std::error_code certEc;
-    std::filesystem::create_directories(cert, certEc);
-    if (certEc) {
+    if (!std::filesystem::exists(admin) || !std::filesystem::is_directory(admin)) {
         res.ok = false;
-        res.message = L"server cert dir unavailable: " + cert.wstring() + L" (" + urlutil::Utf8ToWide(certEc.message()) + L")";
+        res.message = L"server admin dir not found: " + admin.wstring();
+        return res;
+    }
+    if (!std::filesystem::exists(admin / L"index.html") ||
+        !std::filesystem::exists(admin / L"app.js") ||
+        !std::filesystem::exists(admin / L"style.css")) {
+        res.ok = false;
+        res.message = L"server admin dir is incomplete: " + admin.wstring();
         return res;
     }
 
@@ -123,8 +128,7 @@ ServerStartResult ServerController::Start(const ServerOptions& opt) {
         << L" --bind " << QuoteArg(opt.bind)
         << L" --port " << QuoteArg(opt.port)
         << L" --www " << QuoteArg(www.wstring())
-        << L" --certdir " << QuoteArg(cert.wstring())
-        << L" --san-ip " << QuoteArg(opt.sanIp)
+        << L" --admin-www " << QuoteArg(admin.wstring())
         << L" --no-stdin";
 
     std::wstring cmdLine = cmd.str();

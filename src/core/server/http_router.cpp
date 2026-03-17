@@ -52,12 +52,15 @@ std::string HttpRouter::StripQuery(std::string_view target) {
   return t;
 }
 
-HttpRouter::HttpRouter(std::string wwwRoot, std::shared_ptr<WsHub> hub)
-    : wwwRoot_(std::move(wwwRoot)), hub_(std::move(hub)) {}
+HttpRouter::HttpRouter(std::string wwwRoot, std::string adminRoot, std::shared_ptr<WsHub> hub)
+    : wwwRoot_(std::move(wwwRoot)), adminRoot_(std::move(adminRoot)), hub_(std::move(hub)) {}
 
 std::string HttpRouter::MapPath(std::string_view target) const {
   const auto t = StripQuery(target);
   if (t.find("..") != std::string::npos) return {};
+
+  if (t == "/admin" || t == "/admin/" || t == "/admin/index.html") return adminRoot_ + "/index.html";
+  if (t.rfind("/admin/", 0) == 0) return adminRoot_ + std::string(t.substr(std::string_view("/admin").size()));
 
   // Minimal routing
   if (t.rfind("/host", 0) == 0) return wwwRoot_ + "/host.html";

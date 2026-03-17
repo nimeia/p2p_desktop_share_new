@@ -1,14 +1,9 @@
 #include "host_shell/native_shell_live_poller.h"
 
-#include "core/runtime/bootstrap_policy.h"
-
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/ssl/context.hpp>
-#include <boost/asio/ssl/stream.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
-#include <boost/beast/ssl.hpp>
 #include <boost/system/error_code.hpp>
 
 #include <algorithm>
@@ -27,15 +22,6 @@ std::string ToUtf8(std::wstring_view value) {
   out.reserve(value.size());
   for (wchar_t ch : value) {
     out.push_back(ch >= 0 && ch < 0x80 ? static_cast<char>(ch) : '?');
-  }
-  return out;
-}
-
-std::wstring ToWide(std::string_view value) {
-  std::wstring out;
-  out.reserve(value.size());
-  for (unsigned char ch : value) {
-    out.push_back(static_cast<wchar_t>(ch));
   }
   return out;
 }
@@ -73,27 +59,12 @@ bool HttpGet(const NativeShellEndpointConfig& config,
              std::string& err) {
   try {
     asio::io_context ioc;
-    asio::ssl::context ctx(asio::ssl::context::tls_client);
-    const bool allowSelfSigned = lan::runtime::ShouldBypassLocalCertificateForHost(ToWide(config.host));
-    if (allowSelfSigned) {
-      ctx.set_verify_mode(asio::ssl::verify_none);
-    } else {
-      ctx.set_default_verify_paths();
-      ctx.set_verify_mode(asio::ssl::verify_peer);
-    }
-
     tcp::resolver resolver(ioc);
-    beast::ssl_stream<beast::tcp_stream> stream(ioc, ctx);
+    beast::tcp_stream stream(ioc);
 
-    if (!SSL_set_tlsext_host_name(stream.native_handle(), config.host.c_str())) {
-      err = "Failed to set TLS SNI host name.";
-      return false;
-    }
-
-    beast::get_lowest_layer(stream).expires_after(std::chrono::milliseconds(config.timeoutMs));
+    stream.expires_after(std::chrono::milliseconds(config.timeoutMs));
     auto results = resolver.resolve(config.host, std::to_string(config.port));
-    beast::get_lowest_layer(stream).connect(results);
-    stream.handshake(asio::ssl::stream_base::client);
+    stream.connect(results);
 
     http::request<http::empty_body> req{http::verb::get, std::string(target), 11};
     req.set(http::field::host, config.host);
@@ -104,8 +75,7 @@ bool HttpGet(const NativeShellEndpointConfig& config,
     http::read(stream, buffer, response);
 
     boost::system::error_code ec;
-    stream.shutdown(ec);
-    if (ec == asio::error::eof) ec = {};
+    beast::get_lowest_layer(stream).socket().shutdown(tcp::socket::shutdown_both, ec);
     if (ec) {
       err = ec.message();
       return false;

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <filesystem>
 #include <functional>
 #include <string>
 #include <windows.h>
@@ -25,7 +24,7 @@ struct WebViewShellContext {
     HWND parent = nullptr;
     RECT bounds{};
     std::wstring hostPreviewUrl;
-    std::filesystem::path htmlAdminIndexFile;
+    std::wstring adminShellUrl;
 };
 
 struct WebViewShellHooks {
@@ -40,8 +39,6 @@ struct WebViewShellPlan {
     std::wstring navigateUrl;
     std::wstring logLine;
 };
-
-std::wstring BuildWebViewFileUrl(const std::filesystem::path& path);
 
 bool EnsureWebViewShellInitialized(WebViewHost& webview,
                                    const WebViewShellContext& context,

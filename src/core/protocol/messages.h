@@ -6,7 +6,7 @@
 
 namespace lan::protocol {
 
-// Message builders for WSS signaling + simple HTTP JSON endpoints.
+// Message builders for WS signaling + simple HTTP JSON endpoints.
 // We build JSON via Boost.JSON to avoid escaping bugs and keep maintenance easy.
 
 std::string Error(std::string_view code, std::string_view message);

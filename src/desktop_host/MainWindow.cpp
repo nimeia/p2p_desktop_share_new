@@ -448,30 +448,9 @@ static CertArtifactsInfo ProbeCertArtifacts(const fs::path& appDir, std::wstring
     info.certExists = fs::exists(info.certFile);
     info.keyExists = fs::exists(info.keyFile);
     info.expectedSans = BuildExpectedCertSans(hostIp);
-
-    lan::cert::CertStatus status;
-    std::string err;
-    if (lan::cert::CertManager::InspectCertificate(urlutil::WideToUtf8(info.certFile.wstring()),
-                                                   urlutil::WideToUtf8(info.keyFile.wstring()),
-                                                   urlutil::WideToUtf8(info.expectedSans),
-                                                   status,
-                                                   err)) {
-        info.certExists = status.certExists;
-        info.keyExists = status.keyExists;
-        info.ready = status.ready;
-        info.detail = urlutil::Utf8ToWide(status.detail);
-        if (!status.missingAltNames.empty()) {
-            std::vector<std::wstring> missing;
-            missing.reserve(status.missingAltNames.size());
-            for (const auto& item : status.missingAltNames) {
-                missing.push_back(urlutil::Utf8ToWide(item));
-            }
-            info.missingSans = JoinWideValues(missing);
-        }
-    } else {
-        info.ready = false;
-        info.detail = urlutil::Utf8ToWide(err.empty() ? "Certificate inspection failed." : err);
-    }
+    info.ready = true;
+    info.detail = L"Plain HTTP mode is active. Local certificates are not used.";
+    info.missingSans.clear();
     return info;
 }
 
@@ -603,7 +582,7 @@ static lan::runtime::RemoteProbeCandidateInput ProbeCandidateHealth(const Adapte
         return probe;
     }
 
-    const std::wstring url = L"https://" + candidate.ip + L":" + std::to_wstring(port) + L"/health";
+    const std::wstring url = L"http://" + candidate.ip + L":" + std::to_wstring(port) + L"/health";
     const HttpResponse health = HttpClient::Get(url, timeoutMs);
     probe.probeReady = health.status == 200 && health.body.find("ok") != std::string::npos;
     if (probe.probeReady) {
@@ -667,7 +646,7 @@ static RuntimeDiagnosticsSnapshot CollectRuntimeDiagnostics(const ServerControll
     }
 
     if (snapshot.serverProcessRunning) {
-        const std::wstring url = L"https://127.0.0.1:" + std::to_wstring(port) + L"/health";
+        const std::wstring url = L"http://127.0.0.1:" + std::to_wstring(port) + L"/health";
         const HttpResponse health = HttpClient::Get(url, 700);
         snapshot.localHealthReady = health.status == 200 && health.body.find("ok") != std::string::npos;
         if (snapshot.localHealthReady) {
@@ -895,7 +874,7 @@ void MainWindow::OnCreate() {
     GenerateRoomToken();
     m_defaultServerExePath = (AppDir() / L"lan_screenshare_server.exe").wstring();
     m_defaultWwwPath = (AppDir() / L"www").wstring();
-    m_defaultCertDir = (AppDir() / L"cert").wstring();
+    m_defaultCertDir = AdminUiDir().wstring();
     m_outputDir = (AppDir() / L"out").wstring();
 
     DesktopHostPageBuilders::BuildAll(*this);
@@ -1324,20 +1303,11 @@ void MainWindow::CheckWebViewRuntime() {
 }
 
 void MainWindow::TrustLocalCertificate() {
-    const auto scriptPath = ResolveHelperScript(AppDir(), L"Trust-LocalCertificate.ps1");
-    const fs::path certPath = AppDir() / L"cert" / L"server.crt";
-    std::vector<std::wstring> args;
-    args.push_back(L"-CertPath");
-    args.push_back(certPath.wstring());
-
-    std::wstring err;
-    if (LaunchPowerShellScript(scriptPath, args, &err)) {
-        AppendLog(L"Opened local certificate trust helper");
-        SetPage(UiPage::Diagnostics);
-    } else {
-        AppendLog(L"Trust local certificate failed: " + err);
-        MessageBoxW(m_hwnd, err.c_str(), L"Local Certificate", MB_OK | MB_ICONERROR);
-    }
+    AppendLog(L"Plain HTTP mode is active; local certificate trust is no longer required.");
+    MessageBoxW(m_hwnd,
+                L"当前使用的是 HTTP 模式，不再需要导入或信任本地证书。",
+                L"HTTP Mode",
+                MB_OK | MB_ICONINFORMATION);
 }
 
 void MainWindow::ExportRemoteProbeGuide() {
@@ -1374,14 +1344,13 @@ void MainWindow::ExportRemoteProbeGuide() {
             << ", selected=" << (candidate.selected ? "yes" : "no")
             << ", probe=" << (candidate.probeReady ? "ok" : "failed") << "\r\n";
         out << "  Probe: " << urlutil::WideToUtf8(candidate.probeDetail) << "\r\n";
-        out << "  Test URL: https://" << urlutil::WideToUtf8(candidate.ip) << ":" << m_port << "/health\r\n\r\n";
+        out << "  Test URL: http://" << urlutil::WideToUtf8(candidate.ip) << ":" << m_port << "/health\r\n\r\n";
     }
     out << "Remote-device checklist\r\n";
     out << "1. Keep the viewer device on the same LAN / hotspot as the host.\r\n";
     out << "2. Open the Test URL for the selected or recommended candidate in the remote browser first.\r\n";
-    out << "3. Accept the local certificate warning for this session if the browser prompts.\r\n";
-    out << "4. Once /health answers with ok, open the Viewer URL from the same remote device.\r\n";
-    out << "5. If the selected path fails but a recommended candidate answers, switch the main host IP and refresh the share material.\r\n";
+    out << "3. Once /health answers with ok, open the Viewer URL from the same remote device.\r\n";
+    out << "4. If the selected path fails but a recommended candidate answers, switch the main host IP and refresh the share material.\r\n";
     out.close();
 
     AppendLog(L"Exported remote probe guide: " + guidePath.wstring());
@@ -1440,10 +1409,8 @@ void MainWindow::QuickFixNetwork() {
 
 void MainWindow::QuickFixCertificate() {
     RefreshDiagnosticsBundle();
-    TrustLocalCertificate();
-    OpenDiagnosticsReport();
     SetPage(UiPage::Diagnostics);
-    AppendLog(L"Quick fix: opened diagnostics for certificate / trust issues");
+    AppendLog(L"Quick fix: switched to diagnostics. Plain HTTP mode no longer uses certificate trust.");
 }
 
 void MainWindow::QuickFixSharing() {
@@ -1616,7 +1583,7 @@ lan::desktop::WebViewShellContext MainWindow::BuildWebViewShellContext() const {
     }
     context.bounds = rc;
     context.hostPreviewUrl = BuildHostUrlLocal();
-    context.htmlAdminIndexFile = AdminUiDir() / L"index.html";
+    context.adminShellUrl = BuildAdminUrlLocal();
     return context;
 }
 
@@ -1654,6 +1621,13 @@ void MainWindow::ApplyWebViewShellState(const lan::desktop::WebViewShellState& s
 
 void MainWindow::RestoreWebViewShellState() {
     auto state = BuildWebViewShellState();
+    if (state.surface == lan::desktop::WebViewShellSurface::HtmlAdminPreview && m_server && !m_server->IsRunning()) {
+        const auto start = PerformStartServerAction();
+        if (!start.ok) {
+            AppendLog(start.detail.empty() ? L"HTML admin shell restore failed" : start.detail);
+            return;
+        }
+    }
     const auto context = BuildWebViewShellContext();
     const auto plan = lan::desktop::BuildWebViewRestorePlan(state, context);
     lan::desktop::ApplyWebViewShellPlan(m_webview, state, plan, context, BuildWebViewShellHooks());
@@ -1669,6 +1643,13 @@ void MainWindow::NavigateHostInWebView() {
 }
 
 void MainWindow::NavigateHtmlAdminInWebView() {
+    if (m_server && !m_server->IsRunning()) {
+        const auto start = PerformStartServerAction();
+        if (!start.ok) {
+            AppendLog(start.detail.empty() ? L"HTML admin shell start failed" : start.detail);
+            return;
+        }
+    }
     auto state = BuildWebViewShellState();
     const auto context = BuildWebViewShellContext();
     const auto plan = lan::desktop::BuildWebViewHtmlAdminNavigationPlan(state, context);
@@ -1761,13 +1742,12 @@ void MainWindow::HandleAdminShellMessage(std::wstring_view payload) {
 
 
 lan::runtime::AdminViewModelInput MainWindow::BuildAdminViewModelInput() const {
-    const auto certInfo = ProbeCertArtifacts(AppDir(), m_hostIp);
     const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, AppDir() / L"lan_screenshare_server.exe", m_bindAddress, m_hostIp, m_port);
     const auto runtimeSnapshot = BuildDesktopRuntimeSnapshot(true);
     const auto sessionModel = lan::runtime::BuildHostSessionAdminModel(BuildHostSessionState());
     const auto serverExe = AppDir() / L"lan_screenshare_server.exe";
     const auto wwwDir = AppDir() / L"www";
-    const auto certDir = AppDir() / L"cert";
+    const auto adminDir = AdminUiDir();
     const auto bundleDir = AppDir() / L"out" / L"share_bundle";
 
     lan::runtime::AdminViewModelInput input;
@@ -1779,12 +1759,12 @@ lan::runtime::AdminViewModelInput MainWindow::BuildAdminViewModelInput() const {
     input.outputDir = (AppDir() / L"out").wstring();
     input.bundleDir = bundleDir.wstring();
     input.serverExePath = serverExe.wstring();
-    input.certDir = certInfo.certDir.wstring();
+    input.certDir = adminDir.wstring();
     input.timelineText = m_timelineText;
     input.logTail = m_logs.size() > 8000 ? m_logs.substr(m_logs.size() - 8000) : m_logs;
     input.defaultServerExePath = m_defaultServerExePath;
     input.defaultWwwPath = m_defaultWwwPath;
-    input.defaultCertDir = m_defaultCertDir;
+    input.defaultCertDir = adminDir.wstring();
     input.defaultLaunchArgs = m_defaultLaunchArgs;
     input.defaultIpStrategy = m_defaultIpStrategy;
     input.autoDetectFrequencySec = m_autoDetectFrequencySec;
@@ -1804,7 +1784,7 @@ lan::runtime::AdminViewModelInput MainWindow::BuildAdminViewModelInput() const {
     input.saveStdStreams = m_saveStdStreams;
     input.serverExeExists = fs::exists(serverExe);
     input.wwwDirExists = fs::exists(wwwDir);
-    input.certDirExists = fs::exists(certDir);
+    input.certDirExists = fs::exists(adminDir);
     input.bundleDirExists = fs::exists(bundleDir);
 
     input.networkCandidates.reserve(runtime.remoteProbeCandidates.size());
@@ -2007,11 +1987,11 @@ void MainWindow::RefreshSessionSetup() {
         } else {
             ss << L"Reason: Host preview is not ready yet.\r\n\r\n";
         }
-        ss << L"Action: Open Host in the system browser.\r\n";
+        ss << L"Action: Open Host in the local browser.\r\n";
         ss << L"Host URL: " << hostUrl << L"\r\n";
-        ss << L"Cert State: " << (certInfo.ready ? L"ready" : L"needs refresh");
+        ss << L"Transport: plain HTTP / WS";
         if (!certInfo.detail.empty()) {
-            ss << L"\r\nCert Detail: " << certInfo.detail;
+            ss << L"\r\nMode Detail: " << certInfo.detail;
         }
         SetWindowTextW(m_hostPreviewPlaceholder, ss.str().c_str());
         const auto layoutVisibility = lan::runtime::BuildDesktopPageVisibility(BuildDesktopLayoutStateInput());
@@ -2126,14 +2106,11 @@ void MainWindow::RefreshSharingPage() {
         ss << L"- Start hotspot in Network page.\r\n";
         ss << L"- Join that hotspot from the guest device.\r\n";
         ss << L"- Open the Viewer URL exactly as shown.\r\n\r\n";
-        ss << L"Certificate Reminder\r\n";
-        ss << L"- First access may show a self-signed certificate prompt.\r\n";
-        ss << L"- Accept it for this local session.\r\n\r\n";
         ss << L"Common Failure Reasons\r\n";
         ss << L"- Devices are not on the same local network.\r\n";
         ss << L"- Wrong IP was selected as the main host address.\r\n";
         ss << L"- Local service is not running yet.\r\n";
-        ss << L"- Browser blocked the self-signed certificate.";
+        ss << L"- Browser or firewall blocked the local network request.";
         SetWindowTextW(m_accessGuideCard, ss.str().c_str());
     }
 }
@@ -2472,10 +2449,9 @@ lan::runtime::HostActionOperation MainWindow::PerformStartServerAction() {
     fs::path dir = AppDir();
     opt.executable = dir / L"lan_screenshare_server.exe";
     opt.wwwDir = dir / L"www";
-    opt.certDir = dir / L"cert";
+    opt.adminDir = AdminUiDir();
     opt.bind = m_bindAddress;
     opt.port = std::to_wstring(m_port);
-    opt.sanIp = BuildExpectedCertSans(m_hostIp);
 
     auto r = m_server->Start(opt);
     if (!r.ok) {
@@ -2678,7 +2654,7 @@ void MainWindow::KickPoll() {
     int port = m_port;
 
     std::thread([this, port]() {
-        std::wstring url = L"https://127.0.0.1:" + std::to_wstring(port) + L"/api/status";
+        std::wstring url = L"http://127.0.0.1:" + std::to_wstring(port) + L"/api/status";
         HttpResponse r = HttpClient::Get(url, 800);
 
         size_t rooms = 0, viewers = 0;
@@ -2705,9 +2681,14 @@ void MainWindow::HandlePollResult(DWORD status, std::size_t rooms, std::size_t v
     if (result.updateTrayIcon) UpdateTrayIcon();
 }
 
+std::wstring MainWindow::BuildAdminUrlLocal() const {
+    std::wstringstream ss;
+    ss << L"http://127.0.0.1:" << m_port << L"/admin/";
+    return ss.str();
+}
+
 std::wstring MainWindow::BuildHostUrlLocal() const {
     lan::runtime::RuntimeSessionState sessionState;
-    sessionState.hostIp = m_hostIp;
     sessionState.port = m_port;
     sessionState.room = m_room;
     sessionState.token = m_token;

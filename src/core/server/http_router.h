@@ -9,7 +9,7 @@ class WsHub;
 
 class HttpRouter {
 public:
-  HttpRouter(std::string wwwRoot, std::shared_ptr<WsHub> hub);
+  HttpRouter(std::string wwwRoot, std::string adminRoot, std::shared_ptr<WsHub> hub);
 
   template<class Body, class Allocator>
   boost::beast::http::response<boost::beast::http::string_body>
@@ -17,6 +17,7 @@ public:
 
 private:
   std::string wwwRoot_;
+  std::string adminRoot_;
   std::shared_ptr<WsHub> hub_;
 
   static std::string StripQuery(std::string_view target);

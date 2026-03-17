@@ -14,6 +14,11 @@ bool IsHostStateReadyOrLoading(std::wstring_view state) {
 }
 
 std::wstring HostOrLoopback(const RuntimeSessionState& session) {
+  (void)session;
+  return L"127.0.0.1";
+}
+
+std::wstring ViewerHostOrLoopback(const RuntimeSessionState& session) {
   return session.hostIp.empty() ? L"127.0.0.1" : session.hostIp;
 }
 
@@ -21,14 +26,14 @@ std::wstring HostOrLoopback(const RuntimeSessionState& session) {
 
 std::wstring BuildHostUrl(const RuntimeSessionState& session) {
   std::wstringstream ss;
-  ss << L"https://" << HostOrLoopback(session) << L":" << session.port
+  ss << L"http://" << HostOrLoopback(session) << L":" << session.port
      << L"/host?room=" << session.room << L"&token=" << session.token;
   return ss.str();
 }
 
 std::wstring BuildViewerUrl(const RuntimeSessionState& session) {
   std::wstringstream ss;
-  ss << L"https://" << HostOrLoopback(session) << L":" << session.port
+  ss << L"http://" << ViewerHostOrLoopback(session) << L":" << session.port
      << L"/view?room=" << session.room << L"&token=" << session.token;
   return ss.str();
 }
@@ -51,7 +56,7 @@ RuntimeHandoffSummary BuildHandoffSummary(const RuntimeSessionState& session,
     return summary;
   }
 
-  const bool blocked = !health.serverProcessRunning || !health.localHealthReady || !health.hostIpReachable || !health.certReady;
+  const bool blocked = !health.serverProcessRunning || !health.localHealthReady || !health.hostIpReachable;
   if (!blocked) {
     summary.state = L"ready-for-handoff";
     summary.label = L"Ready For Handoff";
@@ -65,10 +70,6 @@ RuntimeHandoffSummary BuildHandoffSummary(const RuntimeSessionState& session,
     summary.detail = L"The share handoff has started, but the local service is not running. Start sharing again before sending the link.";
   } else if (!health.hostIpReachable) {
     summary.detail = L"The share handoff has started, but the selected LAN address is still not reachable. Refresh network selection before handing off again.";
-  } else if (!health.certReady) {
-    summary.detail = health.certDetail.empty()
-        ? L"The share handoff has started, but the local certificate is not ready for the current host entries. Re-run diagnostics before handing off again."
-        : health.certDetail;
   } else {
     summary.detail = L"The share handoff has started, but one or more live checks are still failing. Re-run checks before handing off again.";
   }
@@ -106,13 +107,6 @@ std::wstring BuildShareInfoText(const RuntimeSessionState& session,
   ss << L"Wi-Fi Direct API: " << (session.wifiDirectApiAvailable ? L"available" : L"not detected") << L"\r\n";
   ss << L"Wi-Fi Direct Alias: " << session.wifiDirectAlias << L"\r\n";
   ss << L"QR Renderer: local SVG (offline)\r\n";
-  ss << L"Certificate: " << (health.certReady ? L"ready" : L"needs refresh") << L"\r\n";
-  if (!health.certDetail.empty()) {
-    ss << L"Certificate Detail: " << health.certDetail << L"\r\n";
-  }
-  if (!health.expectedSans.empty()) {
-    ss << L"Expected SANs: " << health.expectedSans << L"\r\n";
-  }
   ss << L"Port Check: " << (health.portReady ? L"ready" : L"attention") << L" (" << health.portDetail << L")\r\n";
   ss << L"Local Health: " << (health.localHealthReady ? L"ok" : L"attention") << L" (" << health.localHealthDetail << L")\r\n";
   ss << L"LAN Bind: " << (health.lanBindReady ? L"ready" : L"attention") << L" (" << health.lanBindDetail << L")\r\n";
@@ -120,7 +114,7 @@ std::wstring BuildShareInfoText(const RuntimeSessionState& session,
   ss << L"Adapter Hint: " << health.adapterHint << L"\r\n";
   ss << L"Embedded Host: " << (health.embeddedHostReady ? L"ready" : L"attention") << L" (" << health.embeddedHostStatus << L")\r\n";
   ss << L"Self-Check: " << selfCheck.summaryLine << L"\r\n";
-  ss << L"Check Categories: cert " << selfCheck.certificateCount << L" / net " << selfCheck.networkCount
+  ss << L"Check Categories: net " << selfCheck.networkCount
      << L" / sharing " << selfCheck.sharingCount << L"\r\n";
   ss << L"Live Pages: auto refresh from share_status.js\r\n";
   ss << L"Bundle Files: share_card.html / share_wizard.html / desktop_self_check.html / share_bundle.json / share_status.js / share_diagnostics.txt / desktop_self_check.txt\r\n";

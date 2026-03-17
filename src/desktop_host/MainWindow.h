@@ -199,6 +199,7 @@ private:
     void KickPoll();
     void HandlePollResult(DWORD status, std::size_t rooms, std::size_t viewers);
 
+    std::wstring BuildAdminUrlLocal() const;
     std::wstring BuildHostUrlLocal() const;
     std::wstring BuildViewerUrl() const;
     void BuildHandoffSummary(std::wstring* state, std::wstring* label, std::wstring* detail) const;
@@ -446,7 +447,7 @@ private:
     std::wstring m_defaultServerExePath = L"";
     std::wstring m_defaultWwwPath = L"";
     std::wstring m_defaultCertDir = L"";
-    std::wstring m_defaultLaunchArgs = L"--bind {bind} --port {port} --san-ip {host_ip}";
+    std::wstring m_defaultLaunchArgs = L"--bind {bind} --port {port} --www www --admin-www webui";
     std::wstring m_defaultIpStrategy = L"prefer-private-wifi";
     int m_autoDetectFrequencySec = 15;
     std::wstring m_hotspotPasswordRule = L"windows-suggested";
@@ -458,7 +459,7 @@ private:
     std::wstring m_outputDir = L"";
     int m_diagnosticsRetentionDays = 7;
     bool m_saveStdStreams = true;
-    std::wstring m_certBypassPolicy = L"allow-loopback-and-private-lan-self-signed";
+    std::wstring m_certBypassPolicy = L"plain-http-first";
     std::wstring m_webViewBehavior = L"embedded-when-available";
     std::wstring m_startupHook = L"(not configured)";
 };

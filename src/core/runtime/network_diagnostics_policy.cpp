@@ -84,7 +84,7 @@ NetworkDiagnosticsViewModel BuildNetworkDiagnosticsViewModel(const RuntimeSessio
     model.remoteViewerReady = false;
     model.remoteViewerLabel = model.firewallReady ? L"LAN self-probe failed" : L"LAN path blocked";
     model.remoteViewerDetail = health.hostIpReachableDetail.empty()
-        ? L"The selected host LAN address did not answer the HTTPS /health probe, so the viewer path is not reliable yet."
+        ? L"The selected host LAN address did not answer the HTTP /health probe, so the viewer path is not reliable yet."
         : health.hostIpReachableDetail;
     model.remoteViewerAction = model.firewallReady
         ? L"Re-detect network selection and confirm the viewer is on the same subnet / hotspot before handing off the Viewer URL."

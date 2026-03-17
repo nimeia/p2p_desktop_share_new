@@ -1,7 +1,6 @@
 #pragma once
 #include <boost/beast/core/tcp_stream.hpp>
 #include <boost/beast/websocket.hpp>
-#include <boost/beast/ssl.hpp>
 #include <boost/beast/http.hpp>
 #include <boost/asio/strand.hpp>
 #include <boost/asio/any_io_executor.hpp>
@@ -16,7 +15,7 @@ class WsHub;
 
 class WsSession : public std::enable_shared_from_this<WsSession> {
 public:
-  using stream_t = boost::beast::websocket::stream<boost::beast::ssl_stream<boost::beast::tcp_stream>>;
+  using stream_t = boost::beast::websocket::stream<boost::beast::tcp_stream>;
 
   WsSession(stream_t ws, std::shared_ptr<WsHub> hub);
 

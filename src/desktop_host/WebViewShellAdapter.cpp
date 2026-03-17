@@ -3,37 +3,7 @@
 
 #include "WebViewHost.h"
 
-#include <algorithm>
-
-namespace fs = std::filesystem;
-
 namespace lan::desktop {
-
-std::wstring BuildWebViewFileUrl(const fs::path& path) {
-    std::wstring value = fs::absolute(path).wstring();
-    std::replace(value.begin(), value.end(), L'\\', L'/');
-
-    std::wstring encoded;
-    encoded.reserve(value.size() + 16);
-    for (wchar_t ch : value) {
-        switch (ch) {
-        case L' ':
-            encoded += L"%20";
-            break;
-        case L'#':
-            encoded += L"%23";
-            break;
-        case L'%':
-            encoded += L"%25";
-            break;
-        default:
-            encoded.push_back(ch);
-            break;
-        }
-    }
-
-    return L"file:///" + encoded;
-}
 
 bool EnsureWebViewShellInitialized(WebViewHost& webview,
                                    const WebViewShellContext& context,
@@ -72,14 +42,14 @@ WebViewShellPlan BuildWebViewHtmlAdminNavigationPlan(const WebViewShellState& st
     plan.nextState.adminShellReady = false;
     plan.ensureInitialized = true;
 
-    if (!context.htmlAdminIndexFile.empty() && fs::exists(context.htmlAdminIndexFile)) {
+    if (!context.adminShellUrl.empty()) {
         plan.nextState.htmlAdminNavigated = true;
         plan.navigate = true;
-        plan.navigateUrl = BuildWebViewFileUrl(context.htmlAdminIndexFile);
-        plan.logLine = L"HTML admin shell navigate: " + context.htmlAdminIndexFile.wstring();
+        plan.navigateUrl = context.adminShellUrl;
+        plan.logLine = L"HTML admin shell navigate: " + context.adminShellUrl;
     } else {
         plan.nextState.htmlAdminNavigated = false;
-        plan.logLine = L"HTML admin shell missing: " + context.htmlAdminIndexFile.wstring();
+        plan.logLine = L"HTML admin shell URL is empty";
     }
 
     return plan;

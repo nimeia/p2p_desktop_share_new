@@ -1,6 +1,6 @@
 /**
  * Host page:
- * - registers the host over WSS
+ * - registers the host over WS
  * - captures the screen with getDisplayMedia
  * - forwards WebRTC offers/ICE to viewers
  * - behaves like an installable fullscreen sender console when the browser allows it
@@ -229,13 +229,13 @@ function setConfigError(message) {
 function showInstallHint() {
   if (deferredInstallPrompt && btnInstall) {
     btnInstall.hidden = false;
-    setHint("Install the host or open fullscreen to hide most browser chrome and make the sender feel like a native control surface.");
+    setHint("Open fullscreen to hide most browser chrome and keep the sender focused on the sharing controls.");
   } else if (isStandaloneDisplay()) {
     setHint("Installed mode is active. Tap the background to reveal or hide the control HUD.");
   } else if (screenStream) {
-    setHint("Sharing is active. Enter fullscreen or install the host app for a cleaner sender experience.");
+    setHint("Sharing is active. Enter fullscreen for a cleaner sender experience.");
   } else {
-    setHint("Start sharing after the host finishes registering. Install or fullscreen mode will remove most browser chrome on supported devices.");
+    setHint("Start sharing after the host finishes registering. Fullscreen will remove most browser chrome on supported devices.");
   }
 }
 
@@ -254,7 +254,7 @@ function startSignal() {
   ws = new WebSocket(wssUrl("/ws"));
 
   ws.onopen = () => {
-    log("WSS connected");
+    log("WS connected");
     setState("registering");
     wsSend({ type: "host.register", room, token });
   };
@@ -339,14 +339,14 @@ function startSignal() {
   };
 
   ws.onclose = () => {
-    log("WSS closed");
+    log("WS closed");
     registered = false;
     setState("closed");
     setChromeHidden(false);
   };
 
   ws.onerror = () => {
-    log("WSS error");
+    log("WS error");
     setState("error");
   };
 }
@@ -731,7 +731,7 @@ if (window.matchMedia) {
 
 if (infoEl) {
   infoEl.innerHTML =
-    'Open this page on HTTPS with <span class="mono">/host?room=&lt;ROOM&gt;&amp;token=&lt;TOKEN&gt;</span>, then start screen sharing.';
+    'Open this local page with <span class="mono">/host?room=&lt;ROOM&gt;&amp;token=&lt;TOKEN&gt;</span> over HTTP, then start screen sharing.';
 }
 
 updateDisplayMode();

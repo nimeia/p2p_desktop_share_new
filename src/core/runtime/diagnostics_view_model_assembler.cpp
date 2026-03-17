@@ -58,8 +58,8 @@ DiagnosticsViewModel BuildDiagnosticsViewModel(const AdminViewModelInput& input)
   checklist << L"  Fix: start service, then test Host URL in browser.\r\n\r\n";
   checklist << L"[" << (health.embeddedHostReady ? L"OK" : L"FIX") << L"] WebView2 available\r\n";
   checklist << L"  Fix: install/repair WebView2 Runtime or use browser fallback.\r\n\r\n";
-  checklist << L"[" << (health.certReady ? L"OK" : L"FIX") << L"] Certificate ready\r\n";
-  checklist << L"  Fix: restart service to regenerate certificate for current IP/hostname.\r\n";
+  checklist << L"[OK] Plain HTTP mode\r\n";
+  checklist << L"  Fix: no certificate trust step is required in this mode.\r\n";
   if (!health.certDetail.empty()) {
     checklist << L"  Detail: " << health.certDetail << L"\r\n";
   }

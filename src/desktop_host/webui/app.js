@@ -202,7 +202,7 @@
   }
 
   function baseServiceReady(payload) {
-    return !!payload.serverRunning && !!payload.healthReady && !!payload.certReady;
+    return !!payload.serverRunning && !!payload.healthReady;
   }
 
   function prepareReadyForMode(mode, payload) {
@@ -364,7 +364,7 @@
       );
     }
 
-    if (payload.serverRunning && elapsedMs > 8200 && !payload.certReady) {
+    if (false && payload.serverRunning && elapsedMs > 8200 && !payload.certReady) {
       return makeIssue(
         "certificate",
         "本地安全准备未完成",
@@ -503,7 +503,7 @@
     if (!previewLoaded) {
       empty.hidden = false;
       title.textContent = "Loading Host Preview";
-      body.textContent = "The embedded /host page is loading inside the HTML admin shell. If it stays blank, open Host in the browser once to verify the certificate prompt.";
+      body.textContent = "The embedded /host page is loading inside the local admin shell. If it stays blank, wait a moment and refresh the current snapshot.";
       setPreviewBadge("Loading", "idle");
       return;
     }
@@ -561,13 +561,12 @@
   }
 
   function fallbackOpenHostWindow(command) {
-    guidedState.pendingHostOpen = true;
+    guidedState.pendingHostOpen = false;
     if (command === "choose-share") {
       guidedState.hostWindowHint = "嵌入共享页暂时没有响应，已切换为独立共享窗口。请在打开的共享窗口里选择要共享的窗口或屏幕。";
     } else {
       guidedState.hostWindowHint = "嵌入共享页暂时没有响应，已切换为独立共享窗口。请在打开的共享窗口里点击 Start Sharing 并选择要共享的内容。";
     }
-    handleCommand(state.serverRunning ? "open-host" : "start-and-open-host");
     requestRender();
   }
 
@@ -748,7 +747,7 @@
   function dashboardSuggestions(payload) {
     const items = [];
     if (!payload.serverRunning) {
-      items.push(["Start the local service", "Use Start Sharing to launch the local HTTPS/WSS server before handing out links."]);
+      items.push(["Start the local service", "Use Start Sharing to launch the local HTTP/WS service before handing out links."]);
     }
     if (!payload.hostIp || payload.hostIp === "(not found)") {
       items.push(["Select a usable LAN address", "No primary host IP is selected yet. Refresh network detection or pick another adapter."]);
@@ -764,12 +763,6 @@
     }
     if (payload.serverRunning && !payload.remoteViewerReady) {
       items.push(["Validate remote viewer reachability", payload.remoteViewerDetail || "The current Viewer URL is not yet validated for another device on the LAN."]);
-    }
-    if (!payload.certReady) {
-      items.push([
-        "Regenerate local certificates",
-        payload.certDetail || "The local certificate is missing, expired, or does not match the current host entries."
-      ]);
     }
     if (!payload.shareBundleExported) {
       items.push(["Refresh offline materials", "The share bundle has not been exported for this session yet."]);
@@ -787,7 +780,6 @@
       ["Selected host IP", payload.hostReachable ? "Reachable" : "Not reachable yet"],
       ["Firewall inbound path", payload.firewallReady ? "Ready" : (payload.firewallDetail || "Needs attention")],
       ["Remote viewer path", payload.remoteViewerReady ? "Ready" : (payload.remoteViewerDetail || "Needs attention")],
-      ["Certificate", payload.certReady ? "Ready" : (payload.certDetail || "Not ready")],
       ["Bundle export", payload.shareBundleExported ? "Exported" : "Not exported"],
       ["WebView runtime", payload.webviewStatus || "Unknown"]
     ];
@@ -797,7 +789,7 @@
     return [
       ["Same LAN", "Keep the viewer device on the same router or switch as the host and open the Viewer URL."],
       ["Hotspot mode", payload.hotspotRunning ? "Host hotspot is active. Join the SSID shown in Network, then open the Viewer URL." : "If no shared LAN is available, start hotspot in the Network tab first."],
-      ["Certificate reminder", "First access may show a self-signed certificate prompt. Accept it only for loopback or private-LAN host URLs in this local session."],
+      ["Local access", "The local admin and host pages now run over plain HTTP on this machine. The viewer only needs the LAN Viewer URL."],
       ["Firewall", payload.firewallReady ? "Firewall looks compatible with inbound viewer traffic on this machine." : (payload.firewallDetail || "Open Windows Firewall settings and confirm there is an inbound allow rule for the current server path or port.")],
       ["Common failure", payload.remoteViewerReady ? "If a viewer still fails, test the Viewer URL directly in a browser." : (payload.remoteViewerDetail || "If viewers fail, re-check adapter selection, firewall policy, and same-LAN reachability first.")]
     ];
@@ -888,9 +880,6 @@
     if (!payload.hostIp || payload.hostIp === "(not found)" || !payload.hostReachable) {
       items.push(["LAN endpoint still needs attention", "Refresh adapter detection and re-check which address should be used as the main viewer entry.", "quick-fix-network", "Refresh network"]);
     }
-    if (!payload.certReady) {
-      items.push(["Certificate or trust path needs attention", payload.certDetail || "Open diagnostics and refresh the current local certificate / trust path.", "quick-fix-certificate", "Open diagnostics"]);
-    }
     if (payload.webviewStatus === "runtime-unavailable" || payload.webviewStatus === "controller-unavailable") {
       items.push(["Embedded admin preview needs WebView2 runtime attention", "Run the runtime helper or install/repair Evergreen WebView2 Runtime, then reopen the admin shell.", "check-webview-runtime", "Check WebView2 runtime"]);
     }
@@ -903,7 +892,7 @@
         items.push(["Prepare a remote-device test guide", payload.remoteProbeAction, "export-remote-probe-guide", "Export guide"]);
       }
     }
-    if ((payload.shareWizardOpened || payload.handoffStarted) && !payload.handoffDelivered && payload.serverRunning && payload.healthReady && payload.hostReachable && payload.certReady) {
+    if ((payload.shareWizardOpened || payload.handoffStarted) && !payload.handoffDelivered && payload.serverRunning && payload.healthReady && payload.hostReachable) {
       items.push(["Viewer handoff material is ready", "Copy the Viewer URL again or show the QR / share card while the other device connects.", "quick-fix-handoff", "Show QR + copy link"]);
     }
     if (!payload.hotspotRunning && (!payload.hostReachable || Number(payload.activeIpv4Candidates || 0) === 0)) {
@@ -1127,7 +1116,7 @@
       ["共享服务", yesNo(payload.serverRunning, "已启动", "未启动")],
       ["本地健康", yesNo(payload.healthReady, "通过", "未通过")],
       ["访问地址", payload.viewerUrl || "(生成中)"],
-      ["证书状态", yesNo(payload.certReady, "已就绪", "未就绪")]
+      ["本机控制页", payload.hostUrl || "(生成中)"]
     ]);
 
     const issueCard = $("prepareIssueCard");
@@ -1232,7 +1221,7 @@
       };
     }
 
-    if (!payload.certReady) {
+    if (false && !payload.certReady) {
       return {
         title: "本地安全准备未完成",
         text: payload.certDetail || "当前共享地址对应的本地证书还没有准备好。",

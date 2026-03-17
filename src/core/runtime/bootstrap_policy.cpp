@@ -113,7 +113,7 @@ bool ShouldBypassLocalCertificateForUrl(std::wstring_view url) {
 }
 
 std::wstring DescribeLocalCertificateBypassPolicy() {
-  return L"allow-loopback-and-private-lan-self-signed";
+  return L"plain-http-first";
 }
 
 } // namespace lan::runtime

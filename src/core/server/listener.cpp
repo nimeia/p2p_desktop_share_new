@@ -1,6 +1,5 @@
 #include "listener.h"
 #include "http_session.h"
-#include "tls_context.h"
 #include "ws_hub.h"
 #include "http_router.h"
 #include <boost/asio/dispatch.hpp>
@@ -11,12 +10,10 @@ namespace lan::server {
 using tcp = boost::asio::ip::tcp;
 
 Listener::Listener(boost::asio::io_context& ioc,
-                   std::shared_ptr<TlsContext> tls,
                    std::shared_ptr<WsHub> hub,
                    std::shared_ptr<HttpRouter> router,
                    tcp::endpoint ep)
   : ioc_(ioc),
-    tls_(std::move(tls)),
     hub_(std::move(hub)),
     router_(std::move(router)),
     acceptor_(ioc) {
@@ -39,7 +36,7 @@ void Listener::DoAccept() {
     [this](boost::system::error_code ec, tcp::socket socket) {
       if (!ec) {
         // Spawn a session per connection
-        std::make_shared<HttpSession>(std::move(socket), tls_->Ctx(), hub_, router_)->Run();
+        std::make_shared<HttpSession>(std::move(socket), hub_, router_)->Run();
       } else {
         if (ec == boost::asio::error::operation_aborted) return;
       }

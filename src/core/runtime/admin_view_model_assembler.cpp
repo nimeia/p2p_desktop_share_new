@@ -189,9 +189,9 @@ DashboardViewModel BuildDashboardViewModel(const AdminViewModelInput& input) {
   serviceCard << L"Service\r\n";
   serviceCard << L"Server Exe: " << input.serverExePath << L"\r\n";
   serviceCard << L"Bind + Port: " << session.bindAddress << L":" << session.port << L"\r\n";
-  serviceCard << L"Cert State: " << (health.certReady ? L"ready" : L"needs refresh");
+  serviceCard << L"Transport: plain HTTP / WS";
   if (!health.certDetail.empty()) {
-    serviceCard << L"\r\nCert Detail: " << health.certDetail;
+    serviceCard << L"\r\nMode Detail: " << health.certDetail;
   }
   model.serviceCard = serviceCard.str();
 
@@ -239,19 +239,10 @@ DashboardViewModel BuildDashboardViewModel(const AdminViewModelInput& input) {
             ? L"You can try starting hotspot directly. If that fails, open Windows Mobile Hotspot settings."
             : L"This machine does not expose controllable hotspot support. Open system hotspot settings."));
   }
-  if (health.certReady) {
-    model.suggestions.push_back(MakeSuggestion(
-        AdminDashboardSuggestionKind::NoteSelfSignedCert,
-        L"Certificate is self-signed",
-        L"On first LAN access, the browser may prompt for certificate trust. That is expected for the current local HTTPS MVP."));
-  } else {
-    model.suggestions.push_back(MakeSuggestion(
-        AdminDashboardSuggestionKind::StartServer,
-        L"Certificate is not ready for current host entries",
-        health.certDetail.empty()
-            ? L"Restart the local server to regenerate a certificate for the current LAN IP and hostname."
-            : health.certDetail));
-  }
+  model.suggestions.push_back(MakeSuggestion(
+      AdminDashboardSuggestionKind::PortReady,
+      L"Plain HTTP mode is active",
+      L"The local admin shell and host page now run over local HTTP/WS. Focus on LAN reachability and firewall state instead."));
   if (health.portReady) {
     model.suggestions.push_back(MakeSuggestion(
         AdminDashboardSuggestionKind::PortReady,
@@ -263,7 +254,7 @@ DashboardViewModel BuildDashboardViewModel(const AdminViewModelInput& input) {
       model.suggestions.push_back(MakeSuggestion(
           AdminDashboardSuggestionKind::StartServer,
           L"Local server is not started",
-          L"Use Start Sharing to launch the local HTTPS/WSS server and load the host page."));
+          L"Use Start Sharing to launch the local HTTP/WS server and load the host page."));
     }
   }
   if (model.suggestions.size() < 4 && session.hostIp.empty()) {
@@ -313,7 +304,7 @@ SettingsViewModel BuildSettingsViewModel(const AdminViewModelInput& input) {
   service << L"Service\r\n\r\n";
   service << L"Server EXE\r\n" << input.defaultServerExePath << L"\r\n\r\n";
   service << L"WWW Dir\r\n" << input.defaultWwwPath << L"\r\n\r\n";
-  service << L"Cert Dir\r\n" << input.defaultCertDir << L"\r\n\r\n";
+  service << L"Admin Dir\r\n" << input.defaultCertDir << L"\r\n\r\n";
   service << L"Args Template\r\n" << input.defaultLaunchArgs;
   model.serviceCard = service.str();
 
@@ -348,14 +339,14 @@ SettingsViewModel BuildSettingsViewModel(const AdminViewModelInput& input) {
 
   std::wstringstream advanced;
   advanced << L"Advanced\r\n\r\n";
-  advanced << L"Cert Bypass: " << input.certBypassPolicy << L"\r\n";
+  advanced << L"Transport Policy: plain-http-first\r\n";
   advanced << L"WebView Mode: " << input.configuredWebViewBehavior << L"\r\n";
   advanced << L"Startup Hook: " << input.configuredStartupHook << L"\r\n\r\n";
   advanced << L"Runtime Flags\r\n";
   advanced << L"WebView Ready: " << (health.embeddedHostReady ? L"yes" : L"no") << L"\r\n";
-  advanced << L"Cert Ready: " << (health.certReady ? L"yes" : L"no");
+  advanced << L"HTTP Mode: enabled";
   if (!health.certDetail.empty()) {
-    advanced << L"\r\nCert Detail: " << health.certDetail;
+    advanced << L"\r\nMode Detail: " << health.certDetail;
   }
   model.advancedCard = advanced.str();
 
@@ -365,7 +356,7 @@ SettingsViewModel BuildSettingsViewModel(const AdminViewModelInput& input) {
   current << L"Default Bind -> current bind: " << sessionModel.defaultBindAddress << L" -> " << session.bindAddress << L"\r\n";
   current << L"Server Path Exists: " << (input.serverExeExists ? L"yes" : L"no") << L"\r\n";
   current << L"WWW Path Exists: " << (input.wwwDirExists ? L"yes" : L"no") << L"\r\n";
-  current << L"Cert Dir Exists: " << (input.certDirExists ? L"yes" : L"no") << L"\r\n";
+  current << L"Admin Dir Exists: " << (input.certDirExists ? L"yes" : L"no") << L"\r\n";
   current << L"Bundle Dir Exists: " << (input.bundleDirExists ? L"yes" : L"no") << L"\r\n";
   current << L"Health Ready: " << (health.localHealthReady ? L"green / normal" : L"yellow / attention") << L"\r\n";
   current << L"Host Reachable: " << (health.hostIpReachable ? L"green / normal" : L"red / abnormal") << L"\r\n";

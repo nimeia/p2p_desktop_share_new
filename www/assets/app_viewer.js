@@ -1,6 +1,6 @@
 /**
  * Viewer page:
- * - joins a room over WSS
+ * - joins a room over WS
  * - receives WebRTC video from the host
  * - behaves like an installable fullscreen receiver when the browser allows it
  */
@@ -82,11 +82,11 @@ function hidePlayHint() {
 function showInstallHint() {
   if (deferredInstallPrompt && btnInstall) {
     btnInstall.hidden = false;
-    setHint("Install the viewer app or enter fullscreen to hide most browser chrome, including the address bar on supported devices.");
+    setHint("Enter fullscreen for a cleaner receiver view and less browser chrome.");
   } else if (isStandaloneDisplay()) {
     setHint("Installed mode is active. Tap the picture to show or hide the HUD.");
   } else {
-    setHint("Open fullscreen for a cleaner receiver view. Installing the viewer app will hide more browser chrome on supported devices.");
+    setHint("Open fullscreen for a cleaner receiver view.");
   }
 }
 
@@ -267,7 +267,7 @@ function startSignal() {
   ws = new WebSocket(wssUrl("/ws"));
 
   ws.onopen = () => {
-    log("WSS connected");
+    log("WS connected");
     setState("connecting");
     wsSend({ type: "room.join", room });
   };
@@ -314,12 +314,12 @@ function startSignal() {
   };
 
   ws.onclose = () => {
-    log("WSS closed");
+    log("WS closed");
     setState("closed");
     setChromeHidden(false);
   };
 
-  ws.onerror = () => log("WSS error");
+  ws.onerror = () => log("WS error");
 }
 
 async function onOffer(sdp) {

@@ -9,8 +9,7 @@ struct ServiceConfig {
   std::string bindAddress;  // e.g. "0.0.0.0"
   uint16_t port = 9443;
   std::string wwwRoot;      // absolute or relative path to www/
-  std::string certFile;     // server.crt
-  std::string keyFile;      // server.key
+  std::string adminRoot;    // absolute or relative path to admin webui/
   size_t maxViewers = 10;
   size_t threadCount = 0;  // 0=auto
 };
@@ -28,7 +27,7 @@ public:
   ServiceHost();
   ~ServiceHost();
 
-  // Start HTTPS + WSS (non-blocking). Returns false if already running or failed.
+  // Start HTTP + WS (non-blocking). Returns false if already running or failed.
   bool Start(const ServiceConfig& cfg);
 
   // Stop service, joins threads.

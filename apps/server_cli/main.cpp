@@ -1,5 +1,4 @@
 #include "core/server/service_host.h"
-#include "platform/abstraction/cert_provider.h"
 #include "platform/abstraction/factory.h"
 #include "platform/abstraction/network_service.h"
 #include "platform/abstraction/runtime_paths.h"
@@ -48,7 +47,7 @@ int main(int argc, char** argv) {
 
   const int port = ArgInt(argc, argv, "--port", 9443);
   const std::string www = lan::platform::ResolveRuntimePath(baseDir, ArgValue(argc, argv, "--www", "www"));
-  const std::string certdir = lan::platform::ResolveRuntimePath(baseDir, ArgValue(argc, argv, "--certdir", "cert"));
+  const std::string adminWww = lan::platform::ResolveRuntimePath(baseDir, ArgValue(argc, argv, "--admin-www", "webui"));
 
   bool noStdin = HasArg(argc, argv, "--no-stdin");
   bool waitStdin = HasArg(argc, argv, "--wait-stdin");
@@ -56,7 +55,6 @@ int main(int argc, char** argv) {
 
   const int runForSec = ArgInt(argc, argv, "--run-for", 0);
 
-  auto certProvider = lan::platform::CreateDefaultCertProvider();
   auto networkService = lan::platform::CreateDefaultNetworkService();
 
   lan::platform::ServerEndpointResolution endpointResolution;
@@ -66,35 +64,23 @@ int main(int argc, char** argv) {
     return 2;
   }
 
-  lan::cert::CertPaths certPaths{};
-  lan::platform::ServerCertificateRequest certRequest;
-  certRequest.outputDirectory = certdir;
-  certRequest.subjectAltNames = endpointResolution.subjectAltNames;
-
-  std::string certErr;
-  if (!certProvider->EnsureServerCertificate(certRequest, certPaths, certErr)) {
-    std::cerr << "Cert error: " << certErr << "\n";
-    return 3;
-  }
-
   lan::server::ServiceHost host;
   lan::server::ServiceConfig cfg;
   cfg.bindAddress = endpointResolution.bindAddress;
   cfg.port = static_cast<std::uint16_t>(port);
   cfg.wwwRoot = www;
-  cfg.certFile = certPaths.certFile;
-  cfg.keyFile = certPaths.keyFile;
+  cfg.adminRoot = adminWww;
 
   if (!host.Start(cfg)) {
     std::cerr << "Failed to start service\n";
-    return 4;
+    return 3;
   }
 
-  std::cout << "Service running on https://" << cfg.bindAddress << ':' << port << "\n";
+  std::cout << "Service running on http://" << cfg.bindAddress << ':' << port << "\n";
+  std::cout << "Local admin shell: http://127.0.0.1:" << port << "/admin/\n";
   std::cout << "Preferred host for clients: " << endpointResolution.preferredHost << "\n";
-  std::cout << "WS endpoint: wss://<host>:" << port << "/ws\n";
+  std::cout << "WS endpoint: ws://<host>:" << port << "/ws\n";
   std::cout << "Network provider: " << networkService->ProviderName() << "\n";
-  std::cout << "Cert provider: " << certProvider->ProviderName() << "\n";
   if (!endpointResolution.detail.empty()) {
     std::cout << endpointResolution.detail << "\n";
   }
