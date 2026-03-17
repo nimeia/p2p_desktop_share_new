@@ -48,6 +48,13 @@ std::wstring JsonStringField(std::wstring_view body, std::wstring_view key) {
   return L"";
 }
 
+bool JsonHasField(std::wstring_view body, std::wstring_view key) {
+  const std::wstring pattern = L"\"" + std::wstring(key) + L"\"";
+  const std::size_t pos = body.find(pattern);
+  if (pos == std::wstring::npos) return false;
+  return body.find(L':', pos + pattern.size()) != std::wstring::npos;
+}
+
 bool JsonIntField(std::wstring_view body, std::wstring_view key, std::size_t& value) {
   const std::wstring pattern = L"\"" + std::wstring(key) + L"\"";
   std::size_t pos = body.find(pattern);
@@ -217,6 +224,14 @@ ShellBridgeInboundMessage ParseShellBridgeInboundMessage(std::wstring_view paylo
   if (kind == L"status") {
     message.kind = ShellBridgeInboundKind::HostStatus;
     message.hostState = JsonStringField(payload, L"state");
+    if (JsonHasField(payload, L"captureState")) {
+      message.hasCaptureState = true;
+      message.captureState = JsonStringField(payload, L"captureState");
+    }
+    if (JsonHasField(payload, L"captureLabel")) {
+      message.hasCaptureLabel = true;
+      message.captureLabel = JsonStringField(payload, L"captureLabel");
+    }
     std::size_t viewers = 0;
     if (JsonIntField(payload, L"viewers", viewers)) {
       message.viewers = viewers;
@@ -280,6 +295,8 @@ std::wstring BuildShellBridgeSnapshotEventJson(const ShellBridgeSnapshotState& s
   AppendJsonString(json, "viewerUrl", snapshot.viewerUrl);
   AppendJsonString(json, "networkMode", snapshot.networkMode);
   AppendJsonString(json, "hostState", snapshot.hostState);
+  AppendJsonString(json, "captureState", snapshot.captureState);
+  AppendJsonString(json, "captureLabel", snapshot.captureLabel);
   AppendJsonString(json, "hotspotStatus", snapshot.hotspotStatus);
   AppendJsonString(json, "hotspotSsid", snapshot.hotspotSsid);
   AppendJsonString(json, "hotspotPassword", snapshot.hotspotPassword);

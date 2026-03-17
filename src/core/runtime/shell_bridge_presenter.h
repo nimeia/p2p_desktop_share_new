@@ -54,6 +54,8 @@ struct ShellBridgeSnapshotState {
   std::wstring viewerUrl;
   std::wstring networkMode;
   std::wstring hostState;
+  std::wstring captureState;
+  std::wstring captureLabel;
   std::wstring hotspotStatus;
   std::wstring hotspotSsid;
   std::wstring hotspotPassword;
@@ -166,6 +168,10 @@ struct ShellBridgeInboundMessage {
   ShellBridgeInboundKind kind = ShellBridgeInboundKind::None;
   ShellBridgeAdminCommand adminCommand;
   std::wstring hostState;
+  std::wstring captureState;
+  std::wstring captureLabel;
+  bool hasCaptureState = false;
+  bool hasCaptureLabel = false;
   std::size_t viewers = 0;
   bool hasViewers = false;
   std::wstring logMessage;

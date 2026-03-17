@@ -1111,6 +1111,8 @@ lan::runtime::HostObservabilityState MainWindow::BuildHostObservabilityState() c
     state.timelineText = m_timelineText;
     state.lastErrorSummary = m_lastErrorSummary;
     state.hostPageState = m_hostPageState;
+    state.captureState = m_captureState;
+    state.captureLabel = m_captureLabel;
     state.lastRooms = m_lastRooms;
     state.lastViewers = m_lastViewers;
     state.handoffDelivered = m_handoffDelivered;
@@ -1123,6 +1125,8 @@ void MainWindow::ApplyHostObservabilityState(const lan::runtime::HostObservabili
     m_timelineText = state.timelineText;
     m_lastErrorSummary = state.lastErrorSummary;
     m_hostPageState = state.hostPageState;
+    m_captureState = state.captureState;
+    m_captureLabel = state.captureLabel;
     m_lastRooms = state.lastRooms;
     m_lastViewers = state.lastViewers;
     m_handoffDelivered = state.handoffDelivered;
@@ -1497,6 +1501,8 @@ lan::runtime::DesktopRuntimeSnapshot MainWindow::BuildDesktopRuntimeSnapshot(boo
     input.room = m_room;
     input.token = m_token;
     input.hostPageState = m_hostPageState;
+    input.captureState = m_captureState;
+    input.captureLabel = m_captureLabel;
     input.hotspotStatus = m_hotspotStatus;
     input.hotspotSsid = m_hotspotSsid;
     input.hotspotPassword = m_hotspotPassword;
@@ -2477,6 +2483,8 @@ lan::runtime::HostActionOperation MainWindow::PerformStartServerAction() {
     }
 
     m_hostPageState = L"loading";
+    m_captureState = L"idle";
+    m_captureLabel.clear();
     if (m_currentPage == UiPage::Setup && !PreferHtmlAdminUi()) {
         NavigateHostInWebView();
     }
@@ -2492,6 +2500,8 @@ lan::runtime::HostActionOperation MainWindow::PerformStopServerAction() {
     }
     m_server->Stop();
     m_hostPageState = L"stopped";
+    m_captureState = L"idle";
+    m_captureLabel.clear();
     return {true, true, L""};
 }
 

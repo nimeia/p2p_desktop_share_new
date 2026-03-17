@@ -12,6 +12,8 @@ RuntimeSessionState BuildSessionState(const DesktopRuntimeSnapshotInput& input) 
   session.room = input.room;
   session.token = input.token;
   session.hostPageState = input.hostPageState;
+  session.captureState = input.captureState;
+  session.captureLabel = input.captureLabel;
   session.hotspotStatus = input.hotspotStatus;
   session.hotspotSsid = input.hotspotSsid;
   session.hotspotPassword = input.hotspotPassword;

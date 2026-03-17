@@ -40,9 +40,12 @@ const peers = new Map();
 let screenStream = null;
 let registered = false;
 let state = "idle";
+let captureState = "idle";
+let captureLabel = "not started";
 let chromeHideTimer = null;
 let deferredInstallPrompt = null;
 let wakeLock = null;
+let hostControlQueue = Promise.resolve();
 
 function isStandaloneDisplay() {
   return (
@@ -138,11 +141,36 @@ async function registerHostShell() {
   }
 }
 
+function postToShell(kind, extra = {}) {
+  if (!window.parent || window.parent === window || typeof window.parent.postMessage !== "function") {
+    return;
+  }
+  window.parent.postMessage({ source: "lan-share-host", kind, ...extra }, "*");
+}
+
+function refreshShareButtons() {
+  const busy = captureState === "selecting" || state === "starting_share";
+  if (btnStart) {
+    btnStart.disabled = busy || !!screenStream || !registered;
+  }
+  if (btnStop) {
+    btnStop.disabled = busy || !screenStream;
+  }
+}
+
 function syncNativeStatus() {
-  pushHostStatus(state, {
+  const payload = {
     room,
     viewers: peers.size,
     sharing: !!screenStream,
+    captureState,
+    captureLabel,
+  };
+  pushHostStatus(state, payload);
+  postToShell("status", {
+    state,
+    registered,
+    ...payload,
   });
 }
 
@@ -158,6 +186,7 @@ function setState(nextState) {
   if (hostShell) {
     hostShell.classList.toggle("host-sharing", nextState === "sharing");
   }
+  refreshShareButtons();
   syncNativeStatus();
 }
 
@@ -171,6 +200,14 @@ function updateCaptureState(label) {
   if (factCapture) {
     factCapture.textContent = label;
   }
+}
+
+function setCaptureTelemetry(nextState, label) {
+  captureState = nextState || "idle";
+  captureLabel = label || "";
+  updateCaptureState(captureLabel || "not started");
+  refreshShareButtons();
+  syncNativeStatus();
 }
 
 function wsSend(obj) {
@@ -231,6 +268,12 @@ function startSignal() {
       if (infoEl) {
         infoEl.textContent = "Host registered. Start sharing when you are ready to broadcast this session.";
       }
+      postToShell("bridge-ready", {
+        state,
+        registered,
+        captureState,
+        captureLabel,
+      });
       showInstallHint();
       return;
     }
@@ -297,6 +340,7 @@ function startSignal() {
 
   ws.onclose = () => {
     log("WSS closed");
+    registered = false;
     setState("closed");
     setChromeHidden(false);
   };
@@ -367,6 +411,16 @@ function cleanupPeer(peerId) {
   peers.delete(peerId);
 }
 
+function releaseScreenStream(stream) {
+  if (!stream) return;
+  try {
+    for (const track of stream.getTracks()) {
+      track.onended = null;
+      track.stop();
+    }
+  } catch {}
+}
+
 async function negotiatePeer(peerId) {
   const peer = peers.get(peerId);
   if (!peer) return;
@@ -399,16 +453,24 @@ async function negotiatePeer(peerId) {
   }
 }
 
-async function startShare() {
-  if (screenStream) return;
+async function waitForHostReady(timeoutMs = 6000) {
+  const deadline = Date.now() + timeoutMs;
+  while (Date.now() < deadline) {
+    if (registered || state === "ready" || state === "sharing") {
+      return true;
+    }
+    await wait(120);
+  }
+  return false;
+}
 
-  screenStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
-  log("getDisplayMedia OK");
-  updateCaptureState("screen selected");
+async function applyCaptureStream(nextStream) {
+  const previousStream = screenStream;
+  screenStream = nextStream;
 
   const videoTrack = screenStream.getVideoTracks()[0];
+  const nextLabel = videoTrack && videoTrack.label ? videoTrack.label : "screen selected";
   if (videoTrack) {
-    updateCaptureState(videoTrack.label || "screen selected");
     videoTrack.onended = () => {
       log("screen track ended");
       stopShare("screen_ended");
@@ -419,19 +481,76 @@ async function startShare() {
     attachStreamToPeer(peer, screenStream);
   }
 
+  if (previousStream && previousStream !== nextStream) {
+    releaseScreenStream(previousStream);
+  }
+
+  setCaptureTelemetry("active", nextLabel);
   setState("sharing");
   showInstallHint();
   scheduleChromeHide();
   await ensureWakeLock("sharing");
+  return nextLabel;
+}
+
+async function startShare() {
+  if (screenStream) {
+    return { ok: true, detail: "sharing already active", label: captureLabel };
+  }
+  const ready = await waitForHostReady();
+  if (!ready) {
+    throw new Error("host page is not ready");
+  }
+
+  setState("starting_share");
+  setCaptureTelemetry("selecting", "waiting for selection");
+  try {
+    const nextStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+    log("getDisplayMedia OK");
+    const label = await applyCaptureStream(nextStream);
+    return { ok: true, detail: "sharing started", label };
+  } catch (e) {
+    setCaptureTelemetry("idle", "not started");
+    setState("ready");
+    showInstallHint();
+    throw e;
+  }
+}
+
+async function chooseShare() {
+  const ready = await waitForHostReady();
+  if (!ready) {
+    throw new Error("host page is not ready");
+  }
+
+  const hadStream = !!screenStream;
+  const previousLabel = captureLabel;
+  if (!hadStream) {
+    setState("starting_share");
+  }
+  setCaptureTelemetry("selecting", hadStream ? (previousLabel || "waiting for selection") : "waiting for selection");
+  try {
+    const nextStream = await navigator.mediaDevices.getDisplayMedia({ video: true, audio: false });
+    log("getDisplayMedia OK");
+    const label = await applyCaptureStream(nextStream);
+    return { ok: true, detail: hadStream ? "capture target changed" : "sharing started", label };
+  } catch (e) {
+    if (hadStream) {
+      setCaptureTelemetry("active", previousLabel || "screen selected");
+      setState("sharing");
+    } else {
+      setCaptureTelemetry("idle", "not started");
+      setState("ready");
+    }
+    showInstallHint();
+    throw e;
+  }
 }
 
 function stopShare(reason = "host_stopped") {
-  if (screenStream) {
-    try {
-      for (const track of screenStream.getTracks()) track.stop();
-    } catch {}
-    screenStream = null;
-  }
+  const activeStream = screenStream;
+  screenStream = null;
+  releaseScreenStream(activeStream);
 
   wsSend({ type: "session.end", room, token, reason });
 
@@ -443,29 +562,60 @@ function stopShare(reason = "host_stopped") {
   }
 
   updateViewers();
-  updateCaptureState("not started");
+  setCaptureTelemetry("idle", "not started");
   log(`session ended: ${reason}`);
-  setState("ready");
+  setState(registered ? "ready" : "idle");
   setChromeHidden(false);
+  showInstallHint();
+  return !!activeStream;
 }
 
-btnStart.onclick = async () => {
+async function runHostControlCommand(command, requestId) {
+  let ok = true;
+  let detail = "";
   try {
-    setState("starting_share");
-    await startShare();
-    btnStart.disabled = true;
-    btnStop.disabled = false;
+    if (command === "start-share") {
+      const result = await startShare();
+      detail = result.detail || "";
+    } else if (command === "choose-share") {
+      const result = await chooseShare();
+      detail = result.detail || "";
+    } else if (command === "stop-share") {
+      stopShare("bridge_stop");
+      detail = "sharing stopped";
+    } else {
+      throw new Error(`unsupported command: ${command}`);
+    }
   } catch (e) {
-    setState("ready");
-    log(`startShare failed: ${e}`);
-    showInstallHint();
+    ok = false;
+    detail = e && e.message ? e.message : String(e);
+    log(`bridge command failed (${command}): ${detail}`);
   }
+
+  postToShell("command-result", {
+    requestId: requestId || "",
+    command,
+    ok,
+    detail,
+    state,
+    registered,
+    viewers: peers.size,
+    sharing: !!screenStream,
+    captureState,
+    captureLabel,
+  });
+}
+
+function enqueueHostControlCommand(command, requestId) {
+  hostControlQueue = hostControlQueue.then(() => runHostControlCommand(command, requestId));
+}
+
+btnStart.onclick = () => {
+  enqueueHostControlCommand("start-share", "");
 };
 
 btnStop.onclick = () => {
-  stopShare("host_stopped");
-  btnStart.disabled = false;
-  btnStop.disabled = true;
+  enqueueHostControlCommand("stop-share", "");
 };
 
 if (btnInstall) {
@@ -540,6 +690,14 @@ document.addEventListener("visibilitychange", () => {
   }
 });
 
+window.addEventListener("message", (event) => {
+  const data = event.data || {};
+  if (data.source !== "lan-share-admin" || data.kind !== "host-control") {
+    return;
+  }
+  enqueueHostControlCommand(String(data.command || ""), String(data.requestId || ""));
+});
+
 document.addEventListener(
   "click",
   (ev) => {
@@ -579,7 +737,13 @@ if (infoEl) {
 updateDisplayMode();
 showInstallHint();
 updateViewers();
-updateCaptureState("not started");
+setCaptureTelemetry("idle", "not started");
 setState("idle");
+postToShell("bridge-ready", {
+  state,
+  registered,
+  captureState,
+  captureLabel,
+});
 void registerHostShell();
 startSignal();

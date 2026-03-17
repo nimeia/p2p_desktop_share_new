@@ -14,6 +14,8 @@ struct DesktopRuntimeSnapshotInput {
   std::wstring room;
   std::wstring token;
   std::wstring hostPageState;
+  std::wstring captureState;
+  std::wstring captureLabel;
   std::wstring hotspotStatus;
   std::wstring hotspotSsid;
   std::wstring hotspotPassword;

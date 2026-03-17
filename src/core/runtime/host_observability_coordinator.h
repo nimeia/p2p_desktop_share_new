@@ -20,6 +20,8 @@ struct HostObservabilityState {
   std::wstring timelineText;
   std::wstring lastErrorSummary;
   std::wstring hostPageState = L"idle";
+  std::wstring captureState = L"idle";
+  std::wstring captureLabel;
   std::size_t lastRooms = 0;
   std::size_t lastViewers = 0;
   bool handoffDelivered = false;

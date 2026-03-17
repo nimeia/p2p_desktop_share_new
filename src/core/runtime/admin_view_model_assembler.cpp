@@ -12,6 +12,10 @@ bool IsSharingState(std::wstring_view state) {
   return state == L"sharing" || state == L"shared" || state == L"streaming";
 }
 
+bool IsCaptureActive(std::wstring_view state) {
+  return state == L"active" || state == L"sharing";
+}
+
 std::wstring DisplayOrFallback(std::wstring_view value, std::wstring_view fallback) {
   return value.empty() ? std::wstring(fallback) : std::wstring(value);
 }
@@ -85,8 +89,9 @@ AdminSnapshotViewModel BuildAdminSnapshotViewModel(const AdminViewModelInput& in
   model.handoffStarted = sessionModel.handoffStarted || sessionModel.viewerUrlCopied || sessionModel.shareBundleExported;
   model.handoffDelivered = sessionModel.handoffDelivered || session.lastViewers > 0;
 
-  model.canStartSharing = !IsSharingState(session.hostPageState);
-  model.sharingActive = IsSharingState(session.hostPageState);
+  const bool sharingActive = IsSharingState(session.hostPageState) || IsCaptureActive(session.captureState);
+  model.canStartSharing = !sharingActive;
+  model.sharingActive = sharingActive;
   model.serverRunning = health.serverProcessRunning;
   model.healthReady = health.localHealthReady;
   model.hostReachable = health.hostIpReachable;
@@ -115,6 +120,8 @@ AdminSnapshotViewModel BuildAdminSnapshotViewModel(const AdminViewModelInput& in
   model.viewerUrl = runtime.viewerUrl;
   model.networkMode = DisplayOrFallback(session.networkMode, L"unknown");
   model.hostState = session.hostPageState;
+  model.captureState = session.captureState;
+  model.captureLabel = session.captureLabel;
   model.hotspotStatus = session.hotspotStatus;
   model.hotspotSsid = session.hotspotSsid;
   model.hotspotPassword = session.hotspotPassword;
@@ -191,6 +198,8 @@ DashboardViewModel BuildDashboardViewModel(const AdminViewModelInput& input) {
   std::wstringstream shareCard;
   shareCard << L"Sharing\r\n";
   shareCard << L"Viewer URL: " << runtime.viewerUrl << L"\r\n";
+  shareCard << L"Capture State: " << DisplayOrFallback(session.captureState, L"not-started") << L"\r\n";
+  shareCard << L"Capture Target: " << DisplayOrFallback(session.captureLabel, L"(not selected)") << L"\r\n";
   shareCard << L"Copied: " << (session.viewerUrlCopied ? L"yes" : L"no") << L"\r\n";
   shareCard << L"Share Card Exported: " << (session.shareCardExported ? L"yes" : L"no");
   model.shareCard = shareCard.str();
@@ -205,7 +214,7 @@ DashboardViewModel BuildDashboardViewModel(const AdminViewModelInput& input) {
   healthCard << L"Remote Viewer Path: " << (networkDiagnostics.remoteViewerReady ? L"ok" : L"attention");
   model.healthCard = healthCard.str();
 
-  model.primaryActionEnabled = !IsSharingState(session.hostPageState);
+  model.primaryActionEnabled = !(IsSharingState(session.hostPageState) || IsCaptureActive(session.captureState));
 
   if (!health.embeddedHostReady) {
     model.suggestions.push_back(MakeSuggestion(

@@ -425,6 +425,8 @@ private:
 
     std::wstring m_networkMode = L"";
     std::wstring m_hostPageState = L"idle";
+    std::wstring m_captureState = L"idle";
+    std::wstring m_captureLabel = L"";
     std::wstring m_hotspotSsid = L"";
     std::wstring m_hotspotPassword = L"";
     std::wstring m_hotspotStatus = L"stopped";

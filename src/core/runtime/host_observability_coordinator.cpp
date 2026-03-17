@@ -105,6 +105,32 @@ HostObservabilityMutationResult CoordinateHostStatusMessage(const HostObservabil
     result.state.hostPageState = message.hostState;
   }
 
+  if (message.hasCaptureState) {
+    if (result.state.captureState != message.captureState) {
+      if (message.captureState == L"selecting") {
+        AppendTimeline(result.state, timestamp, L"Capture picker opened");
+      } else if (message.captureState == L"active") {
+        AppendTimeline(result.state, timestamp, L"Capture source selected");
+      } else if (message.captureState == L"idle") {
+        AppendTimeline(result.state, timestamp, L"Capture stopped");
+      } else if (!message.captureState.empty()) {
+        AppendTimeline(result.state, timestamp, std::wstring(L"Capture state: ") + message.captureState);
+      }
+    }
+    result.state.captureState = message.captureState;
+  }
+
+  if (message.hasCaptureLabel) {
+    if (result.state.captureLabel != message.captureLabel) {
+      if (!message.captureLabel.empty()) {
+        AppendTimeline(result.state, timestamp, std::wstring(L"Capture target: ") + message.captureLabel);
+      } else if (!result.state.captureLabel.empty()) {
+        AppendTimeline(result.state, timestamp, L"Capture target cleared");
+      }
+    }
+    result.state.captureLabel = message.captureLabel;
+  }
+
   if (message.hasViewers) {
     result.state.lastViewers = message.viewers;
   }

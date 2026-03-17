@@ -48,6 +48,8 @@ ShellBridgeSnapshotState BuildAdminShellSnapshotState(const AdminViewModelInput&
   snapshot.viewerUrl = viewModel.viewerUrl;
   snapshot.networkMode = viewModel.networkMode;
   snapshot.hostState = viewModel.hostState;
+  snapshot.captureState = viewModel.captureState;
+  snapshot.captureLabel = viewModel.captureLabel;
   snapshot.hotspotStatus = viewModel.hotspotStatus;
   snapshot.hotspotSsid = viewModel.hotspotSsid;
   snapshot.hotspotPassword = viewModel.hotspotPassword;

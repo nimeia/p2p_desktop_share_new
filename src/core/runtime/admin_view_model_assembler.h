@@ -111,6 +111,8 @@ struct AdminSnapshotViewModel {
   std::wstring viewerUrl;
   std::wstring networkMode;
   std::wstring hostState;
+  std::wstring captureState;
+  std::wstring captureLabel;
   std::wstring hotspotStatus;
   std::wstring hotspotSsid;
   std::wstring hotspotPassword;

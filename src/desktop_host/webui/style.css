@@ -32,6 +32,193 @@ body {
   padding: 20px;
 }
 
+.guided-route[hidden],
+.advanced-shell[hidden] {
+  display: none;
+}
+
+.guided-route {
+  animation: fade-in 180ms ease-out;
+}
+
+.guided-topbar {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 18px;
+  margin-bottom: 14px;
+}
+
+.guided-appmeta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
+.guided-badge {
+  display: inline-flex;
+  align-items: center;
+  padding: 8px 12px;
+  border-radius: 999px;
+  background: rgba(23, 32, 42, 0.9);
+  color: #fff;
+  font-size: 13px;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+.guided-status-card {
+  background: linear-gradient(135deg, rgba(255, 252, 247, 0.98), rgba(246, 238, 223, 0.96));
+  border: 1px solid var(--line);
+  border-radius: 22px;
+  box-shadow: var(--shadow);
+  padding: 24px;
+  margin-bottom: 14px;
+}
+
+.guided-status-head {
+  display: flex;
+  justify-content: space-between;
+  gap: 18px;
+  align-items: flex-start;
+}
+
+.guided-inline-note {
+  margin: 14px 0 0;
+  color: var(--muted);
+  max-width: 860px;
+}
+
+.choice-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+  margin-bottom: 14px;
+}
+
+.choice-card {
+  display: grid;
+  gap: 16px;
+  padding: 20px;
+  border-radius: 18px;
+  border: 1px solid var(--line);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.9), rgba(250, 245, 238, 0.96));
+  box-shadow: var(--shadow);
+}
+
+.choice-copy {
+  display: grid;
+  gap: 10px;
+}
+
+.choice-kicker {
+  margin: 0;
+  font-size: 12px;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+}
+
+.choice-card h2 {
+  font-size: 24px;
+  line-height: 1.2;
+}
+
+.choice-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.step-list {
+  display: grid;
+  gap: 10px;
+  margin: 18px 0;
+}
+
+.step-item {
+  display: grid;
+  grid-template-columns: 36px 1fr;
+  gap: 12px;
+  align-items: center;
+  padding: 12px 14px;
+  border-radius: 14px;
+  border: 1px solid rgba(115, 94, 61, 0.14);
+  background: rgba(255, 255, 255, 0.74);
+}
+
+.step-index {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 999px;
+  background: rgba(23, 32, 42, 0.08);
+  color: var(--ink);
+  font-weight: 700;
+}
+
+.step-copy {
+  display: grid;
+  gap: 4px;
+}
+
+.step-copy strong {
+  font-size: 15px;
+}
+
+.step-copy span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.step-item.is-complete {
+  border-color: rgba(15, 123, 108, 0.22);
+  background: rgba(210, 240, 235, 0.8);
+}
+
+.step-item.is-complete .step-index {
+  background: var(--accent);
+  color: #fff;
+}
+
+.step-item.is-current {
+  border-color: rgba(15, 123, 108, 0.28);
+  box-shadow: 0 0 0 3px rgba(15, 123, 108, 0.08);
+}
+
+.step-item.is-blocked {
+  border-color: rgba(187, 77, 63, 0.3);
+  background: rgba(187, 77, 63, 0.08);
+}
+
+.step-item.is-blocked .step-index {
+  background: var(--danger);
+  color: #fff;
+}
+
+.attention-card {
+  margin-bottom: 14px;
+  border-color: rgba(214, 161, 70, 0.2);
+  background: rgba(255, 250, 240, 0.96);
+}
+
+.attention-text {
+  margin: 0;
+  color: #5f4a22;
+  line-height: 1.6;
+}
+
+.large-actions button {
+  min-width: 148px;
+}
+
+.advanced-shell {
+  display: block;
+}
+
 .hero,
 .tabs,
 .card {
@@ -479,6 +666,12 @@ pre {
     padding: 16px;
   }
 
+  .guided-topbar,
+  .guided-status-head {
+    flex-direction: column;
+    align-items: flex-start;
+  }
+
   .hero {
     flex-direction: column;
   }
@@ -496,7 +689,8 @@ pre {
   .status-grid,
   .session-layout,
   .metric-grid,
-  .action-grid {
+  .action-grid,
+  .choice-grid {
     grid-template-columns: 1fr;
   }
 
