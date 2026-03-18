@@ -27,7 +27,8 @@ int main() {
 
   auto hostStatus = ParseShellBridgeInboundMessage(L"{\"kind\":\"status\",\"state\":\"ready\",\"viewers\":2}");
   auto statusResult = CoordinateHostStatusMessage(logResult.state, hostStatus, L"10:00:05");
-  if (!Expect(statusResult.refreshShareInfo, "host status should request share refresh")) return 1;
+  if (!Expect(statusResult.refreshShareInfoLightweight, "host status should request lightweight share refresh")) return 1;
+  if (!Expect(!statusResult.refreshShareInfo, "host status should avoid full share refresh")) return 1;
   if (!Expect(statusResult.state.hostPageState == L"ready", "host state should update")) return 1;
   if (!Expect(statusResult.state.lastViewers == 2, "viewer count from host page should be captured")) return 1;
   if (!Expect(statusResult.state.timelineText.find(L"Host page loaded") != std::wstring::npos, "ready transition should append timeline event")) return 1;

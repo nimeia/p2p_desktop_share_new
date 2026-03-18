@@ -20,6 +20,12 @@ struct ServerStartResult {
     std::wstring message;
 };
 
+struct ServerCleanupResult {
+    bool matched = false;
+    bool stopped = false;
+    std::wstring message;
+};
+
 using ServerLogCallback = std::function<void(const std::wstring&)>;
 
 class ServerController {
@@ -33,6 +39,7 @@ public:
     bool IsRunning() const noexcept;
     ServerStartResult Start(const ServerOptions& opt);
     void Stop() noexcept;
+    ServerCleanupResult CleanupStaleProcess(const ServerOptions& opt, int port) noexcept;
 
     void SetLogCallback(ServerLogCallback cb);
 

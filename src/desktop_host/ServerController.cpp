@@ -3,13 +3,115 @@
 #include "UrlUtil.h"
 
 #include <algorithm>
+#include <iphlpapi.h>
 #include <sstream>
+
+#pragma comment(lib, "iphlpapi.lib")
 
 static std::wstring GetLastErrMsg(DWORD err) {
     wchar_t buf[256];
     _snwprintf_s(buf, _TRUNCATE, L"0x%08X", err);
     return buf;
 }
+
+namespace {
+
+std::wstring NormalizeComparablePath(const std::filesystem::path& path) {
+    if (path.empty()) return L"";
+
+    std::error_code ec;
+    auto normalized = std::filesystem::weakly_canonical(path, ec);
+    if (ec) {
+        normalized = path.lexically_normal();
+    }
+
+    std::wstring value = normalized.wstring();
+    constexpr std::wstring_view kLongPathPrefix = L"\\\\?\\";
+    if (value.rfind(kLongPathPrefix, 0) == 0) {
+        value.erase(0, kLongPathPrefix.size());
+    }
+    std::transform(value.begin(), value.end(), value.begin(), [](wchar_t ch) {
+        return static_cast<wchar_t>(::towlower(ch));
+    });
+    return value;
+}
+
+std::wstring QueryProcessImagePath(DWORD pid) {
+    if (pid == 0) return L"";
+
+    HANDLE process = OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!process) return L"";
+
+    std::wstring path;
+    DWORD size = 32768;
+    path.resize(size);
+    if (QueryFullProcessImageNameW(process, 0, path.data(), &size) && size > 0) {
+        path.resize(size);
+    } else {
+        path.clear();
+    }
+
+    CloseHandle(process);
+    return path;
+}
+
+std::vector<DWORD> FindListeningProcessIdsForPort(int port) {
+    std::vector<DWORD> pids;
+    if (port <= 0 || port > 65535) {
+        return pids;
+    }
+
+    ULONG size = 0;
+    DWORD status = GetExtendedTcpTable(nullptr, &size, FALSE, AF_INET, TCP_TABLE_OWNER_PID_LISTENER, 0);
+    if (status != ERROR_INSUFFICIENT_BUFFER || size == 0) {
+        return pids;
+    }
+
+    std::vector<unsigned char> buffer(size);
+    auto* table = reinterpret_cast<MIB_TCPTABLE_OWNER_PID*>(buffer.data());
+    status = GetExtendedTcpTable(table, &size, FALSE, AF_INET, TCP_TABLE_OWNER_PID_LISTENER, 0);
+    if (status != NO_ERROR || !table) {
+        return pids;
+    }
+
+    const auto wantedPort = htons(static_cast<u_short>(port));
+    for (DWORD i = 0; i < table->dwNumEntries; ++i) {
+        const auto& row = table->table[i];
+        if (static_cast<u_short>(row.dwLocalPort) != wantedPort) continue;
+        if (row.dwOwningPid == 0) continue;
+        pids.push_back(row.dwOwningPid);
+    }
+
+    std::sort(pids.begin(), pids.end());
+    pids.erase(std::unique(pids.begin(), pids.end()), pids.end());
+    return pids;
+}
+
+bool TerminateProcessById(DWORD pid, DWORD timeoutMs, std::wstring* detail) {
+    HANDLE process = OpenProcess(PROCESS_TERMINATE | SYNCHRONIZE | PROCESS_QUERY_LIMITED_INFORMATION, FALSE, pid);
+    if (!process) {
+        if (detail) {
+            *detail = L"OpenProcess failed for PID " + std::to_wstring(pid) + L": " + GetLastErrMsg(GetLastError());
+        }
+        return false;
+    }
+
+    bool ok = false;
+    if (TerminateProcess(process, 0)) {
+        const DWORD wait = WaitForSingleObject(process, timeoutMs);
+        ok = (wait == WAIT_OBJECT_0);
+        if (!ok && detail) {
+            *detail = L"TerminateProcess timed out for PID " + std::to_wstring(pid) + L".";
+        }
+    } else if (detail) {
+        *detail = L"TerminateProcess failed for PID " + std::to_wstring(pid) + L": " + GetLastErrMsg(GetLastError());
+    }
+
+    CloseHandle(process);
+    return ok;
+}
+
+} // namespace
 
 ServerController::~ServerController() {
     Stop();
@@ -27,6 +129,93 @@ bool ServerController::IsRunning() const noexcept {
         if (code == STILL_ACTIVE) return true;
     }
     return false;
+}
+
+ServerCleanupResult ServerController::CleanupStaleProcess(const ServerOptions& opt, int port) noexcept {
+    ServerCleanupResult result;
+
+    std::filesystem::path exe = opt.executable;
+    if (exe.empty()) exe = std::filesystem::current_path() / L"lan_screenshare_server.exe";
+    if (!std::filesystem::exists(exe)) {
+        result.message = L"Cannot recover stale server because the executable is missing: " + exe.wstring();
+        return result;
+    }
+
+    const auto expectedPath = NormalizeComparablePath(exe);
+    const auto pids = FindListeningProcessIdsForPort(port);
+    if (pids.empty()) {
+        return result;
+    }
+
+    std::vector<DWORD> matchingPids;
+    std::vector<std::wstring> otherOwners;
+    for (DWORD pid : pids) {
+        if (pid == 0 || pid == GetCurrentProcessId()) continue;
+
+        const auto imagePath = QueryProcessImagePath(pid);
+        if (imagePath.empty()) {
+            otherOwners.push_back(L"PID " + std::to_wstring(pid) + L" (image path unavailable)");
+            continue;
+        }
+
+        if (NormalizeComparablePath(imagePath) == expectedPath) {
+            matchingPids.push_back(pid);
+        } else {
+            otherOwners.push_back(L"PID " + std::to_wstring(pid) + L" (" + imagePath + L")");
+        }
+    }
+
+    if (matchingPids.empty()) {
+        if (!otherOwners.empty()) {
+            std::wstringstream ss;
+            ss << L"Port " << port << L" is occupied by another process: ";
+            for (std::size_t i = 0; i < otherOwners.size(); ++i) {
+                if (i != 0) ss << L"; ";
+                ss << otherOwners[i];
+            }
+            result.message = ss.str();
+        }
+        return result;
+    }
+
+    result.matched = true;
+
+    std::vector<DWORD> stoppedPids;
+    std::vector<std::wstring> failures;
+    for (DWORD pid : matchingPids) {
+        std::wstring failure;
+        if (TerminateProcessById(pid, 2000, &failure)) {
+            stoppedPids.push_back(pid);
+        } else {
+            failures.push_back(failure.empty()
+                                   ? (L"Failed to terminate PID " + std::to_wstring(pid))
+                                   : std::move(failure));
+        }
+    }
+
+    result.stopped = !stoppedPids.empty() && failures.empty();
+
+    std::wstringstream ss;
+    if (!stoppedPids.empty()) {
+        ss << L"Recovered stale lan_screenshare_server instance";
+        if (stoppedPids.size() > 1) ss << L"s";
+        ss << L": ";
+        for (std::size_t i = 0; i < stoppedPids.size(); ++i) {
+            if (i != 0) ss << L", ";
+            ss << L"PID " << stoppedPids[i];
+        }
+        ss << L".";
+    }
+    if (!failures.empty()) {
+        if (ss.tellp() > 0) ss << L" ";
+        ss << L"Failed to recover stale server: ";
+        for (std::size_t i = 0; i < failures.size(); ++i) {
+            if (i != 0) ss << L"; ";
+            ss << failures[i];
+        }
+    }
+    result.message = ss.str();
+    return result;
 }
 
 std::wstring ServerController::QuoteArg(const std::wstring& s) {

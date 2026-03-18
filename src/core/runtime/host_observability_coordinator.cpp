@@ -135,7 +135,7 @@ HostObservabilityMutationResult CoordinateHostStatusMessage(const HostObservabil
     result.state.lastViewers = message.viewers;
   }
 
-  result.refreshShareInfo = true;
+  result.refreshShareInfoLightweight = true;
   return result;
 }
 

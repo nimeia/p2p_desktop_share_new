@@ -25,7 +25,9 @@
 #define WIN32_LEAN_AND_MEAN
 #include <iphlpapi.h>
 #include <shellapi.h>
+#include <shlwapi.h>
 #pragma comment(lib, "iphlpapi.lib")
+#pragma comment(lib, "shlwapi.lib")
 
 #include <algorithm>
 #include <chrono>
@@ -172,6 +174,32 @@ static bool LaunchUrlInAppWindow(std::wstring_view url, std::wstring* browserPat
     CloseHandle(pi.hProcess);
     if (browserPath) *browserPath = browser;
     return true;
+}
+
+static std::wstring BuildFileUrl(const fs::path& path) {
+    const std::wstring fullPath = fs::absolute(path).wstring();
+    if (fullPath.empty()) return L"";
+
+    std::wstring url(fullPath.size() * 3 + 16, L'\0');
+    DWORD urlLength = static_cast<DWORD>(url.size());
+    const HRESULT hr = UrlCreateFromPathW(fullPath.c_str(), url.data(), &urlLength, 0);
+    if (FAILED(hr) || urlLength == 0) {
+        return L"";
+    }
+
+    url.resize(urlLength);
+    if (!url.empty() && url.back() == L'\0') {
+        url.pop_back();
+    }
+    return url;
+}
+
+static bool IsHtmlDocumentPath(const fs::path& path) {
+    std::wstring ext = path.extension().wstring();
+    std::transform(ext.begin(), ext.end(), ext.begin(), [](wchar_t ch) {
+        return static_cast<wchar_t>(::towlower(ch));
+    });
+    return ext == L".html" || ext == L".htm";
 }
 
 static std::wstring DetectBestIPv4() {
@@ -2335,6 +2363,36 @@ lan::runtime::HostSessionState MainWindow::BuildHostSessionState() const {
     return state;
 }
 
+lan::runtime::RuntimeSessionState MainWindow::BuildRuntimeSessionState() const {
+    lan::runtime::RuntimeSessionState session;
+    session.networkMode = m_networkMode;
+    session.hostIp = m_hostIp;
+    session.bindAddress = m_bindAddress;
+    session.port = m_port;
+    session.room = m_room;
+    session.token = m_token;
+    session.hostPageState = m_hostPageState;
+    session.captureState = m_captureState;
+    session.captureLabel = m_captureLabel;
+    session.hotspotStatus = m_hotspotStatus;
+    session.hotspotSsid = m_hotspotSsid;
+    session.hotspotPassword = m_hotspotPassword;
+    session.wifiDirectAlias = BuildWifiDirectSessionAlias();
+    session.webviewStatusText = m_webview.StatusText();
+    session.wifiDirectApiAvailable = m_wifiDirectApiAvailable;
+    session.wifiAdapterPresent = m_wifiAdapterPresent;
+    session.hotspotSupported = m_hotspotSupported;
+    session.hotspotRunning = m_hotspotRunning;
+    session.viewerUrlCopied = m_viewerUrlCopied;
+    session.shareCardExported = m_shareCardExported;
+    session.shareWizardOpened = m_shareWizardOpened;
+    session.handoffStarted = m_handoffStarted;
+    session.handoffDelivered = m_handoffDelivered;
+    session.lastRooms = m_lastRooms;
+    session.lastViewers = m_lastViewers;
+    return session;
+}
+
 void MainWindow::ApplyHostSessionState(const lan::runtime::HostSessionState& state, bool updateControls) {
     const auto normalized = lan::runtime::NormalizeHostSessionState(state);
     m_defaultPort = normalized.rules.defaultPort;
@@ -2454,11 +2512,6 @@ lan::runtime::HostActionOperation MainWindow::PerformStartServerAction() {
         RefreshHostRuntime();
     }
 
-    std::wstring portDetail;
-    if (!CanBindTcpPort(m_bindAddress, m_port, &portDetail)) {
-        return {false, true, L"Start blocked: " + portDetail};
-    }
-
     ServerOptions opt;
     fs::path dir = AppDir();
     opt.executable = dir / L"lan_screenshare_server.exe";
@@ -2466,6 +2519,32 @@ lan::runtime::HostActionOperation MainWindow::PerformStartServerAction() {
     opt.adminDir = AdminUiDir();
     opt.bind = m_bindAddress;
     opt.port = std::to_wstring(m_port);
+
+    std::wstring portDetail;
+    if (!CanBindTcpPort(m_bindAddress, m_port, &portDetail)) {
+        const auto cleanup = m_server->CleanupStaleProcess(opt, m_port);
+        if (cleanup.matched) {
+            if (!cleanup.message.empty()) {
+                AppendLog(cleanup.message);
+            }
+            if (!cleanup.stopped) {
+                return {false, true, cleanup.message.empty() ? (L"Start blocked: " + portDetail) : cleanup.message};
+            }
+            if (!CanBindTcpPort(m_bindAddress, m_port, &portDetail)) {
+                std::wstring detail = L"Start blocked after stale server cleanup: " + portDetail;
+                if (!cleanup.message.empty()) {
+                    detail = cleanup.message + L" " + detail;
+                }
+                return {false, true, detail};
+            }
+        } else {
+            std::wstring detail = L"Start blocked: " + portDetail;
+            if (!cleanup.message.empty()) {
+                detail += L" " + cleanup.message;
+            }
+            return {false, true, detail};
+        }
+    }
 
     auto r = m_server->Start(opt);
     if (!r.ok) {
@@ -2485,7 +2564,26 @@ lan::runtime::HostActionOperation MainWindow::PerformStopServerAction() {
     if (!m_server) {
         return {false, false, L"Server controller unavailable"};
     }
+
+    ServerOptions opt;
+    fs::path dir = AppDir();
+    opt.executable = dir / L"lan_screenshare_server.exe";
+    opt.wwwDir = dir / L"www";
+    opt.adminDir = AdminUiDir();
+    opt.bind = m_bindAddress;
+    opt.port = std::to_wstring(m_port);
+
     if (!m_server->IsRunning()) {
+        const auto cleanup = m_server->CleanupStaleProcess(opt, m_port);
+        if (cleanup.matched) {
+            if (!cleanup.stopped) {
+                return {false, true, cleanup.message.empty() ? L"Stop failed: stale server cleanup failed" : cleanup.message};
+            }
+            m_hostPageState = L"stopped";
+            m_captureState = L"idle";
+            m_captureLabel.clear();
+            return {true, true, cleanup.message.empty() ? L"Stopped stale server instance" : cleanup.message};
+        }
         return {true, false, L"Server already stopped"};
     }
     m_server->Stop();
@@ -2541,6 +2639,14 @@ lan::runtime::HostActionOperation MainWindow::PerformOpenPathAction(const fs::pa
         fs::create_directories(path, ec);
     } else if (path.has_parent_path()) {
         fs::create_directories(path.parent_path(), ec);
+    }
+
+    if (path.has_extension() && IsHtmlDocumentPath(path)) {
+        std::wstring browserPath;
+        const auto url = BuildFileUrl(path);
+        if (!url.empty() && LaunchUrlInAppWindow(url, &browserPath)) {
+            return {true, true, L"Opened bundle page in app window: " + browserPath};
+        }
     }
 
     std::string err;
@@ -2625,13 +2731,12 @@ void MainWindow::RefreshHostRuntime() {
 
 void MainWindow::RefreshShareInfo() {
     const auto runtimeSnapshot = BuildDesktopRuntimeSnapshot(true);
+    m_lastShareInfoHealth = runtimeSnapshot.health;
+    m_lastShareInfoSummary = runtimeSnapshot.selfCheckSummary;
+    m_hasShareInfoSnapshot = true;
 
-    if (m_shareInfoBox) {
-        const std::wstring shareInfo = lan::runtime::BuildShareInfoText(runtimeSnapshot.session,
-                                                                        runtimeSnapshot.health,
-                                                                        runtimeSnapshot.selfCheckSummary);
-        SetWindowTextW(m_shareInfoBox, shareInfo.c_str());
-    }
+    RefreshShareInfoDisplay();
+
     WriteShareArtifacts(nullptr, nullptr, nullptr, nullptr);
     RefreshDashboard();
     RefreshSessionSetup();
@@ -2639,6 +2744,42 @@ void MainWindow::RefreshShareInfo() {
     RefreshSharingPage();
     RefreshSettingsPage();
     RefreshHtmlAdminPreview();
+}
+
+void MainWindow::RefreshShareInfoDisplay() {
+    if (!m_shareInfoBox) return;
+
+    auto health = m_lastShareInfoHealth;
+    auto summary = m_lastShareInfoSummary;
+    if (!m_hasShareInfoSnapshot) {
+        const bool serverRunning = m_server && m_server->IsRunning();
+        health.serverProcessRunning = serverRunning;
+        health.portReady = serverRunning;
+        health.portDetail = serverRunning
+            ? L"Diagnostics cache will refresh on the next full runtime update."
+            : L"Local server is not running.";
+        health.localHealthReady = false;
+        health.localHealthDetail = serverRunning
+            ? L"Diagnostics cache will refresh on the next full runtime update."
+            : L"Local server is not running, so /health has not been checked.";
+        health.hostIpReachable = false;
+        health.hostIpReachableDetail = L"LAN reachability will refresh on the next full runtime update.";
+        health.lanBindReady = !m_bindAddress.empty() && m_bindAddress != L"127.0.0.1" && m_bindAddress != L"localhost";
+        health.lanBindDetail = health.lanBindReady
+            ? L"Bind address allows LAN clients."
+            : L"Bind address is loopback-only.";
+        health.adapterHint = L"Diagnostics cache is not ready yet.";
+        summary.summaryLine = L"Waiting for the next diagnostics refresh.";
+    } else {
+        health.serverProcessRunning = m_server && m_server->IsRunning();
+    }
+
+    health.embeddedHostReady = m_webview.IsReady();
+    health.embeddedHostStatus = m_webview.StatusText();
+
+    const auto session = BuildRuntimeSessionState();
+    const std::wstring shareInfo = lan::runtime::BuildShareInfoText(session, health, summary);
+    SetWindowTextW(m_shareInfoBox, shareInfo.c_str());
 }
 
 void MainWindow::HandleWebViewMessage(std::wstring_view payload) {
@@ -2652,12 +2793,23 @@ void MainWindow::HandleWebViewMessage(std::wstring_view payload) {
         const auto result = lan::runtime::CoordinateHostStatusMessage(BuildHostObservabilityState(), message, NowTs());
         ApplyHostObservabilityState(result.state);
         ApplyShellChromeStatusViewModel(lan::runtime::BuildShellChromeStatusViewModel(BuildShellChromeStateInput()));
-        if (result.refreshShareInfo) RefreshShareInfo();
+        if (result.refreshShareInfoLightweight) {
+            RefreshShareInfoDisplay();
+            if (m_monitorTimelineBox && !PreferHtmlAdminUi()) {
+                SetWindowTextW(m_monitorTimelineBox, m_timelineText.c_str());
+            }
+        }
         return;
     }
 
     if (message.kind == lan::runtime::ShellBridgeInboundKind::HostLog && !message.logMessage.empty()) {
-        AppendLog(L"[host-page] " + message.logMessage);
+        const auto result = lan::runtime::AppendHostObservabilityLog(BuildHostObservabilityState(), NowTs(), L"[host-page] " + message.logMessage);
+        ApplyHostObservabilityState(result.state);
+        if (m_logBox) SetWindowTextW(m_logBox, m_logs.c_str());
+        ApplyShellChromeStatusViewModel(lan::runtime::BuildShellChromeStatusViewModel(BuildShellChromeStateInput()));
+        if (m_diagLogViewer && !PreferHtmlAdminUi()) {
+            RefreshFilteredLogs();
+        }
     }
 }
 
@@ -2866,6 +3018,9 @@ LRESULT CALLBACK MainWindow::WndProc(HWND hwnd, UINT msg, WPARAM wparam, LPARAM 
             }
             return 0;
         }
+        case kSingleInstanceWakeMessage:
+            self->RestoreFromTray();
+            return 0;
         case lan::desktop::kHostAppTrayIconMessage:
             switch (LOWORD(lparam)) {
             case WM_LBUTTONUP:

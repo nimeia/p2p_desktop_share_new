@@ -67,36 +67,164 @@ static std::string BuildShareCardHtml(std::wstring_view networkMode,
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="theme-color" content="#050816"/>
   <title>LAN Screen Share Share Card</title>
   <style>
     :root { color-scheme: dark; }
     * { box-sizing: border-box; }
-    body { font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #0f1115; color: #f2f3f5; margin: 0; }
-    .page { max-width: 1180px; margin: 0 auto; padding: 24px; }
-    .grid { display: grid; grid-template-columns: minmax(340px, 1fr) 420px; gap: 20px; align-items: start; }
-    .card { background: #161a22; border: 1px solid #2a3040; border-radius: 18px; padding: 18px; box-shadow: 0 10px 30px rgba(0,0,0,.22); }
-    h1 { margin-top: 0; font-size: 28px; }
-    .meta { display: grid; grid-template-columns: 132px 1fr; gap: 8px 12px; margin-bottom: 18px; }
-    .meta div:nth-child(odd) { color: #93a1b7; }
-    .url, .mono { display: block; overflow-wrap: anywhere; background: #0f1115; border: 1px solid #2a3040; border-radius: 12px; padding: 12px; margin-top: 8px; color: #9ed0ff; text-decoration: none; font-family: ui-monospace, SFMono-Regular, Consolas, monospace; }
-    .mono { color: #f2f3f5; }
-    .actions { display:flex; gap:12px; flex-wrap:wrap; margin-top:16px; }
-    button { padding: 10px 14px; border-radius: 10px; border: 1px solid #334056; background:#1c2330; color:#fff; cursor:pointer; }
-    .tip { color:#93a1b7; font-size:13px; line-height:1.6; }
-    .badge { display:inline-block; border-radius:999px; padding:6px 10px; font-size:12px; background:#1e293b; color:#dbeafe; border:1px solid #334155; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 14% 12%, rgba(72,214,255,.22), transparent 24%),
+        radial-gradient(circle at 84% 8%, rgba(156,183,255,.18), transparent 26%),
+        linear-gradient(180deg, #050816 0%, #040507 100%);
+      color: #f4fbff;
+      position: relative;
+      overflow-x: hidden;
+    }
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      border-radius: 999px;
+      pointer-events: none;
+      filter: blur(12px);
+      opacity: .85;
+    }
+    body::before {
+      top: 8vh;
+      right: -10vw;
+      width: 34vw;
+      height: 34vw;
+      background: radial-gradient(circle, rgba(72,214,255,.18) 0%, rgba(72,214,255,0) 72%);
+    }
+    body::after {
+      left: -8vw;
+      bottom: 10vh;
+      width: 28vw;
+      height: 28vw;
+      background: radial-gradient(circle, rgba(156,183,255,.14) 0%, rgba(156,183,255,0) 72%);
+    }
+    .page { position: relative; z-index: 1; max-width: 1240px; margin: 0 auto; padding: 28px 24px 88px; }
+    .grid { display: grid; grid-template-columns: minmax(0, 1.08fr) minmax(320px, 420px); gap: 20px; align-items: start; }
+    .card {
+      background: rgba(8,12,24,.76);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 28px;
+      padding: 22px;
+      box-shadow: 0 24px 68px rgba(0,0,0,.42);
+      backdrop-filter: blur(22px);
+    }
+    h1 { margin: 0 0 14px; font-size: clamp(30px, 5vw, 48px); letter-spacing: -.04em; }
+    .meta { display: grid; grid-template-columns: 136px 1fr; gap: 10px 14px; margin-bottom: 18px; }
+    .meta div:nth-child(odd) { color: rgba(201,212,255,.62); letter-spacing: .12em; text-transform: uppercase; font-size: 11px; }
+    .url, .mono {
+      display: block;
+      overflow-wrap: anywhere;
+      background: rgba(4,9,19,.92);
+      border: 1px solid rgba(255,255,255,.08);
+      border-radius: 16px;
+      padding: 14px;
+      margin-top: 8px;
+      color: #a9dbff;
+      text-decoration: none;
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+    }
+    .mono { color: #f4fbff; }
+    .actions { display:flex; gap:10px; flex-wrap:wrap; margin-top:18px; }
+    button {
+      padding: 10px 14px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(11,20,34,.78);
+      color: #fff;
+      cursor: pointer;
+      backdrop-filter: blur(16px);
+      transition: background .18s ease, border-color .18s ease, transform .18s ease;
+    }
+    button:hover {
+      background: rgba(18,30,52,.92);
+      border-color: rgba(125,211,252,.24);
+      transform: translateY(-1px);
+    }
+    .tip { color: rgba(201,212,255,.76); font-size: 13px; line-height: 1.6; }
+    .badge {
+      display:inline-flex;
+      align-items:center;
+      border-radius:999px;
+      padding:7px 12px;
+      font-size:12px;
+      background: rgba(8,12,24,.72);
+      color:#dbeafe;
+      border:1px solid rgba(255,255,255,.1);
+      backdrop-filter: blur(18px);
+    }
     .poster { display:flex; flex-direction:column; gap:16px; }
-    .poster-hero { border-radius: 18px; border: 1px solid #2a3040; background: linear-gradient(135deg, #1f2937, #111827); padding: 20px; }
-    .poster-title { font-size: 26px; font-weight: 700; margin: 0 0 10px; }
-    .poster-url { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; line-height: 1.55; font-size: 16px; background: rgba(15,17,21,.66); border: 1px solid rgba(148,163,184,.25); padding: 14px; border-radius: 14px; overflow-wrap:anywhere; }
-    .qr-shell { display:flex; align-items:center; justify-content:center; padding:18px; background:#ffffff; border-radius:18px; min-height:320px; }
+    .poster-hero {
+      border-radius: 24px;
+      border: 1px solid rgba(125,211,252,.16);
+      background:
+        radial-gradient(circle at top, rgba(34,69,194,.18), transparent 42%),
+        linear-gradient(160deg, rgba(10,18,36,.92), rgba(6,12,24,.84));
+      padding: 22px;
+    }
+    .poster-title { font-size: 28px; font-weight: 700; margin: 0 0 10px; letter-spacing: -.03em; }
+    .poster-url {
+      font-family: ui-monospace, SFMono-Regular, Consolas, monospace;
+      line-height: 1.55;
+      font-size: 16px;
+      background: rgba(4,9,19,.76);
+      border: 1px solid rgba(255,255,255,.1);
+      padding: 14px;
+      border-radius: 18px;
+      overflow-wrap:anywhere;
+    }
+    .qr-shell {
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      padding:20px;
+      background:#ffffff;
+      border-radius:24px;
+      min-height:340px;
+      box-shadow: inset 0 0 0 1px rgba(11,20,34,.08);
+    }
     .qr-shell svg { width:min(100%, 320px); height:auto; display:block; }
     .statusbar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:16px; }
     .live { color:#67e8f9; }
     .warn { color:#fbbf24; }
     .accent { color:#7dd3fc; }
     ol { margin: 10px 0 0 18px; padding: 0; }
-    li { margin: 8px 0; }
-    @media (max-width: 960px) { .grid { grid-template-columns: 1fr; } }
+    li { margin: 8px 0; color: rgba(228,236,255,.86); }
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 4;
+      max-width: min(420px, calc(100vw - 40px));
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(6,12,24,.92);
+      color: #f4fbff;
+      box-shadow: 0 22px 54px rgba(0,0,0,.38);
+      backdrop-filter: blur(18px);
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    .toast[data-visible="true"] { opacity: 1; transform: translateY(0); }
+    .toast.ok { border-color: rgba(143,242,208,.24); color: #dffef1; }
+    .toast.warn { border-color: rgba(255,225,140,.22); color: #fff0b8; }
+    @media (max-width: 960px) {
+      .page { padding: 18px 16px 80px; }
+      .grid { grid-template-columns: 1fr; }
+      .meta { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -172,6 +300,7 @@ static std::string BuildShareCardHtml(std::wstring_view networkMode,
       </aside>
     </div>
   </main>
+  <div id="toast" class="toast" aria-live="polite"></div>
 
   <script id="bundleJson" type="application/json">)HTML";
     html << bundleJson;
@@ -182,6 +311,7 @@ static std::string BuildShareCardHtml(std::wstring_view networkMode,
     let currentViewerUrl = '';
     let lastRenderedVersion = '';
     let pollTimer = null;
+    let toastTimer = null;
 
     function setText(id, text) {
       const el = document.getElementById(id);
@@ -195,12 +325,22 @@ static std::string BuildShareCardHtml(std::wstring_view networkMode,
       el.textContent = href || '';
     }
 
+    function notify(message, tone) {
+      const toast = document.getElementById('toast');
+      if (!toast) return;
+      toast.textContent = String(message || '');
+      toast.className = 'toast' + (tone ? ' ' + tone : '');
+      toast.setAttribute('data-visible', 'true');
+      if (toastTimer) window.clearTimeout(toastTimer);
+      toastTimer = window.setTimeout(() => toast.setAttribute('data-visible', 'false'), 2200);
+    }
+
     async function copyText(text, okLabel) {
       try {
         await navigator.clipboard.writeText(String(text || ''));
-        alert(okLabel);
+        notify(okLabel, 'ok');
       } catch (_) {
-        alert('Copy failed. Please copy it manually.');
+        notify('Copy failed. Please copy it manually.', 'warn');
       }
     }
 
@@ -242,8 +382,9 @@ static std::string BuildShareCardHtml(std::wstring_view networkMode,
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(href), 1000);
+        notify('QR SVG downloaded', 'ok');
       } catch (err) {
-        alert('QR export failed: ' + err);
+        notify('QR export failed: ' + err, 'warn');
       }
     }
 
@@ -307,7 +448,7 @@ static std::string BuildShareCardHtml(std::wstring_view networkMode,
     document.getElementById('openViewerBtn').onclick = () => window.open((state.links && state.links.viewerUrl) || '', '_blank');
     document.getElementById('copySsidBtn').onclick = () => copyText((state.hotspot && state.hotspot.ssid) || '', 'SSID copied');
     document.getElementById('copyPwdBtn').onclick = () => copyText((state.hotspot && state.hotspot.password) || '', 'Password copied');
-    document.getElementById('openWizardBtn').onclick = () => window.open('./share_wizard.html', '_blank');
+    document.getElementById('openWizardBtn').onclick = () => { window.location.href = './share_wizard.html'; };
     document.getElementById('openReadmeBtn').onclick = () => window.open('./share_readme.txt', '_blank');
     document.getElementById('openDiagBtn').onclick = () => window.open('./share_diagnostics.txt', '_blank');
     document.getElementById('downloadQrBtn').onclick = downloadQr;
@@ -1025,8 +1166,8 @@ static std::string BuildDesktopSelfCheckHtml(std::string_view bundleJson) {
           <span class="pill sharing" id="sharingPill">Sharing: 0</span>
         </div>
         <div class="actions">
-          <a class="btn" href="./share_wizard.html" target="_blank" rel="noopener">Open Share Wizard</a>
-          <a class="btn" href="./share_card.html" target="_blank" rel="noopener">Open Share Card</a>
+          <button id="openShareWizardBtn" type="button">Open Share Wizard</button>
+          <button id="openShareCardBtn" type="button">Open Share Card</button>
           <a class="btn" href="./share_diagnostics.txt" target="_blank" rel="noopener">Open Diagnostics TXT</a>
           <button id="copyViewerBtn" type="button">Copy Viewer URL</button>
         </div>
@@ -1287,6 +1428,8 @@ static std::string BuildDesktopSelfCheckHtml(std::string_view bundleJson) {
     });
 
     document.getElementById('copyViewerBtn').onclick = copyViewerUrl;
+    document.getElementById('openShareWizardBtn').onclick = () => { window.location.href = './share_wizard.html'; };
+    document.getElementById('openShareCardBtn').onclick = () => { window.location.href = './share_card.html'; };
     bindFilters();
     renderBundle(bundle, 'embedded snapshot');
     window.setInterval(loadLiveStatus, bundle.refreshMs || 2000);
@@ -1495,48 +1638,136 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
+  <meta name="theme-color" content="#050816"/>
   <title>LAN Screen Share - Share Wizard</title>
   <style>
     :root { color-scheme: dark; }
     * { box-sizing: border-box; }
-    body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: #0b1020; color: #edf2f7; }
-    .page { max-width: 1180px; margin: 0 auto; padding: 24px; }
+    body {
+      margin: 0;
+      min-height: 100vh;
+      font-family: system-ui, -apple-system, "Segoe UI", sans-serif;
+      background:
+        radial-gradient(circle at 12% 10%, rgba(72,214,255,.22), transparent 24%),
+        radial-gradient(circle at 84% 8%, rgba(156,183,255,.18), transparent 26%),
+        linear-gradient(180deg, #050816 0%, #040507 100%);
+      color: #edf2f7;
+      position: relative;
+      overflow-x: hidden;
+    }
+    body::before,
+    body::after {
+      content: "";
+      position: fixed;
+      border-radius: 999px;
+      pointer-events: none;
+      filter: blur(12px);
+      opacity: .85;
+    }
+    body::before {
+      top: 8vh;
+      right: -10vw;
+      width: 34vw;
+      height: 34vw;
+      background: radial-gradient(circle, rgba(72,214,255,.18) 0%, rgba(72,214,255,0) 72%);
+    }
+    body::after {
+      left: -8vw;
+      bottom: 10vh;
+      width: 28vw;
+      height: 28vw;
+      background: radial-gradient(circle, rgba(156,183,255,.14) 0%, rgba(156,183,255,0) 72%);
+    }
+    .page { position: relative; z-index: 1; max-width: 1240px; margin: 0 auto; padding: 28px 24px 88px; }
     .hero { display:grid; grid-template-columns: 1.4fr .9fr; gap:18px; margin-bottom:20px; }
-    .card { background:#111827; border:1px solid #23304a; border-radius:20px; padding:20px; box-shadow:0 10px 30px rgba(0,0,0,.24); }
+    .card {
+      background: rgba(8,12,24,.76);
+      border: 1px solid rgba(255,255,255,.1);
+      border-radius: 28px;
+      padding: 22px;
+      box-shadow: 0 24px 68px rgba(0,0,0,.42);
+      backdrop-filter: blur(22px);
+    }
     h1,h2,h3 { margin:0 0 12px; }
-    .sub { color:#9fb0c8; line-height:1.6; }
-    .pill { display:inline-flex; align-items:center; gap:8px; border-radius:999px; padding:6px 10px; background:#18243b; border:1px solid #30415f; color:#dbeafe; font-size:12px; }
-    .pill.ok { background:#0f2b1f; border-color:#1f6f43; color:#d1fae5; }
-    .pill.warn { background:#2d1e08; border-color:#7c5d1a; color:#fde68a; }
-    .pill.p0 { background:#35121a; border-color:#9f1239; color:#fecdd3; }
-    .pill.p1 { background:#312113; border-color:#b45309; color:#fde68a; }
-    .pill.p2 { background:#15253c; border-color:#2563eb; color:#bfdbfe; }
-    .pill.certificate { background:#1f1835; border-color:#7c3aed; color:#ddd6fe; }
-    .pill.network { background:#0f2530; border-color:#0891b2; color:#bae6fd; }
-    .pill.sharing { background:#172436; border-color:#4f46e5; color:#c7d2fe; }
+    h1 { font-size: clamp(30px, 5vw, 48px); letter-spacing: -.04em; }
+    .sub { color: rgba(201,212,255,.78); line-height:1.6; }
+    .pill {
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      border-radius:999px;
+      padding:7px 12px;
+      background: rgba(8,12,24,.72);
+      border:1px solid rgba(255,255,255,.1);
+      color:#dbeafe;
+      font-size:12px;
+      backdrop-filter: blur(18px);
+    }
+    .pill.ok { background:rgba(14,40,33,.78); border-color:rgba(143,242,208,.24); color:#d1fae5; }
+    .pill.warn { background:rgba(43,29,8,.78); border-color:rgba(255,225,140,.22); color:#fde68a; }
+    .pill.p0 { background:rgba(53,18,26,.78); border-color:rgba(255,154,154,.24); color:#fecdd3; }
+    .pill.p1 { background:rgba(49,33,19,.78); border-color:rgba(255,225,140,.2); color:#fde68a; }
+    .pill.p2 { background:rgba(21,37,60,.78); border-color:rgba(125,211,252,.22); color:#bfdbfe; }
+    .pill.certificate { background:rgba(31,24,53,.78); border-color:rgba(167,139,250,.24); color:#ddd6fe; }
+    .pill.network { background:rgba(15,37,48,.78); border-color:rgba(34,211,238,.2); color:#bae6fd; }
+    .pill.sharing { background:rgba(23,36,54,.78); border-color:rgba(129,140,248,.22); color:#c7d2fe; }
     .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
     .grid3 { display:grid; grid-template-columns:repeat(3,1fr); gap:14px; }
     .kv { display:grid; grid-template-columns:140px 1fr; gap:8px 12px; margin-top:12px; }
-    .kv div:nth-child(odd) { color:#9fb0c8; }
+    .kv div:nth-child(odd) { color: rgba(201,212,255,.62); letter-spacing: .12em; text-transform: uppercase; font-size: 11px; }
     .mono { font-family: ui-monospace, SFMono-Regular, Consolas, monospace; overflow-wrap:anywhere; }
-    .box { background:#0b1222; border:1px solid #23304a; border-radius:14px; padding:14px; }
-    .step { border:1px solid #263656; border-radius:16px; padding:16px; background:#0d172b; }
-    .step.ok { border-color:#1f6f43; background:#0d2218; }
-    .step.warn { border-color:#7c5d1a; background:#231a09; }
+    .box {
+      background: rgba(4,9,19,.76);
+      border:1px solid rgba(255,255,255,.08);
+      border-radius:18px;
+      padding:16px;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,.03);
+    }
+    .step { border:1px solid rgba(255,255,255,.08); border-radius:20px; padding:18px; background:rgba(8,12,24,.58); }
+    .step.ok { border-color:rgba(143,242,208,.22); background:rgba(12,34,28,.76); }
+    .step.warn { border-color:rgba(255,225,140,.22); background:rgba(43,29,8,.76); }
     .title-row { display:flex; gap:10px; align-items:center; justify-content:space-between; }
     .actions { display:flex; flex-wrap:wrap; gap:10px; margin-top:16px; }
-    button, a.btn { appearance:none; text-decoration:none; border:1px solid #334766; background:#16233a; color:#fff; padding:10px 14px; border-radius:12px; cursor:pointer; display:inline-flex; align-items:center; gap:8px; }
-    button.filter { padding:8px 12px; border-radius:999px; font-size:12px; background:#10192b; }
+    button, a.btn {
+      appearance:none;
+      text-decoration:none;
+      border:1px solid rgba(255,255,255,.12);
+      background:rgba(11,20,34,.78);
+      color:#fff;
+      padding:10px 14px;
+      border-radius:999px;
+      cursor:pointer;
+      display:inline-flex;
+      align-items:center;
+      gap:8px;
+      backdrop-filter: blur(16px);
+      transition: background .18s ease, border-color .18s ease, transform .18s ease;
+    }
+    button:hover, a.btn:hover {
+      background: rgba(18,30,52,.92);
+      border-color: rgba(125,211,252,.24);
+      transform: translateY(-1px);
+    }
+    button.filter { padding:8px 12px; font-size:12px; }
     button.filter.active { background:#244064; border-color:#7dd3fc; color:#e0f2fe; }
-    .small { font-size:13px; color:#9fb0c8; line-height:1.6; }
-    .qr { min-height:280px; display:flex; align-items:center; justify-content:center; background:#fff; border-radius:16px; padding:16px; }
+    .small { font-size:13px; color:rgba(201,212,255,.76); line-height:1.6; }
+    .qr {
+      min-height:300px;
+      display:flex;
+      align-items:center;
+      justify-content:center;
+      background:#fff;
+      border-radius:24px;
+      padding:18px;
+      box-shadow: inset 0 0 0 1px rgba(11,20,34,.08);
+    }
     .qr svg { width:min(100%, 280px); height:auto; display:block; }
     .livebar { display:flex; flex-wrap:wrap; gap:10px; align-items:center; margin-bottom:12px; }
     .em { color:#7dd3fc; }
     .diag-grid { display:grid; grid-template-columns:repeat(2, minmax(0,1fr)); gap:12px; margin-top:14px; }
-    .diag-item { border:1px solid #263656; border-radius:14px; padding:14px; background:#0d172b; }
-    .diag-item.ok { border-color:#1f6f43; background:#0d2218; }
-    .diag-item.warn { border-color:#7c5d1a; background:#231a09; }
+    .diag-item { border:1px solid rgba(255,255,255,.08); border-radius:18px; padding:14px; background:rgba(8,12,24,.58); }
+    .diag-item.ok { border-color:rgba(143,242,208,.22); background:rgba(12,34,28,.76); }
+    .diag-item.warn { border-color:rgba(255,225,140,.22); background:rgba(43,29,8,.76); }
     .diag-item h3 { font-size:15px; margin-bottom:8px; }
     .checkline { display:flex; align-items:center; justify-content:space-between; gap:12px; }
     .issues, .action-list { margin:0; padding-left:18px; }
@@ -1545,7 +1776,32 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
     .issues strong, .action-list strong { color:#fff; }
     ol { margin:10px 0 0 18px; padding:0; }
     li { margin:8px 0; }
-    @media (max-width: 980px) { .hero, .grid2, .grid3, .diag-grid { grid-template-columns:1fr; } }
+    .toast {
+      position: fixed;
+      right: 20px;
+      bottom: 20px;
+      z-index: 4;
+      max-width: min(420px, calc(100vw - 40px));
+      padding: 14px 16px;
+      border-radius: 18px;
+      border: 1px solid rgba(255,255,255,.12);
+      background: rgba(6,12,24,.92);
+      color: #f4fbff;
+      box-shadow: 0 22px 54px rgba(0,0,0,.38);
+      backdrop-filter: blur(18px);
+      opacity: 0;
+      transform: translateY(12px);
+      pointer-events: none;
+      transition: opacity .18s ease, transform .18s ease;
+    }
+    .toast[data-visible="true"] { opacity: 1; transform: translateY(0); }
+    .toast.ok { border-color: rgba(143,242,208,.24); color: #dffef1; }
+    .toast.warn { border-color: rgba(255,225,140,.22); color: #fff0b8; }
+    @media (max-width: 980px) {
+      .page { padding: 18px 16px 80px; }
+      .hero, .grid2, .grid3, .diag-grid { grid-template-columns:1fr; }
+      .kv { grid-template-columns: 1fr; }
+    }
   </style>
 </head>
 <body>
@@ -1572,7 +1828,7 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
         <div class="actions">
           <button id="copyViewerBtn" type="button">Copy Viewer URL</button>
           <button id="copyTokenBtn" type="button">Copy Token</button>
-          <a class="btn" href="./share_card.html" target="_blank" rel="noopener">Open Share Card</a>
+          <button id="openShareCardBtn" type="button">Open Share Card</button>
           <a class="btn" href="./desktop_self_check.html" target="_blank" rel="noopener">Open Desktop Self-Check</a>
           <a class="btn" href="./desktop_self_check.txt" target="_blank" rel="noopener">Open Self-Check TXT</a>
           <a class="btn" href="./share_bundle.json" target="_blank" rel="noopener">Open JSON</a>
@@ -1698,6 +1954,8 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
           <div class="kv" style="margin-top:0;">
             <div class="mono">share_card.html / share_wizard.html</div>
             <div>Human-friendly handoff pages with live polling from <span class="mono">share_status.js</span>.</div>
+)HTML";
+    html << R"HTML(
             <div class="mono">share_bundle.json / share_status.js / desktop_self_check.html</div>
             <div>Machine-readable snapshot plus the script reloaded by already-open pages.</div>
             <div class="mono">share_diagnostics.txt / desktop_self_check.txt</div>
@@ -1714,6 +1972,7 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
       </article>
     </section>
   </main>
+  <div id="toast" class="toast" aria-live="polite"></div>
 
   <script id="bundleJson" type="application/json">)HTML";
     html << bundleJson;
@@ -1723,10 +1982,21 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
     let bundle = JSON.parse(document.getElementById('bundleJson').textContent);
     let currentViewerUrl = '';
     const activeFilters = { category: 'all', severity: 'all' };
+    let toastTimer = null;
 
     function setText(id, text) {
       const el = document.getElementById(id);
       if (el) el.textContent = text == null ? '' : String(text);
+    }
+
+    function notify(message, tone) {
+      const toast = document.getElementById('toast');
+      if (!toast) return;
+      toast.textContent = String(message || '');
+      toast.className = 'toast' + (tone ? ' ' + tone : '');
+      toast.setAttribute('data-visible', 'true');
+      if (toastTimer) window.clearTimeout(toastTimer);
+      toastTimer = window.setTimeout(() => toast.setAttribute('data-visible', 'false'), 2200);
     }
 
     function htmlEscape(text) {
@@ -1795,9 +2065,9 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
     async function copyText(text, okLabel) {
       try {
         await navigator.clipboard.writeText(String(text || ''));
-        alert(okLabel);
+        notify(okLabel, 'ok');
       } catch (_) {
-        alert('Copy failed. Please copy it manually.');
+        notify('Copy failed. Please copy it manually.', 'warn');
       }
     }
 
@@ -1818,8 +2088,9 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
         a.click();
         a.remove();
         setTimeout(() => URL.revokeObjectURL(href), 1000);
+        notify('QR SVG downloaded', 'ok');
       } catch (err) {
-        alert('QR export failed: ' + err);
+        notify('QR export failed: ' + err, 'warn');
       }
     }
 
@@ -1973,6 +2244,8 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
         category: 'sharing'
       }];
     }
+)HTML";
+    html << R"HTML(
 
     function renderChecks(data) {
       const cert = data.cert || {};
@@ -2009,6 +2282,8 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
       renderFailures(failures);
       renderActionList(buildSuggestedActions(data, report));
     }
+)HTML";
+    html << R"HTML(
 
     function renderBundle(data, source) {
       if (!data || !data.links) return;
@@ -2063,6 +2338,7 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
     document.getElementById('copyViewerBtn').onclick = () => copyText((bundle.links && bundle.links.viewerUrl) || '', 'Viewer URL copied');
     document.getElementById('copyViewerBtn2').onclick = () => copyText((bundle.links && bundle.links.viewerUrl) || '', 'Viewer URL copied');
     document.getElementById('copyTokenBtn').onclick = () => copyText(bundle.token || '', 'Token copied');
+    document.getElementById('openShareCardBtn').onclick = () => { window.location.href = './share_card.html'; };
     document.getElementById('copySsidBtn').onclick = () => copyText((bundle.hotspot && bundle.hotspot.ssid) || '', 'SSID copied');
     document.getElementById('copyPwdBtn').onclick = () => copyText((bundle.hotspot && bundle.hotspot.password) || '', 'Password copied');
     document.getElementById('downloadQrBtn').onclick = downloadQr;

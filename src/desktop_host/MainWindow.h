@@ -16,6 +16,7 @@
 #include "core/runtime/desktop_shell_presenter.h"
 #include "core/runtime/desktop_layout_presenter.h"
 #include "core/runtime/desktop_edit_session_presenter.h"
+#include "core/runtime/runtime_controller.h"
 #include "core/runtime/shell_chrome_presenter.h"
 #include "core/runtime/admin_shell_coordinator.h"
 #include "core/runtime/host_runtime_coordinator.h"
@@ -36,6 +37,8 @@ namespace lan::desktop { class ShellEffectExecutor; }
 
 class MainWindow {
 public:
+    static constexpr UINT kSingleInstanceWakeMessage = WM_APP + 6;
+
     MainWindow();
     ~MainWindow();
 
@@ -91,6 +94,7 @@ private:
     void ApplyHostActionResult(const lan::runtime::HostActionResult& result);
     lan::runtime::HostActionContext BuildHostActionContext() const;
     lan::runtime::HostSessionState BuildHostSessionState() const;
+    lan::runtime::RuntimeSessionState BuildRuntimeSessionState() const;
     lan::runtime::AdminViewModelInput BuildAdminViewModelInput() const;
     void ApplyHostSessionState(const lan::runtime::HostSessionState& state, bool updateControls = true);
     void ApplyAdminShellSessionRequest(const lan::runtime::AdminShellSessionRequest& request);
@@ -172,6 +176,7 @@ private:
     void RefreshSettingsPage();
     void UpdateUiState();
     void RefreshShareInfo();
+    void RefreshShareInfoDisplay();
     void ApplyHostRuntimeRefresh(const lan::runtime::HostRuntimeRefreshResult& refresh);
     void HandleWebViewMessage(std::wstring_view payload);
     void SetPage(UiPage page);
@@ -236,7 +241,10 @@ private:
     bool m_exitRequested = false;
     bool m_trayIconAdded = false;
     bool m_trayBalloonShown = false;
+    bool m_hasShareInfoSnapshot = false;
     std::vector<LogEntry> m_logEntries;
+    lan::runtime::RuntimeHealthState m_lastShareInfoHealth;
+    lan::runtime::RuntimeSelfCheckSummary m_lastShareInfoSummary;
     bool m_viewerUrlCopied = false;
     bool m_shareCardExported = false;
     bool m_adminShellReady = false;

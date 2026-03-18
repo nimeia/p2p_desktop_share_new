@@ -31,6 +31,7 @@ struct HostObservabilityState {
 struct HostObservabilityMutationResult {
   HostObservabilityState state;
   bool refreshShareInfo = false;
+  bool refreshShareInfoLightweight = false;
   bool refreshDashboard = false;
   bool refreshDiagnostics = false;
   bool updateTrayIcon = false;
