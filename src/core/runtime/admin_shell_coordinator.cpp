@@ -132,6 +132,13 @@ void HandleAdminCommand(const ShellBridgeAdminCommand& command,
         result.stateChanged = false;
       }
       break;
+    case ShellBridgeAdminCommandKind::SetLanguage:
+      if (hooks.setLanguage && !command.locale.empty()) {
+        hooks.setLanguage(command.locale);
+      } else {
+        result.stateChanged = false;
+      }
+      break;
     case ShellBridgeAdminCommandKind::None:
     default:
       result.stateChanged = false;

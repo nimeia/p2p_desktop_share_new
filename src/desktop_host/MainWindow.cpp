@@ -764,6 +764,7 @@ static void SetTextIfPresent(HWND hwnd, const std::wstring& value) {
 
 MainWindow::MainWindow()
     : m_platformServices(lan::platform::CreateDefaultPlatformServiceFacade()) {
+    m_localeCode = lan::i18n::LoadPreferredLocale();
 }
 
 MainWindow::~MainWindow() {
@@ -830,10 +831,12 @@ lan::runtime::ShellChromeStateInput MainWindow::BuildShellChromeStateInput() con
 
 void MainWindow::ApplyShellChromeStatusViewModel(const lan::runtime::ShellChromeStatusViewModel& viewModel) {
     if (m_statusText) {
-        SetWindowTextW(m_statusText, viewModel.statusText.c_str());
+        const auto text = lan::i18n::TranslateNativeText(viewModel.statusText, m_localeCode);
+        SetWindowTextW(m_statusText, text.c_str());
     }
     if (m_webStateText) {
-        SetWindowTextW(m_webStateText, viewModel.webStateText.c_str());
+        const auto text = lan::i18n::TranslateNativeText(viewModel.webStateText, m_localeCode);
+        SetWindowTextW(m_webStateText, text.c_str());
     }
 }
 
@@ -1489,6 +1492,7 @@ lan::runtime::DesktopRuntimeSnapshot MainWindow::BuildDesktopRuntimeSnapshot(boo
     const auto certInfo = ProbeCertArtifacts(AppDir(), m_hostIp);
 
     lan::runtime::DesktopRuntimeSnapshotInput input;
+    input.localeCode = m_localeCode;
     input.networkMode = m_networkMode;
     input.hostIp = m_hostIp;
     input.bindAddress = m_bindAddress;
@@ -1760,6 +1764,22 @@ lan::runtime::AdminShellCoordinatorHooks MainWindow::BuildAdminShellCoordinatorH
     hooks.exportRemoteProbeGuide = [this]() { ExportRemoteProbeGuide(); };
     hooks.openConnectedDevices = [this]() { OpenWifiDirectPairing(); };
     hooks.navigatePage = [this](std::wstring page) { TrySetPageFromAdminTab(page); };
+    hooks.setLanguage = [this](std::wstring locale) {
+        const std::wstring normalized = lan::i18n::NormalizeLocaleCode(locale);
+        if (!lan::i18n::IsSupportedLocale(normalized)) {
+            AppendLog(L"Unsupported locale requested: " + locale);
+            return;
+        }
+        m_localeCode = normalized;
+        std::wstring saveErr;
+        if (!lan::i18n::SavePreferredLocale(m_localeCode, &saveErr) && !saveErr.empty()) {
+            AppendLog(L"Save locale failed: " + saveErr);
+        }
+        UpdateUiState();
+        UpdateTrayIcon();
+        RefreshShellFallback();
+        PublishAdminShellRuntime();
+    };
     return hooks;
 }
 
@@ -1792,6 +1812,7 @@ lan::runtime::AdminViewModelInput MainWindow::BuildAdminViewModelInput() const {
     const auto bundleDir = AppDir() / L"out" / L"share_bundle";
 
     lan::runtime::AdminViewModelInput input;
+    input.localeCode = m_localeCode;
     input.appName = L"LanScreenShareHostApp";
     input.nativePage = AdminTabNameForPage(m_currentPage);
     input.runtimeSnapshot = runtimeSnapshot;
@@ -2850,11 +2871,12 @@ void MainWindow::HandlePollResult(DWORD status, std::size_t rooms, std::size_t v
 std::wstring MainWindow::BuildAdminUrlLocal() const {
     std::wstringstream ss;
     ss << L"http://127.0.0.1:" << m_port << L"/admin/";
-    return ss.str();
+    return lan::i18n::AppendLocaleQuery(ss.str(), m_localeCode);
 }
 
 std::wstring MainWindow::BuildHostUrlLocal() const {
     lan::runtime::RuntimeSessionState sessionState;
+    sessionState.localeCode = m_localeCode;
     sessionState.port = m_port;
     sessionState.room = m_room;
     sessionState.token = m_token;
@@ -2863,6 +2885,7 @@ std::wstring MainWindow::BuildHostUrlLocal() const {
 
 std::wstring MainWindow::BuildViewerUrl() const {
     lan::runtime::RuntimeSessionState sessionState;
+    sessionState.localeCode = m_localeCode;
     sessionState.hostIp = m_hostIp;
     sessionState.port = m_port;
     sessionState.room = m_room;

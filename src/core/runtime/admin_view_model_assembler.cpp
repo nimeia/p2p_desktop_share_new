@@ -76,6 +76,7 @@ AdminSnapshotViewModel BuildAdminSnapshotViewModel(const AdminViewModelInput& in
   const auto remoteProbePlan = BuildRemoteProbePlan(remoteProbeInputs);
 
   AdminSnapshotViewModel model;
+  model.localeCode = input.localeCode;
   model.appName = input.appName;
   model.nativePage = input.nativePage;
   model.dashboardState = DashboardStateFromOverall(runtime.dashboardOverall);

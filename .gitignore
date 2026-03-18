@@ -10,3 +10,4 @@
 /third_party/nuget/
 **/packages/
 *.log
+/flat_icon_pack_v2_states/

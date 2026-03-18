@@ -599,7 +599,8 @@ dd {
   font-size: 13px;
 }
 
-input {
+input,
+select {
   width: 100%;
   padding: 12px 13px;
   border-radius: 12px;
@@ -607,6 +608,24 @@ input {
   background: rgba(255, 255, 255, 0.88);
   font: inherit;
   color: var(--ink);
+}
+
+.locale-inline {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.locale-inline span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.locale-inline select {
+  width: auto;
+  min-width: 140px;
+  padding: 10px 12px;
+  border-radius: 999px;
 }
 
 .divider {

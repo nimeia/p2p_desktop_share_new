@@ -13,6 +13,7 @@ ShellBridgeSnapshotState BuildAdminShellSnapshotState(const AdminViewModelInput&
   const auto viewModel = BuildAdminSnapshotViewModel(input);
 
   ShellBridgeSnapshotState snapshot;
+  snapshot.localeCode = viewModel.localeCode;
   snapshot.appName = viewModel.appName;
   snapshot.nativePage = viewModel.nativePage;
   snapshot.dashboardState = viewModel.dashboardState;

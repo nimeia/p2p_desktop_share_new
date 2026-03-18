@@ -1,4 +1,5 @@
 #include "core/runtime/runtime_controller.h"
+#include "core/i18n/localization.h"
 
 #include <sstream>
 
@@ -28,14 +29,14 @@ std::wstring BuildHostUrl(const RuntimeSessionState& session) {
   std::wstringstream ss;
   ss << L"http://" << HostOrLoopback(session) << L":" << session.port
      << L"/host?room=" << session.room << L"&token=" << session.token;
-  return ss.str();
+  return lan::i18n::AppendLocaleQuery(ss.str(), session.localeCode);
 }
 
 std::wstring BuildViewerUrl(const RuntimeSessionState& session) {
   std::wstringstream ss;
   ss << L"http://" << ViewerHostOrLoopback(session) << L":" << session.port
      << L"/view?room=" << session.room << L"&token=" << session.token;
-  return ss.str();
+  return lan::i18n::AppendLocaleQuery(ss.str(), session.localeCode);
 }
 
 RuntimeHandoffSummary BuildHandoffSummary(const RuntimeSessionState& session,

@@ -40,6 +40,14 @@ Create a redistributable Windows package (stage + zip):
 
 The package includes `Install-LanScreenShare.ps1`, `Uninstall-LanScreenShare.ps1`, the desktop payload, and helper scripts under `scripts/windows/`.
 
+Create a Windows Store / MSIX package:
+
+```powershell
+.\scripts\windows\package_store.ps1 -Config Release -IdentityName "YourPartnerCenterIdentity" -Publisher "CN=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+```
+
+See `docs/WINDOWS_STORE_PACKAGING.md` for the full MSIX/MSIXUPLOAD flow and the current writable-path blocker that still needs to be fixed before Store submission.
+
 ## Run helpers
 
 Run the server after building:

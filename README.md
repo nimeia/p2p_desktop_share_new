@@ -122,6 +122,42 @@ Desktop release validation:
 .\scripts\windows\validate_release.ps1 -Config Release
 ```
 
+Linux build:
+
+Requirements:
+
+- `cmake`
+- `ctest`
+- `g++` or `clang++`
+- `ninja` or `make`
+- `curl`, `zip`, `unzip`, `tar`, `git` when using `--bootstrap-vcpkg`
+- either:
+  - a native Linux `vcpkg` checkout, or
+  - system-installed CMake package configs for Boost/OpenSSL
+
+Check Linux dependencies only:
+
+```bash
+./scripts/build_linux.sh --check-deps-only --skip-vcpkg-install
+```
+
+Build Linux server with native vcpkg bootstrap:
+
+```bash
+./scripts/build_linux.sh --target server --clean --bootstrap-vcpkg
+```
+
+Build everything and run tests on Linux:
+
+```bash
+./scripts/build_linux.sh --target all --run-tests --bootstrap-vcpkg
+```
+
+Linux staged outputs:
+
+- Server: `out/linux/<Config>/server/lan_screenshare_server`
+- Linux tray: `out/linux/<Config>/tray/lan_screenshare_linux_tray`
+
 ## Runtime Notes
 
 - The server depends on vcpkg runtime DLLs. The build script now copies them into the output directory.

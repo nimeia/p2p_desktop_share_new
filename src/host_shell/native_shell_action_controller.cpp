@@ -28,6 +28,7 @@ std::string Narrow(std::wstring_view value) {
 
 lan::runtime::RuntimeSessionState BuildSessionState(const NativeShellActionConfig& config) {
   lan::runtime::RuntimeSessionState session;
+  session.localeCode = config.localeCode;
   session.hostIp.assign(config.host.begin(), config.host.end());
   session.port = config.port;
   session.room = config.room;

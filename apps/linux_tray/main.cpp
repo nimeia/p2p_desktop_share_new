@@ -1,5 +1,6 @@
 #include "host_shell/native_shell_action_controller.h"
 #include "host_shell/native_shell_runtime_loop.h"
+#include "core/i18n/localization.h"
 
 #include <dlfcn.h>
 
@@ -37,10 +38,34 @@ std::string Narrow(std::wstring_view value) {
   return out;
 }
 
+std::wstring WideAscii(std::string_view value) {
+  std::wstring out;
+  out.reserve(value.size());
+  for (unsigned char ch : value) out.push_back(static_cast<wchar_t>(ch));
+  return out;
+}
+
+std::wstring CurrentLocaleCode() {
+  return lan::i18n::LoadPreferredLocale();
+}
+
+std::string TranslateWide(std::wstring_view source) {
+  return lan::i18n::TranslateNativeTextUtf8(source, CurrentLocaleCode());
+}
+
+std::string TranslateAscii(std::string_view source) {
+  for (unsigned char ch : source) {
+    if (ch >= 0x80) {
+      return std::string(source);
+    }
+  }
+  return lan::i18n::TranslateNativeTextUtf8(WideAscii(source), CurrentLocaleCode());
+}
+
 std::string ViewerLabel(std::size_t viewers) {
-  if (viewers == 0) return "Open Viewer URL";
-  if (viewers == 1) return "Open Viewer URL (1 viewer)";
-  return "Open Viewer URL (" + std::to_string(viewers) + " viewers)";
+  if (viewers == 0) return TranslateWide(L"Open Viewer URL");
+  if (viewers == 1) return TranslateWide(L"Open Viewer URL (1 viewer)");
+  return TranslateWide(L"Open Viewer URL (" + std::to_wstring(viewers) + L" viewers)");
 }
 
 struct GtkApi {
@@ -147,18 +172,18 @@ public:
       return false;
     }
 
-    statusItem_ = api_.gtk_menu_item_new_with_label("Status: starting");
-    detailItem_ = api_.gtk_menu_item_new_with_label("Waiting for first refresh...");
+    statusItem_ = api_.gtk_menu_item_new_with_label(TranslateWide(L"Status: starting").c_str());
+    detailItem_ = api_.gtk_menu_item_new_with_label(TranslateWide(L"Waiting for first refresh...").c_str());
     auto* separator1 = api_.gtk_separator_menu_item_new();
-    openDashboardItem_ = api_.gtk_menu_item_new_with_label("Open Dashboard");
-    refreshDashboardItem_ = api_.gtk_menu_item_new_with_label("Refresh Dashboard");
-    openViewerItem_ = api_.gtk_menu_item_new_with_label("Open Viewer URL");
-    startServerItem_ = api_.gtk_menu_item_new_with_label("Start Sharing Service");
-    stopServerItem_ = api_.gtk_menu_item_new_with_label("Stop Sharing Service");
-    openDiagnosticsItem_ = api_.gtk_menu_item_new_with_label("Open Diagnostics Folder");
-    exportDiagnosticsItem_ = api_.gtk_menu_item_new_with_label("Export Diagnostics Snapshot");
+    openDashboardItem_ = api_.gtk_menu_item_new_with_label(TranslateWide(L"Open Dashboard").c_str());
+    refreshDashboardItem_ = api_.gtk_menu_item_new_with_label(TranslateWide(L"Refresh Dashboard").c_str());
+    openViewerItem_ = api_.gtk_menu_item_new_with_label(TranslateWide(L"Open Viewer URL").c_str());
+    startServerItem_ = api_.gtk_menu_item_new_with_label(TranslateWide(L"Start Sharing Service").c_str());
+    stopServerItem_ = api_.gtk_menu_item_new_with_label(TranslateWide(L"Stop Sharing Service").c_str());
+    openDiagnosticsItem_ = api_.gtk_menu_item_new_with_label(TranslateWide(L"Open Diagnostics Folder").c_str());
+    exportDiagnosticsItem_ = api_.gtk_menu_item_new_with_label(TranslateWide(L"Export Diagnostics Snapshot").c_str());
     auto* separator2 = api_.gtk_separator_menu_item_new();
-    quitItem_ = api_.gtk_menu_item_new_with_label("Quit");
+    quitItem_ = api_.gtk_menu_item_new_with_label(TranslateWide(L"Quit").c_str());
 
     api_.gtk_widget_set_sensitive(statusItem_, 0);
     api_.gtk_widget_set_sensitive(detailItem_, 0);
@@ -215,15 +240,17 @@ private:
 
   void Notify(std::string_view title, std::string_view body) {
     std::string err;
-    if (!controller_.Platform().ShowNotification(title, body, err) && !err.empty()) {
+    const std::string translatedTitle = TranslateAscii(title);
+    const std::string translatedBody = TranslateAscii(body);
+    if (!controller_.Platform().ShowNotification(translatedTitle, translatedBody, err) && !err.empty()) {
       std::cerr << "notification error: " << err << "\n";
     }
   }
 
   void ApplyTick(const lan::host_shell::NativeShellRuntimeLoopResult& tick) {
-    const auto status = Narrow(tick.tracker.statusViewModel.statusText);
-    const auto detail = Narrow(tick.tracker.statusViewModel.detailText);
-    const auto badge = Narrow(tick.tracker.trayIconViewModel.statusBadge);
+    const auto status = TranslateWide(tick.tracker.statusViewModel.statusText);
+    const auto detail = TranslateWide(tick.tracker.statusViewModel.detailText);
+    const auto badge = TranslateWide(tick.tracker.trayIconViewModel.statusBadge);
     const bool stableRunning = tick.tracker.memory.stableServerRunning;
     const bool stableHealthy = tick.tracker.memory.stableHealthReady;
     const bool attention = tick.tracker.chromeInput.attentionNeeded;
@@ -237,24 +264,30 @@ private:
 
     std::string detailLine = detail;
     if (stableRunning) {
-      detailLine += stableHealthy ? " | Healthy" : " | Health degraded";
+      detailLine += stableHealthy ? std::string(" | ") + TranslateWide(L"Healthy")
+                                  : std::string(" | ") + TranslateWide(L"Health degraded");
     } else {
-      detailLine += " | Service stopped";
+      detailLine += std::string(" | ") + TranslateWide(L"Service stopped");
     }
 
     api_.gtk_menu_item_set_label(reinterpret_cast<GtkMenuItem*>(statusItem_), status.c_str());
     api_.gtk_menu_item_set_label(reinterpret_cast<GtkMenuItem*>(detailItem_), detailLine.c_str());
     api_.gtk_menu_item_set_label(reinterpret_cast<GtkMenuItem*>(refreshDashboardItem_),
-                                 canRefreshDashboard ? "Refresh Dashboard" : "Refresh Dashboard (service stopped)");
+                                 canRefreshDashboard ? TranslateWide(L"Refresh Dashboard").c_str()
+                                                     : TranslateWide(L"Refresh Dashboard (service stopped)").c_str());
     api_.gtk_menu_item_set_label(reinterpret_cast<GtkMenuItem*>(openViewerItem_), ViewerLabel(viewers).c_str());
     api_.gtk_menu_item_set_label(reinterpret_cast<GtkMenuItem*>(startServerItem_),
-                                 canStartServer ? "Start Sharing Service" : "Start Sharing Service (already running)");
+                                 canStartServer ? TranslateWide(L"Start Sharing Service").c_str()
+                                                : TranslateWide(L"Start Sharing Service (already running)").c_str());
     api_.gtk_menu_item_set_label(reinterpret_cast<GtkMenuItem*>(stopServerItem_),
-                                 canStopServer ? "Stop Sharing Service" : "Stop Sharing Service (not running)");
+                                 canStopServer ? TranslateWide(L"Stop Sharing Service").c_str()
+                                               : TranslateWide(L"Stop Sharing Service (not running)").c_str());
     api_.gtk_menu_item_set_label(reinterpret_cast<GtkMenuItem*>(openDiagnosticsItem_),
-                                 canOpenDiagnostics ? "Open Diagnostics Folder" : "Open Diagnostics Folder (service stopped)");
+                                 canOpenDiagnostics ? TranslateWide(L"Open Diagnostics Folder").c_str()
+                                                    : TranslateWide(L"Open Diagnostics Folder (service stopped)").c_str());
     api_.gtk_menu_item_set_label(reinterpret_cast<GtkMenuItem*>(exportDiagnosticsItem_),
-                                 canExportDiagnostics ? "Export Diagnostics Snapshot" : "Export Diagnostics Snapshot (no live data yet)");
+                                 canExportDiagnostics ? TranslateWide(L"Export Diagnostics Snapshot").c_str()
+                                                      : TranslateWide(L"Export Diagnostics Snapshot (no live data yet)").c_str());
 
     api_.gtk_widget_set_sensitive(openDashboardItem_, stableRunning ? 1 : 0);
     api_.gtk_widget_set_sensitive(refreshDashboardItem_, canRefreshDashboard ? 1 : 0);
@@ -276,10 +309,10 @@ private:
   void RunAction(Fn&& action, std::string_view successTitle = {}, std::string successBody = {}, bool notifyOnSuccess = false) {
     std::string err;
     if (!action(err)) {
-      if (err.empty()) err = "The requested action failed.";
+      if (err.empty()) err = TranslateWide(L"The requested action failed.");
       Notify("Action failed", err);
     } else if (notifyOnSuccess && !successTitle.empty()) {
-      Notify(successTitle, successBody.empty() ? std::string{"The action completed successfully."} : successBody);
+      Notify(successTitle, successBody.empty() ? TranslateWide(L"The action completed successfully.") : successBody);
     }
     Tick();
   }
@@ -338,7 +371,7 @@ private:
                                              tick.tracker.trayIconViewModel.statusBadge,
                                              err,
                                              &exported)) {
-      if (err.empty()) err = "Failed to export diagnostics snapshot.";
+      if (err.empty()) err = TranslateWide(L"Failed to export diagnostics snapshot.");
       self->Notify("Action failed", err);
     } else {
       self->Notify("Diagnostics exported", exported.string());
@@ -387,6 +420,7 @@ int main(int argc, char** argv) {
   }
   actionConfig.host = endpoint.host;
   actionConfig.port = endpoint.port;
+  actionConfig.localeCode = CurrentLocaleCode();
 
   GtkApi api;
   std::string err;

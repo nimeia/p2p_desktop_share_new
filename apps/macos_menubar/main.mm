@@ -1,5 +1,6 @@
 #import <Cocoa/Cocoa.h>
 
+#include "core/i18n/localization.h"
 #include "host_shell/native_shell_action_controller.h"
 #include "host_shell/native_shell_runtime_loop.h"
 
@@ -14,6 +15,28 @@ NSString* ToNSString(const std::string& value) {
   return [NSString stringWithUTF8String:value.c_str()];
 }
 
+std::wstring WideAscii(std::string_view value) {
+  std::wstring out;
+  out.reserve(value.size());
+  for (unsigned char ch : value) out.push_back(static_cast<wchar_t>(ch));
+  return out;
+}
+
+std::wstring CurrentLocaleCode() {
+  return lan::i18n::LoadPreferredLocale();
+}
+
+NSString* LocalizedWide(std::wstring_view source) {
+  return ToNSString(lan::i18n::TranslateNativeTextUtf8(source, CurrentLocaleCode()));
+}
+
+NSString* LocalizedAscii(std::string_view source) {
+  for (unsigned char ch : source) {
+    if (ch >= 0x80) return ToNSString(std::string(source));
+  }
+  return ToNSString(lan::i18n::TranslateNativeTextUtf8(WideAscii(source), CurrentLocaleCode()));
+}
+
 std::string Narrow(std::wstring_view value) {
   std::string out;
   out.reserve(value.size());
@@ -22,9 +45,9 @@ std::string Narrow(std::wstring_view value) {
 }
 
 NSString* ViewerTitle(std::size_t viewers) {
-  if (viewers == 0) return @"Open Viewer URL";
-  if (viewers == 1) return @"Open Viewer URL (1 viewer)";
-  return [NSString stringWithFormat:@"Open Viewer URL (%zu viewers)", viewers];
+  if (viewers == 0) return LocalizedWide(L"Open Viewer URL");
+  if (viewers == 1) return LocalizedWide(L"Open Viewer URL (1 viewer)");
+  return LocalizedWide(L"Open Viewer URL (" + std::to_wstring(viewers) + L" viewers)");
 }
 
 @interface LanMenuBarController : NSObject {
@@ -71,47 +94,47 @@ NSString* ViewerTitle(std::size_t viewers) {
 
   _statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
   _statusItem.button.title = @"LAN Share";
-  _statusItem.button.toolTip = @"LAN Screen Share Host";
+  _statusItem.button.toolTip = LocalizedWide(L"LAN Screen Share Host");
 
-  NSMenu* menu = [[NSMenu alloc] initWithTitle:@"LAN Screen Share Host"];
-  _statusLineItem = [[NSMenuItem alloc] initWithTitle:@"Status: starting" action:nil keyEquivalent:@""];
-  _detailLineItem = [[NSMenuItem alloc] initWithTitle:@"Waiting for first refresh..." action:nil keyEquivalent:@""];
+  NSMenu* menu = [[NSMenu alloc] initWithTitle:LocalizedWide(L"LAN Screen Share Host")];
+  _statusLineItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Status: starting") action:nil keyEquivalent:@""];
+  _detailLineItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Waiting for first refresh...") action:nil keyEquivalent:@""];
   _statusLineItem.enabled = NO;
   _detailLineItem.enabled = NO;
   [menu addItem:_statusLineItem];
   [menu addItem:_detailLineItem];
   [menu addItem:[NSMenuItem separatorItem]];
 
-  _openDashboardItem = [[NSMenuItem alloc] initWithTitle:@"Open Dashboard" action:@selector(openDashboard:) keyEquivalent:@""];
+  _openDashboardItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Open Dashboard") action:@selector(openDashboard:) keyEquivalent:@""];
   _openDashboardItem.target = self;
   [menu addItem:_openDashboardItem];
 
-  _refreshDashboardItem = [[NSMenuItem alloc] initWithTitle:@"Refresh Dashboard" action:@selector(refreshDashboard:) keyEquivalent:@""];
+  _refreshDashboardItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Refresh Dashboard") action:@selector(refreshDashboard:) keyEquivalent:@""];
   _refreshDashboardItem.target = self;
   [menu addItem:_refreshDashboardItem];
 
-  _openViewerItem = [[NSMenuItem alloc] initWithTitle:@"Open Viewer URL" action:@selector(openViewer:) keyEquivalent:@""];
+  _openViewerItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Open Viewer URL") action:@selector(openViewer:) keyEquivalent:@""];
   _openViewerItem.target = self;
   [menu addItem:_openViewerItem];
 
-  _startServerItem = [[NSMenuItem alloc] initWithTitle:@"Start Sharing Service" action:@selector(startServer:) keyEquivalent:@""];
+  _startServerItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Start Sharing Service") action:@selector(startServer:) keyEquivalent:@""];
   _startServerItem.target = self;
   [menu addItem:_startServerItem];
 
-  _stopServerItem = [[NSMenuItem alloc] initWithTitle:@"Stop Sharing Service" action:@selector(stopServer:) keyEquivalent:@""];
+  _stopServerItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Stop Sharing Service") action:@selector(stopServer:) keyEquivalent:@""];
   _stopServerItem.target = self;
   [menu addItem:_stopServerItem];
 
-  _openDiagnosticsItem = [[NSMenuItem alloc] initWithTitle:@"Open Diagnostics Folder" action:@selector(openDiagnostics:) keyEquivalent:@""];
+  _openDiagnosticsItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Open Diagnostics Folder") action:@selector(openDiagnostics:) keyEquivalent:@""];
   _openDiagnosticsItem.target = self;
   [menu addItem:_openDiagnosticsItem];
 
-  _exportDiagnosticsItem = [[NSMenuItem alloc] initWithTitle:@"Export Diagnostics Snapshot" action:@selector(exportDiagnostics:) keyEquivalent:@""];
+  _exportDiagnosticsItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Export Diagnostics Snapshot") action:@selector(exportDiagnostics:) keyEquivalent:@""];
   _exportDiagnosticsItem.target = self;
   [menu addItem:_exportDiagnosticsItem];
 
   [menu addItem:[NSMenuItem separatorItem]];
-  NSMenuItem* quitItem = [[NSMenuItem alloc] initWithTitle:@"Quit" action:@selector(quit:) keyEquivalent:@"q"];
+  NSMenuItem* quitItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Quit") action:@selector(quit:) keyEquivalent:@"q"];
   quitItem.target = self;
   [menu addItem:quitItem];
 
@@ -129,7 +152,7 @@ NSString* ViewerTitle(std::size_t viewers) {
 }
 
 - (void)applyTick:(const lan::host_shell::NativeShellRuntimeLoopResult&)tick {
-  const auto status = ToNSString(Narrow(tick.tracker.statusViewModel.statusText));
+  const auto status = LocalizedWide(tick.tracker.statusViewModel.statusText);
   const bool stableRunning = tick.tracker.memory.stableServerRunning;
   const bool stableHealthy = tick.tracker.memory.stableHealthReady;
   const bool attention = tick.tracker.chromeInput.attentionNeeded;
@@ -141,27 +164,28 @@ NSString* ViewerTitle(std::size_t viewers) {
   const bool canOpenDiagnostics = stableRunning || attention;
   const bool canExportDiagnostics = canOpenDiagnostics || viewers > 0;
 
-  std::string detail = Narrow(tick.tracker.statusViewModel.detailText);
+  std::string detail = lan::i18n::TranslateNativeTextUtf8(tick.tracker.statusViewModel.detailText, CurrentLocaleCode());
   if (stableRunning) {
-    detail += stableHealthy ? " | Healthy" : " | Health degraded";
+    detail += stableHealthy ? std::string(" | ") + lan::i18n::TranslateNativeTextUtf8(L"Healthy", CurrentLocaleCode())
+                            : std::string(" | ") + lan::i18n::TranslateNativeTextUtf8(L"Health degraded", CurrentLocaleCode());
   } else {
-    detail += " | Service stopped";
+    detail += std::string(" | ") + lan::i18n::TranslateNativeTextUtf8(L"Service stopped", CurrentLocaleCode());
   }
   NSString* detailText = ToNSString(detail);
-  NSString* badge = ToNSString(Narrow(tick.tracker.trayIconViewModel.statusBadge));
+  NSString* badge = LocalizedWide(tick.tracker.trayIconViewModel.statusBadge);
 
   _statusLineItem.title = status;
   _detailLineItem.title = detailText;
   _statusItem.button.title = badge.length > 0 ? badge : @"LAN Share";
-  _statusItem.button.toolTip = detailText.length > 0 ? detailText : @"LAN Screen Share Host";
+  _statusItem.button.toolTip = detailText.length > 0 ? detailText : LocalizedWide(L"LAN Screen Share Host");
   _openDashboardItem.enabled = stableRunning;
   _refreshDashboardItem.enabled = canRefreshDashboard;
-  _refreshDashboardItem.title = canRefreshDashboard ? @"Refresh Dashboard" : @"Refresh Dashboard (service stopped)";
+  _refreshDashboardItem.title = canRefreshDashboard ? LocalizedWide(L"Refresh Dashboard") : LocalizedWide(L"Refresh Dashboard (service stopped)");
   _openViewerItem.enabled = canOpenViewer;
   _startServerItem.enabled = canStartServer;
-  _startServerItem.title = canStartServer ? @"Start Sharing Service" : @"Start Sharing Service (already running)";
+  _startServerItem.title = canStartServer ? LocalizedWide(L"Start Sharing Service") : LocalizedWide(L"Start Sharing Service (already running)");
   _stopServerItem.enabled = canStopServer;
-  _stopServerItem.title = canStopServer ? @"Stop Sharing Service" : @"Stop Sharing Service (not running)";
+  _stopServerItem.title = canStopServer ? LocalizedWide(L"Stop Sharing Service") : LocalizedWide(L"Stop Sharing Service (not running)");
   _openViewerItem.title = ViewerTitle(viewers);
   _openDiagnosticsItem.enabled = canOpenDiagnostics;
   _exportDiagnosticsItem.enabled = canExportDiagnostics;
@@ -180,10 +204,11 @@ NSString* ViewerTitle(std::size_t viewers) {
    notifyOnSuccess:(BOOL)notifyOnSuccess {
   std::string err;
   if (!action(err)) {
-    if (err.empty()) err = "The requested action failed.";
-    [self notifyTitle:"Action failed" body:err];
+    if (err.empty()) err = lan::i18n::TranslateNativeTextUtf8(L"The requested action failed.", CurrentLocaleCode());
+    [self notifyTitle:lan::i18n::TranslateNativeTextUtf8(L"Action failed", CurrentLocaleCode()) body:err];
   } else if (notifyOnSuccess && !successTitle.empty()) {
-    [self notifyTitle:successTitle body:successBody.empty() ? std::string{"The action completed successfully."} : successBody];
+    [self notifyTitle:lan::i18n::TranslateNativeTextUtf8(WideAscii(successTitle), CurrentLocaleCode())
+                body:successBody.empty() ? lan::i18n::TranslateNativeTextUtf8(L"The action completed successfully.", CurrentLocaleCode()) : successBody];
   }
   [self refresh:nil];
 }
@@ -283,6 +308,7 @@ int main(int argc, char** argv) {
     }
     actionConfig.host = endpoint.host;
     actionConfig.port = endpoint.port;
+    actionConfig.localeCode = CurrentLocaleCode();
 
     auto controller = std::make_unique<lan::host_shell::NativeShellActionController>(std::move(actionConfig));
     auto loop = std::make_unique<lan::host_shell::NativeShellRuntimeLoop>(lan::host_shell::MakeNativeShellPollFunction(endpoint),

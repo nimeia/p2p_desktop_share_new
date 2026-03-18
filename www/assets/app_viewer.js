@@ -6,8 +6,11 @@
  */
 
 const room = qs("room");
+const translateUi = (text) => window.LanShareI18n && typeof window.LanShareI18n.translateText === "function"
+  ? window.LanShareI18n.translateText(text)
+  : text;
 document.getElementById("room").textContent = room || "(missing)";
-document.title = room ? `LAN Viewer - ${room}` : "LAN Viewer";
+document.title = translateUi(room ? `LAN Viewer - ${room}` : "LAN Viewer");
 
 const viewerShell = document.getElementById("viewerShell");
 const video = document.getElementById("video");

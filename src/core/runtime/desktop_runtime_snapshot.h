@@ -7,6 +7,7 @@
 namespace lan::runtime {
 
 struct DesktopRuntimeSnapshotInput {
+  std::wstring localeCode;
   std::wstring networkMode;
   std::wstring hostIp;
   std::wstring bindAddress;

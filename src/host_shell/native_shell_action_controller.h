@@ -26,6 +26,7 @@ struct NativeShellActionConfig {
   int port = 8443;
   std::wstring room = L"demo";
   std::wstring token = L"demo";
+  std::wstring localeCode;
   std::filesystem::path diagnosticsDir = std::filesystem::current_path() / "out" / "diagnostics";
   std::filesystem::path serverExecutable;
   std::vector<std::string> serverArguments;

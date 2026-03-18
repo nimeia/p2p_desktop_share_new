@@ -34,6 +34,7 @@ struct AdminViewNetworkCandidate {
 };
 
 struct AdminViewModelInput {
+  std::wstring localeCode;
   std::wstring appName;
   std::wstring nativePage;
   DesktopRuntimeSnapshot runtimeSnapshot;
@@ -76,6 +77,7 @@ struct AdminViewModelInput {
 };
 
 struct AdminSnapshotViewModel {
+  std::wstring localeCode;
   std::wstring appName;
   std::wstring nativePage;
   std::wstring dashboardState;

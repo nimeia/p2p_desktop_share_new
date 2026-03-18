@@ -14,6 +14,7 @@ void Expect(bool condition, const char* message) {
 
 lan::runtime::AdminViewModelInput BuildInput() {
   lan::runtime::AdminViewModelInput input;
+  input.localeCode = L"ru";
   input.appName = L"LanScreenShareHostApp";
   input.nativePage = L"dashboard";
   input.runtimeSnapshot.session.bindAddress = L"0.0.0.0";
@@ -60,6 +61,7 @@ int main() {
   Expect(!idlePolicy.shouldPublish, "idle policy should not publish");
 
   const auto snapshot = BuildAdminShellSnapshotState(BuildInput());
+  Expect(snapshot.localeCode == L"ru", "snapshot locale should be preserved");
   Expect(snapshot.nativePage == L"dashboard", "snapshot page should be preserved");
   Expect(snapshot.hostIp == L"192.168.1.5", "snapshot host ip should be preserved");
   Expect(snapshot.rooms == 1 && snapshot.viewers == 2, "snapshot room/viewer counts should be preserved");
@@ -80,6 +82,8 @@ int main() {
   Expect(!publishedJson.empty(), "publisher hook should receive json");
   Expect(publishedJson.find(L"\"name\":\"state.snapshot\"") != std::wstring::npos,
          "published json should contain snapshot event name");
+  Expect(publishedJson.find(L"\"locale\":\"ru\"") != std::wstring::npos,
+         "published json should contain locale");
   Expect(publishedJson.find(L"\"hostIp\":\"192.168.1.5\"") != std::wstring::npos,
          "published json should contain host ip");
 

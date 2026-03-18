@@ -4,6 +4,7 @@
 #include "MainWindow.h"
 #include "DesktopCommandIds.h"
 #include "UrlUtil.h"
+#include "core/i18n/localization.h"
 
 namespace fs = std::filesystem;
 
@@ -153,7 +154,8 @@ void ShellEffectExecutor::CreateTrayIcon(MainWindow& window) {
     if (!nid.hIcon) {
         nid.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
     }
-    lstrcpynW(nid.szTip, L"LAN Screen Share Host", _countof(nid.szTip));
+    const auto tip = lan::i18n::TranslateNativeText(L"LAN Screen Share Host", window.m_localeCode);
+    lstrcpynW(nid.szTip, tip.c_str(), _countof(nid.szTip));
     if (Shell_NotifyIconW(NIM_ADD, &nid)) {
         window.m_trayIconAdded = true;
         nid.uVersion = NOTIFYICON_VERSION_4;
@@ -183,10 +185,13 @@ void ShellEffectExecutor::UpdateTrayIcon(MainWindow& window) {
     nid.hWnd = window.m_hwnd;
     nid.uID = kHostTrayIconUid;
     nid.uFlags = NIF_TIP | NIF_SHOWTIP | NIF_INFO;
-    lstrcpynW(nid.szTip, viewModel.tooltip.c_str(), _countof(nid.szTip));
+    const auto tooltip = lan::i18n::TranslateNativeText(viewModel.tooltip, window.m_localeCode);
+    lstrcpynW(nid.szTip, tooltip.c_str(), _countof(nid.szTip));
     if (viewModel.showBalloon) {
-        lstrcpynW(nid.szInfoTitle, viewModel.balloonTitle.c_str(), _countof(nid.szInfoTitle));
-        lstrcpynW(nid.szInfo, viewModel.balloonText.c_str(), _countof(nid.szInfo));
+        const auto title = lan::i18n::TranslateNativeText(viewModel.balloonTitle, window.m_localeCode);
+        const auto body = lan::i18n::TranslateNativeText(viewModel.balloonText, window.m_localeCode);
+        lstrcpynW(nid.szInfoTitle, title.c_str(), _countof(nid.szInfoTitle));
+        lstrcpynW(nid.szInfo, body.c_str(), _countof(nid.szInfo));
         nid.dwInfoFlags = NIIF_INFO;
         window.m_trayBalloonShown = true;
     }
@@ -199,19 +204,27 @@ void ShellEffectExecutor::ShowTrayMenu(MainWindow& window) {
     if (!menu) return;
 
     const auto viewModel = lan::runtime::BuildTrayMenuViewModel(window.BuildShellChromeStateInput());
+    const auto locale = window.m_localeCode;
 
-    AppendMenuW(menu, MF_STRING, ID_TRAY_OPEN_DASHBOARD, L"Open Dashboard");
+    const auto openDashboard = lan::i18n::TranslateNativeText(L"Open Dashboard", locale);
+    AppendMenuW(menu, MF_STRING, ID_TRAY_OPEN_DASHBOARD, openDashboard.c_str());
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
     if (viewModel.showStopSharing) {
-        AppendMenuW(menu, MF_STRING, ID_TRAY_STOP_SHARING, L"Stop Sharing");
+        const auto stopSharing = lan::i18n::TranslateNativeText(L"Stop Sharing Service", locale);
+        AppendMenuW(menu, MF_STRING, ID_TRAY_STOP_SHARING, stopSharing.c_str());
     } else {
-        AppendMenuW(menu, MF_STRING, ID_TRAY_START_SHARING, L"Start Sharing");
+        const auto startSharing = lan::i18n::TranslateNativeText(L"Start Sharing Service", locale);
+        AppendMenuW(menu, MF_STRING, ID_TRAY_START_SHARING, startSharing.c_str());
     }
-    AppendMenuW(menu, TrayMenuFlags(viewModel.copyViewerUrlEnabled), ID_TRAY_COPY_VIEWER_URL, L"Copy Viewer URL");
-    AppendMenuW(menu, TrayMenuFlags(viewModel.showQrEnabled), ID_TRAY_SHOW_QR, L"Show QR / Share Card");
-    AppendMenuW(menu, TrayMenuFlags(viewModel.openShareWizardEnabled), ID_TRAY_OPEN_SHARE_WIZARD, L"Open Share Wizard");
+    const auto copyViewer = lan::i18n::TranslateNativeText(L"Copy Viewer URL", locale);
+    const auto showQr = lan::i18n::TranslateNativeText(L"Show QR / Share Card", locale);
+    const auto openWizard = lan::i18n::TranslateNativeText(L"Open Share Wizard", locale);
+    const auto exitText = lan::i18n::TranslateNativeText(L"Quit", locale);
+    AppendMenuW(menu, TrayMenuFlags(viewModel.copyViewerUrlEnabled), ID_TRAY_COPY_VIEWER_URL, copyViewer.c_str());
+    AppendMenuW(menu, TrayMenuFlags(viewModel.showQrEnabled), ID_TRAY_SHOW_QR, showQr.c_str());
+    AppendMenuW(menu, TrayMenuFlags(viewModel.openShareWizardEnabled), ID_TRAY_OPEN_SHARE_WIZARD, openWizard.c_str());
     AppendMenuW(menu, MF_SEPARATOR, 0, nullptr);
-    AppendMenuW(menu, MF_STRING, ID_TRAY_EXIT, L"Exit");
+    AppendMenuW(menu, MF_STRING, ID_TRAY_EXIT, exitText.c_str());
 
     POINT pt{};
     GetCursorPos(&pt);

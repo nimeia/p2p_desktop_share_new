@@ -5,6 +5,7 @@ namespace {
 
 RuntimeSessionState BuildSessionState(const DesktopRuntimeSnapshotInput& input) {
   RuntimeSessionState session;
+  session.localeCode = input.localeCode;
   session.networkMode = input.networkMode;
   session.hostIp = input.hostIp;
   session.bindAddress = input.bindAddress;

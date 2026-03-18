@@ -6,6 +6,7 @@
 namespace lan::runtime {
 
 struct RuntimeSessionState {
+  std::wstring localeCode;
   std::wstring networkMode;
   std::wstring hostIp;
   std::wstring bindAddress;

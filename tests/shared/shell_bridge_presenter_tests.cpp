@@ -48,6 +48,11 @@ int main() {
   const auto trustCertCommand = ParseShellBridgeInboundMessage(L"{\"source\":\"admin-shell\",\"kind\":\"command\",\"command\":\"trust-local-certificate\"}");
   Expect(trustCertCommand.adminCommand.kind == ShellBridgeAdminCommandKind::TrustLocalCertificate, "trust-local-certificate should map correctly");
 
+  const auto localeCommand = ParseShellBridgeInboundMessage(
+      L"{\"source\":\"admin-shell\",\"kind\":\"command\",\"command\":\"set-language\",\"locale\":\"de\"}");
+  Expect(localeCommand.adminCommand.kind == ShellBridgeAdminCommandKind::SetLanguage, "set-language should map correctly");
+  Expect(localeCommand.adminCommand.locale == L"de", "locale should be parsed");
+
   const auto status = ParseShellBridgeInboundMessage(L"{\"kind\":\"status\",\"state\":\"sharing\",\"viewers\":3}");
   Expect(status.source == ShellBridgeSource::HostPage, "host page source should default correctly");
   Expect(status.kind == ShellBridgeInboundKind::HostStatus, "host status should map correctly");
@@ -59,6 +64,7 @@ int main() {
   Expect(log.logMessage == L"viewer connected", "host log message should be parsed");
 
   ShellBridgeSnapshotState snapshot;
+  snapshot.localeCode = L"ja";
   snapshot.appName = L"LanScreenShareHostApp";
   snapshot.nativePage = L"dashboard";
   snapshot.dashboardState = L"ready";
@@ -80,6 +86,7 @@ int main() {
   const auto json = BuildShellBridgeSnapshotEventJson(snapshot);
   Expect(json.find(L"\"type\":\"event\"") != std::wstring::npos, "snapshot json should contain event envelope");
   Expect(json.find(L"\"name\":\"state.snapshot\"") != std::wstring::npos, "snapshot json should contain event name");
+  Expect(json.find(L"\"locale\":\"ja\"") != std::wstring::npos, "snapshot json should contain locale");
   Expect(json.find(L"\"hostIp\":\"192.168.1.5\"") != std::wstring::npos, "snapshot json should contain host ip");
   Expect(json.find(L"\"networkCandidates\":[{") != std::wstring::npos, "snapshot json should contain network candidate array");
   Expect(json.find(L"\"recommended\":true") != std::wstring::npos, "snapshot json should contain candidate flags");

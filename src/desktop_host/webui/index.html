@@ -16,6 +16,10 @@
           <span class="muted">专业但易用的共享引导</span>
         </div>
         <div class="action-row compact">
+          <label class="locale-inline">
+            <span>Language</span>
+            <select data-language-select></select>
+          </label>
           <button class="ghost" data-command="request-snapshot">重新检测</button>
           <button class="ghost" data-route-target="advanced">高级诊断</button>
         </div>
@@ -87,6 +91,10 @@
           <span class="muted" id="prepareModeBadgeText">系统正在整理共享路径</span>
         </div>
         <div class="action-row compact">
+          <label class="locale-inline">
+            <span>Language</span>
+            <select data-language-select></select>
+          </label>
           <button class="ghost" data-route-target="guide">返回选择</button>
           <button class="ghost" data-route-target="advanced">高级诊断</button>
         </div>
@@ -140,6 +148,10 @@
           <span class="muted">把连接方式交给对方，然后开始共享内容</span>
         </div>
         <div class="action-row compact">
+          <label class="locale-inline">
+            <span>Language</span>
+            <select data-language-select></select>
+          </label>
           <button class="ghost" data-route-target="guide">更换连接方式</button>
           <button class="ghost" data-route-target="advanced">高级诊断</button>
         </div>
@@ -224,6 +236,10 @@
         <div class="hero-meta">
           <div class="status idle" id="bridgeStatus">Waiting for bridge</div>
           <div class="action-row compact">
+            <label class="locale-inline">
+              <span>Language</span>
+              <select data-language-select></select>
+            </label>
             <button class="ghost" data-route-target="last-simple">返回简化模式</button>
           </div>
           <div class="native-note">The HTML admin shell now owns the main workflow. Native pages remain in place only as a fallback when WebView2 is unavailable.</div>
@@ -588,6 +604,7 @@
     </div>
   </div>
 
+  <script src="/assets/i18n.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>

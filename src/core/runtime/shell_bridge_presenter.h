@@ -19,6 +19,7 @@ struct ShellBridgeAdapterCandidate {
 };
 
 struct ShellBridgeSnapshotState {
+  std::wstring localeCode;
   std::wstring appName;
   std::wstring nativePage;
   std::wstring dashboardState;
@@ -147,11 +148,13 @@ enum class ShellBridgeAdminCommandKind {
   ExportRemoteProbeGuide,
   OpenConnectedDevices,
   SwitchPage,
+  SetLanguage,
 };
 
 struct ShellBridgeAdminCommand {
   ShellBridgeAdminCommandKind kind = ShellBridgeAdminCommandKind::None;
   std::wstring commandName;
+  std::wstring locale;
   std::wstring room;
   std::wstring token;
   std::wstring bind;

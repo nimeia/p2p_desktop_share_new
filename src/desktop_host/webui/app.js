@@ -50,7 +50,10 @@
 
   function debugNow() {
     const now = new Date();
-    return now.toLocaleTimeString("zh-CN", { hour12: false });
+    const locale = window.LanShareI18n && typeof window.LanShareI18n.getLocale === "function"
+      ? window.LanShareI18n.getLocale()
+      : "en";
+    return now.toLocaleTimeString(locale, { hour12: false });
   }
 
   function formatDebugExtra(extra) {
@@ -1827,6 +1830,20 @@
         tryFlushHostBridgeCommand();
       });
     }
+
+    document.querySelectorAll("[data-language-select]").forEach((select) => {
+      if (select.dataset.boundLanguage === "true") return;
+      select.dataset.boundLanguage = "true";
+      select.addEventListener("change", () => {
+        const locale = select.value || "en";
+        if (window.LanShareI18n && typeof window.LanShareI18n.setLocale === "function") {
+          window.LanShareI18n.setLocale(locale);
+        }
+        if (window.chrome && window.chrome.webview) {
+          send({ kind: "command", command: "set-language", locale });
+        }
+      });
+    });
   }
 
   function bindBridge() {
@@ -2134,12 +2151,18 @@
 
   function render(payload) {
     Object.assign(state, payload || {});
+    if (state.locale && window.LanShareI18n && typeof window.LanShareI18n.setLocale === "function") {
+      window.LanShareI18n.setLocale(state.locale, { persist: false });
+    }
     updateRouteFromSnapshot(state);
     syncGuidedShareFlags(state);
     renderSimpleMode(state);
     renderAdvancedShell(state);
     runGuidedPreparation(state);
     tryFlushHostBridgeCommand();
+    if (window.LanShareI18n && typeof window.LanShareI18n.applyDocument === "function") {
+      window.LanShareI18n.applyDocument();
+    }
   }
 
   bindButtons();

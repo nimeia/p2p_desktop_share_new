@@ -158,6 +158,7 @@ ShellBridgeAdminCommandKind ParseAdminCommandKind(std::wstring_view command) {
   if (command == L"export-remote-probe-guide") return ShellBridgeAdminCommandKind::ExportRemoteProbeGuide;
   if (command == L"open-connected-devices") return ShellBridgeAdminCommandKind::OpenConnectedDevices;
   if (command == L"switch-page") return ShellBridgeAdminCommandKind::SwitchPage;
+  if (command == L"set-language") return ShellBridgeAdminCommandKind::SetLanguage;
   return ShellBridgeAdminCommandKind::None;
 }
 
@@ -202,6 +203,8 @@ ShellBridgeInboundMessage ParseAdminShellMessage(std::wstring_view payload, std:
     message.adminCommand.password = JsonStringField(payload, L"password");
   } else if (message.adminCommand.kind == ShellBridgeAdminCommandKind::SwitchPage) {
     message.adminCommand.page = JsonStringField(payload, L"page");
+  } else if (message.adminCommand.kind == ShellBridgeAdminCommandKind::SetLanguage) {
+    message.adminCommand.locale = JsonStringField(payload, L"locale");
   }
 
   return message;
@@ -260,6 +263,7 @@ std::wstring BuildShellBridgeSnapshotEventJson(const ShellBridgeSnapshotState& s
   AppendJsonString(json, "type", L"event");
   AppendJsonString(json, "name", L"state.snapshot");
   json << "\"payload\":{";
+  AppendJsonString(json, "locale", snapshot.localeCode);
   AppendJsonString(json, "app", snapshot.appName);
   AppendJsonString(json, "nativePage", snapshot.nativePage);
   AppendJsonString(json, "dashboardState", snapshot.dashboardState);

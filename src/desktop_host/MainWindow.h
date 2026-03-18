@@ -27,6 +27,7 @@
 #include "core/runtime/host_runtime_scheduler.h"
 #include "core/runtime/admin_view_model_assembler.h"
 #include "core/runtime/diagnostics_view_model_assembler.h"
+#include "core/i18n/localization.h"
 #include "platform/abstraction/platform_service_facade.h"
 
 namespace fs = std::filesystem;
@@ -471,4 +472,5 @@ private:
     std::wstring m_certBypassPolicy = L"plain-http-first";
     std::wstring m_webViewBehavior = L"embedded-when-available";
     std::wstring m_startupHook = L"(not configured)";
+    std::wstring m_localeCode = L"en";
 };

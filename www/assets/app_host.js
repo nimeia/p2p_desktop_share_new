@@ -8,6 +8,9 @@
 
 const room = qs("room");
 const token = qs("token");
+const translateUi = (text) => window.LanShareI18n && typeof window.LanShareI18n.translateText === "function"
+  ? window.LanShareI18n.translateText(text)
+  : text;
 
 const hostShell = document.getElementById("hostShell");
 const infoEl = document.getElementById("info");
@@ -32,7 +35,7 @@ const hostHintText = document.getElementById("hostHintText");
 roomEl.textContent = room || "(missing)";
 factRoom.textContent = room || "(missing)";
 factToken.textContent = token || "(missing)";
-document.title = room ? `LAN Host - ${room}` : "LAN Host";
+document.title = translateUi(room ? `LAN Host - ${room}` : "LAN Host");
 
 let ws = null;
 const peers = new Map();

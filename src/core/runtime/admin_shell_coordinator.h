@@ -46,6 +46,7 @@ struct AdminShellCoordinatorHooks {
   std::function<void()> exportRemoteProbeGuide;
   std::function<void()> openConnectedDevices;
   std::function<void(std::wstring page)> navigatePage;
+  std::function<void(std::wstring locale)> setLanguage;
 };
 
 struct AdminShellCoordinatorResult {
