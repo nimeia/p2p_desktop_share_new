@@ -2,10 +2,8 @@
 
 #include <boost/asio/connect.hpp>
 #include <boost/asio/ip/tcp.hpp>
-#include <boost/asio/ssl/context.hpp>
 #include <boost/beast/core.hpp>
 #include <boost/beast/http.hpp>
-#include <boost/beast/ssl.hpp>
 #include <boost/beast/websocket.hpp>
 #include <boost/json.hpp>
 
@@ -20,7 +18,6 @@ namespace {
 namespace beast = boost::beast;
 namespace http = beast::http;
 namespace net = boost::asio;
-namespace ssl = net::ssl;
 namespace websocket = beast::websocket;
 using tcp = net::ip::tcp;
 
@@ -59,17 +56,13 @@ struct HttpResult {
   std::string contentType;
 };
 
-HttpResult HttpsGet(uint16_t port, const std::string& target) {
+HttpResult HttpGet(uint16_t port, const std::string& target) {
   net::io_context ioc;
-  ssl::context ctx(ssl::context::tlsv12_client);
-  ctx.set_verify_mode(ssl::verify_none);
-
   tcp::resolver resolver(ioc);
-  beast::ssl_stream<beast::tcp_stream> stream(ioc, ctx);
-  beast::get_lowest_layer(stream).expires_after(std::chrono::seconds(5));
+  beast::tcp_stream stream(ioc);
+  stream.expires_after(std::chrono::seconds(5));
   auto const results = resolver.resolve("127.0.0.1", std::to_string(port));
-  beast::get_lowest_layer(stream).connect(results);
-  stream.handshake(ssl::stream_base::client);
+  stream.connect(results);
 
   http::request<http::empty_body> req{http::verb::get, target, 11};
   req.set(http::field::host, "127.0.0.1");
@@ -81,11 +74,9 @@ HttpResult HttpsGet(uint16_t port, const std::string& target) {
   http::read(stream, buffer, res);
 
   boost::system::error_code ec;
-  stream.shutdown(ec);
-  if (ec == net::error::eof || ec == ssl::error::stream_truncated) {
-    ec = {};
-  }
-  Expect(!ec, "https shutdown should not fail");
+  stream.socket().shutdown(tcp::socket::shutdown_both, ec);
+  if (ec == beast::errc::not_connected) ec = {};
+  Expect(!ec, "http shutdown should not fail");
 
   HttpResult result;
   result.status = static_cast<int>(res.result_int());
@@ -100,7 +91,7 @@ HttpResult HttpsGet(uint16_t port, const std::string& target) {
 bool WaitForHealth(uint16_t port) {
   for (int attempt = 0; attempt < 60; ++attempt) {
     try {
-      const auto res = HttpsGet(port, "/health");
+      const auto res = HttpGet(port, "/health");
       if (res.status == 200 && res.body == "ok") {
         return true;
       }
@@ -127,12 +118,10 @@ boost::json::object ParseJsonObject(const std::string& text) {
 class WsClient {
 public:
   explicit WsClient(uint16_t port)
-      : ctx_(ssl::context::tlsv12_client), resolver_(ioc_), ws_(ioc_, ctx_) {
-    ctx_.set_verify_mode(ssl::verify_none);
+      : resolver_(ioc_), ws_(ioc_) {
     auto const results = resolver_.resolve("127.0.0.1", std::to_string(port));
-    beast::get_lowest_layer(ws_).expires_after(std::chrono::seconds(5));
-    beast::get_lowest_layer(ws_).connect(results);
-    ws_.next_layer().handshake(ssl::stream_base::client);
+    ws_.next_layer().expires_after(std::chrono::seconds(5));
+    ws_.next_layer().connect(results);
     ws_.handshake("127.0.0.1", "/ws");
   }
 
@@ -151,7 +140,7 @@ public:
     boost::system::error_code ec;
     ws_.close(websocket::close_code::normal, ec);
     closed_ = true;
-    if (ec == net::error::eof || ec == ssl::error::stream_truncated || ec == websocket::error::closed) {
+    if (ec == net::error::eof || ec == websocket::error::closed) {
       ec = {};
     }
     Expect(!ec, "websocket close should not fail");
@@ -166,9 +155,8 @@ public:
 
 private:
   net::io_context ioc_;
-  ssl::context ctx_;
   tcp::resolver resolver_;
-  websocket::stream<beast::ssl_stream<beast::tcp_stream>> ws_;
+  websocket::stream<beast::tcp_stream> ws_;
   bool closed_ = false;
 };
 
@@ -178,9 +166,8 @@ int main() {
   using namespace lan::server;
 
   const auto sourceDir = SourceDir();
-  const auto certFile = (sourceDir / "tests" / "fixtures" / "server_test_cert.pem").string();
-  const auto keyFile = (sourceDir / "tests" / "fixtures" / "server_test_key.pem").string();
   const auto wwwRoot = (sourceDir / "www").string();
+  const auto adminRoot = (sourceDir / "src" / "desktop_host" / "webui").string();
   const auto port = PickFreePort();
 
   ServiceHost host;
@@ -188,33 +175,36 @@ int main() {
   cfg.bindAddress = "127.0.0.1";
   cfg.port = port;
   cfg.wwwRoot = wwwRoot;
-  cfg.certFile = certFile;
-  cfg.keyFile = keyFile;
+  cfg.adminRoot = adminRoot;
   cfg.threadCount = 2;
   cfg.maxViewers = 4;
 
   Expect(host.Start(cfg), "service host should start");
   Expect(WaitForHealth(port), "health endpoint should become ready");
 
-  const auto health = HttpsGet(port, "/health");
+  const auto health = HttpGet(port, "/health");
   Expect(health.status == 200, "/health should return 200");
   Expect(health.body == "ok", "/health should return ok");
 
-  const auto hostPage = HttpsGet(port, "/host?room=smoke-room&token=host-token");
+  const auto adminPage = HttpGet(port, "/admin/");
+  Expect(adminPage.status == 200, "admin page should return 200");
+  Expect(adminPage.body.find("app.js") != std::string::npos, "admin page should reference app.js");
+
+  const auto hostPage = HttpGet(port, "/host?room=smoke-room&token=host-token");
   Expect(hostPage.status == 200, "host page should return 200");
   Expect(hostPage.body.find("LAN Screen Share - Host") != std::string::npos, "host page title should be present");
   Expect(hostPage.body.find("/assets/app_host.js") != std::string::npos, "host page should reference app_host.js");
 
-  const auto viewerPage = HttpsGet(port, "/view?room=smoke-room");
+  const auto viewerPage = HttpGet(port, "/view?room=smoke-room");
   Expect(viewerPage.status == 200, "viewer page should return 200");
   Expect(viewerPage.body.find("LAN Screen Share - Viewer") != std::string::npos, "viewer page title should be present");
   Expect(viewerPage.body.find("/assets/app_viewer.js") != std::string::npos, "viewer page should reference app_viewer.js");
 
-  const auto commonJs = HttpsGet(port, "/assets/common.js");
+  const auto commonJs = HttpGet(port, "/assets/common.js");
   Expect(commonJs.status == 200, "common.js should return 200");
   Expect(commonJs.contentType.find("javascript") != std::string::npos, "common.js should be served as javascript");
 
-  const auto statusBefore = ParseJsonObject(HttpsGet(port, "/api/status").body);
+  const auto statusBefore = ParseJsonObject(HttpGet(port, "/api/status").body);
   Expect(statusBefore.contains("running") && statusBefore.at("running").as_bool(), "status should report running=true");
   Expect(statusBefore.at("rooms").as_int64() == 0, "status should start with zero rooms");
   Expect(statusBefore.at("viewers").as_int64() == 0, "status should start with zero viewers");
@@ -235,7 +225,7 @@ int main() {
   Expect(JsonString(peerJoined, "type") == "peer.joined", "host should receive peer.joined");
   Expect(JsonString(peerJoined, "peerId") == viewerPeerId, "peer.joined should reference the viewer id");
 
-  const auto statusJoined = ParseJsonObject(HttpsGet(port, "/api/status").body);
+  const auto statusJoined = ParseJsonObject(HttpGet(port, "/api/status").body);
   Expect(statusJoined.at("rooms").as_int64() == 1, "status should report one room after host registration");
   Expect(statusJoined.at("viewers").as_int64() == 1, "status should report one viewer after join");
 
@@ -266,7 +256,7 @@ int main() {
 
   bool zeroed = false;
   for (int attempt = 0; attempt < 20; ++attempt) {
-    const auto statusAfter = ParseJsonObject(HttpsGet(port, "/api/status").body);
+    const auto statusAfter = ParseJsonObject(HttpGet(port, "/api/status").body);
     if (statusAfter.at("rooms").as_int64() == 0 && statusAfter.at("viewers").as_int64() == 0) {
       zeroed = true;
       break;

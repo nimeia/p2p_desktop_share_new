@@ -80,10 +80,11 @@ function Validate-ServerOutputLayout(
   [string]$ServerBinDir
 ) {
   Assert-PathExists (Join-Path $ServerBinDir "lan_screenshare_server.exe") "server executable"
-  Assert-PathExists (Join-Path $ServerBinDir "cert\server.crt") "server certificate"
-  Assert-PathExists (Join-Path $ServerBinDir "cert\server.key") "server key"
   Assert-PathExists (Join-Path $ServerBinDir "www\host.html") "host page"
   Assert-PathExists (Join-Path $ServerBinDir "www\viewer.html") "viewer page"
+  Assert-PathExists (Join-Path $ServerBinDir "webui\index.html") "admin shell index"
+  Assert-PathExists (Join-Path $ServerBinDir "webui\app.js") "admin shell app"
+  Assert-PathExists (Join-Path $ServerBinDir "webui\style.css") "admin shell style"
 }
 
 $root = Get-RepoRoot
@@ -267,16 +268,15 @@ $pdbCandidate = [System.IO.Path]::ChangeExtension($serverExe, ".pdb")
 if (Test-Path $pdbCandidate) {
   Copy-Item -Force $pdbCandidate (Join-Path $binDir "lan_screenshare_server.pdb")
 }
-# Generate cert (optional)
-  if (-not $SanIp) { $SanIp = Get-DefaultIPv4 }
-  $certDir = Join-Path $binDir "cert"
-  Write-Section "Generate self-signed cert (SanIp=$SanIp)"
-  & (Join-Path $root "scripts\gen_self_signed_cert.ps1") -OutDir $certDir -SanIp $SanIp -VcpkgRoot $vcpkgRootResolved -Triplet $Triplet
-
   # Copy www into the server runtime bundle
   $wwwOut = Join-Path $binDir "www"
   if (Test-Path $wwwOut) { Remove-Item -Recurse -Force $wwwOut }
   Copy-Item -Recurse -Force (Join-Path $root "www") $wwwOut
+
+  # Copy admin webui into the server runtime bundle
+  $adminOut = Join-Path $binDir "webui"
+  if (Test-Path $adminOut) { Remove-Item -Recurse -Force $adminOut }
+  Copy-Item -Recurse -Force (Join-Path $root "src\desktop_host\webui") $adminOut
 
   Write-Section "Validate server output"
   Validate-ServerOutputLayout -ServerBinDir $binDir

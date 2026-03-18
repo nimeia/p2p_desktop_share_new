@@ -27,6 +27,7 @@ struct ShellStateInput {
   bool uiBundleExists = false;
   std::wstring webviewStatus;
   std::wstring webviewDetail;
+  std::wstring shellStartupError;
 };
 
 struct ShellFallbackViewModel {

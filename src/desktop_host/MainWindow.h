@@ -229,6 +229,7 @@ private:
     std::wstring m_logs;
     std::wstring m_timelineText;
     std::wstring m_lastErrorSummary = L"";
+    std::wstring m_shellStartupError = L"";
     bool m_shareWizardOpened = false;
     bool m_handoffStarted = false;
     bool m_handoffDelivered = false;

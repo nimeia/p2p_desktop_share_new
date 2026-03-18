@@ -14,20 +14,14 @@ if (-not (Test-Path $exe)) { Fail "Server exe not found. Build first: scripts\wi
 
 if (-not $SanIp) { $SanIp = Get-DefaultIPv4 }
 $serverDir = Split-Path -Parent $exe
-$certDir = Join-Path $serverDir "cert"
 $wwwDir = Join-Path $serverDir "www"
+$adminDir = Join-Path $serverDir "webui"
 
 if (-not (Test-Path (Join-Path $wwwDir "host.html"))) { Fail "Server www not found: $wwwDir. Rebuild with scripts\\build.ps1 -Target server" }
-
-if (-not (Test-Path $certDir)) {
-  New-Item -ItemType Directory -Force -Path $certDir | Out-Null
-}
-
-if (-not (Test-Path (Join-Path $certDir "server.crt"))) {
-  Write-Host "Server cert not found under $certDir. The server will generate a self-signed certificate on first start." -ForegroundColor Yellow
-}
+if (-not (Test-Path (Join-Path $adminDir "index.html"))) { Fail "Server admin webui not found: $adminDir. Rebuild with scripts\\build.ps1 -Target server" }
 
 Write-Section "Run server"
-Write-Host "Open: https://$SanIp`:$Port/host?room=test&token=test"
-Write-Host "View: https://$SanIp`:$Port/view?room=test"
-& $exe --bind $Bind --port $Port --www $wwwDir --certdir $certDir --san-ip $SanIp
+Write-Host "Admin: http://127.0.0.1`:$Port/admin/"
+Write-Host "Host:  http://127.0.0.1`:$Port/host?room=test&token=test"
+Write-Host "View:  http://$SanIp`:$Port/view?room=test"
+& $exe --bind $Bind --port $Port --www $wwwDir --admin-www $adminDir --san-ip $SanIp

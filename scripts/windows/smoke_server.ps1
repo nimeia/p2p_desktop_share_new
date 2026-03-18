@@ -5,7 +5,7 @@ param(
   [int]$RunFor = 15,
   [string]$ServerExe = "",
   [string]$WwwRoot = "",
-  [string]$CertDir = ""
+  [string]$AdminWww = ""
 )
 
 . (Join-Path $PSScriptRoot "common.ps1")
@@ -17,12 +17,12 @@ if (-not (Test-Path $exe)) {
 }
 
 $resolvedWwwRoot = if ($WwwRoot) { $WwwRoot } else { Join-Path (Split-Path -Parent $exe) "www" }
-$resolvedCertDir = if ($CertDir) { $CertDir } else { Join-Path (Split-Path -Parent $exe) "cert" }
+$resolvedAdminWww = if ($AdminWww) { $AdminWww } else { Join-Path (Split-Path -Parent $exe) "webui" }
 if (-not (Test-Path $resolvedWwwRoot)) {
   Fail "www root not found: $resolvedWwwRoot"
 }
-if (-not (Test-Path $resolvedCertDir)) {
-  Fail "cert dir not found: $resolvedCertDir"
+if (-not (Test-Path $resolvedAdminWww)) {
+  Fail "admin webui root not found: $resolvedAdminWww"
 }
 
 $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
@@ -35,7 +35,7 @@ $args = @(
   "--bind", $BindHost,
   "--port", "$Port",
   "--www", $resolvedWwwRoot,
-  "--certdir", $resolvedCertDir,
+  "--admin-www", $resolvedAdminWww,
   "--run-for", "$RunFor",
   "--no-stdin"
 )
@@ -49,8 +49,8 @@ try {
   }
 
   Write-Section "Check /health"
-  $healthUrl = "https://$BindHost`:$Port/health"
-  $health = & $curl.Source -k --silent --show-error --fail $healthUrl
+  $healthUrl = "http://$BindHost`:$Port/health"
+  $health = & $curl.Source --silent --show-error --fail $healthUrl
   if ($LASTEXITCODE -ne 0 -or $health -ne "ok") {
     Fail "Health check failed for $healthUrl"
   }

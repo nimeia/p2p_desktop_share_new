@@ -130,7 +130,15 @@ ShellFallbackViewModel BuildShellFallbackViewModel(const ShellStateInput& input)
   body << L"Server running: " << (input.serverRunning ? L"yes" : L"no") << L"\r\n";
   body << L"UI bundle found: " << (input.uiBundleExists ? L"yes" : L"no") << L"\r\n\r\n";
 
-  if (input.webviewStatus == L"sdk-unavailable") {
+  if (!input.shellStartupError.empty()) {
+    body << L"Reason\r\n";
+    body << L"- The local admin server failed before the HTML shell could finish loading.\r\n";
+    body << L"- Detail: " << input.shellStartupError << L"\r\n\r\n";
+    body << L"Next step\r\n";
+    body << L"- Confirm lan_screenshare_server.exe, www, and webui are present beside this build, then click Retry Loading UI.\r\n";
+    body << L"- If the detail mentions a bind or port failure, free the port or change the configured bind/port before retrying.\r\n";
+    body << L"- You can still use Start Service / Start + Open Host below.";
+  } else if (input.webviewStatus == L"sdk-unavailable") {
     body << L"Reason\r\n";
     body << L"- This build was compiled without WebView2 SDK headers, so the HTML admin cannot be embedded.\r\n\r\n";
     body << L"Next step\r\n";

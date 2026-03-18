@@ -60,8 +60,8 @@ int main() {
          "monitor detail should include log tail");
 
   const auto diagnostics = BuildDiagnosticsViewModel(input);
-  Expect(diagnostics.checklistCard.find(L"[FIX] Certificate ready") != std::wstring::npos,
-         "diagnostics checklist should reflect cert state");
+  Expect(diagnostics.checklistCard.find(L"[OK] Plain HTTP mode") != std::wstring::npos,
+         "diagnostics checklist should reflect the current HTTP transport mode");
   Expect(diagnostics.checklistCard.find(L"Detail: missing SAN") != std::wstring::npos,
          "diagnostics checklist should include cert detail");
   Expect(diagnostics.checklistCard.find(L"Firewall inbound path") != std::wstring::npos,
@@ -86,6 +86,14 @@ int main() {
          "shell fallback should include runtime recovery guidance");
   Expect(fallback.startButtonLabel == L"Start Service", "shell fallback should expose start label");
   Expect(fallback.startButtonEnabled, "shell fallback start button should be enabled when server stopped");
+
+  shell.webviewStatus = L"not-initialized";
+  shell.webviewDetail.clear();
+  shell.shellStartupError = L"Start failed: server exe not found";
+  const auto startupFallback = BuildShellFallbackViewModel(shell);
+  Expect(startupFallback.showFallback, "shell fallback should stay visible when admin startup fails");
+  Expect(startupFallback.bodyText.find(L"server exe not found") != std::wstring::npos,
+         "shell fallback should surface startup failure detail");
 
   std::cout << "diagnostics view model assembler tests passed\n";
   return 0;

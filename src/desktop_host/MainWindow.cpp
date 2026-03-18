@@ -1624,9 +1624,12 @@ void MainWindow::RestoreWebViewShellState() {
     if (state.surface == lan::desktop::WebViewShellSurface::HtmlAdminPreview && m_server && !m_server->IsRunning()) {
         const auto start = PerformStartServerAction();
         if (!start.ok) {
-            AppendLog(start.detail.empty() ? L"HTML admin shell restore failed" : start.detail);
+            m_shellStartupError = start.detail.empty() ? L"HTML admin shell restore failed" : start.detail;
+            AppendLog(m_shellStartupError);
+            RefreshShellFallback();
             return;
         }
+        m_shellStartupError.clear();
     }
     const auto context = BuildWebViewShellContext();
     const auto plan = lan::desktop::BuildWebViewRestorePlan(state, context);
@@ -1643,13 +1646,23 @@ void MainWindow::NavigateHostInWebView() {
 }
 
 void MainWindow::NavigateHtmlAdminInWebView() {
+    auto pendingState = BuildWebViewShellState();
+    pendingState.surface = lan::desktop::WebViewShellSurface::HtmlAdminPreview;
+    pendingState.adminShellReady = false;
+    pendingState.htmlAdminNavigated = false;
+    ApplyWebViewShellState(pendingState);
+
     if (m_server && !m_server->IsRunning()) {
         const auto start = PerformStartServerAction();
         if (!start.ok) {
-            AppendLog(start.detail.empty() ? L"HTML admin shell start failed" : start.detail);
+            m_shellStartupError = start.detail.empty() ? L"HTML admin shell start failed" : start.detail;
+            AppendLog(m_shellStartupError);
+            RefreshShellFallback();
             return;
         }
     }
+
+    m_shellStartupError.clear();
     auto state = BuildWebViewShellState();
     const auto context = BuildWebViewShellContext();
     const auto plan = lan::desktop::BuildWebViewHtmlAdminNavigationPlan(state, context);
@@ -1868,6 +1881,7 @@ void MainWindow::RefreshShellFallback() {
     input.uiBundleExists = fs::exists(AdminUiDir() / L"index.html");
     input.webviewStatus = m_webview.StatusText();
     input.webviewDetail = m_webview.DetailText();
+    input.shellStartupError = m_shellStartupError;
     const auto viewModel = lan::runtime::BuildShellFallbackViewModel(input);
 
     if (m_hwnd) {
