@@ -95,6 +95,13 @@ int main() {
   Expect(startupFallback.bodyText.find(L"server exe not found") != std::wstring::npos,
          "shell fallback should surface startup failure detail");
 
+  shell.shellStartupError.clear();
+  shell.uiBundleExists = true;
+  shell.webviewStatus = L"ready";
+  const auto loadingShell = BuildShellFallbackViewModel(shell);
+  Expect(!loadingShell.showFallback,
+         "shell fallback should not hide a ready WebView while the admin shell waits for its first snapshot");
+
   std::cout << "diagnostics view model assembler tests passed\n";
   return 0;
 }

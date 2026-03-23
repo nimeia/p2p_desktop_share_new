@@ -395,6 +395,7 @@ stage_outputs() {
     if [[ -f "$tray_bin" ]]; then
       local tray_out="$OUTPUT_DIR/tray"
       stage_file "$tray_bin" "$tray_out"
+      stage_tree "$ROOT_DIR/src/resources/icons/linux" "$tray_out/icons/linux"
       log "Staged tray output to $tray_out"
     fi
   fi

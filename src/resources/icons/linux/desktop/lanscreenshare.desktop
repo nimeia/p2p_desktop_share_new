@@ -1,0 +1,9 @@
+[Desktop Entry]
+Type=Application
+Name=LanScreenShare
+Comment=Desktop sharing host
+Exec=lanscreenshare
+Icon=lanscreenshare
+Terminal=false
+Categories=Network;Utility;
+StartupNotify=true

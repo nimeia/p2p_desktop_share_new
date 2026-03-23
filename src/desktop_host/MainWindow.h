@@ -161,6 +161,9 @@ private:
     void NavigateHostInWebView();
     void NavigateHtmlAdminInWebView();
     void EnsureWebViewInitialized();
+    bool IsLocalAdminServerReady(DWORD timeoutMs) const;
+    bool WaitForLocalAdminServerReady(DWORD timeoutMs) const;
+    void RetryHtmlAdminNavigationIfNeeded(bool serviceReadyConfirmed = false);
     void RefreshHtmlAdminPreview();
     void PublishAdminShellRuntime();
     void HandleAdminShellMessage(std::wstring_view payload);
@@ -250,6 +253,7 @@ private:
     bool m_shareCardExported = false;
     bool m_adminShellReady = false;
     bool m_htmlAdminNavigated = false;
+    ULONGLONG m_lastHtmlAdminNavigateTick = 0;
     WebViewSurfaceMode m_webviewMode = WebViewSurfaceMode::Hidden;
     bool m_shellStartButtonEnabled = true;
 

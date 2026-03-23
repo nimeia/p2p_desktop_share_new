@@ -4,6 +4,7 @@
 #include "WebViewRuntimeDetector.h"
 #include "core/runtime/bootstrap_policy.h"
 
+#include <fstream>
 #include <wrl.h>
 #include <wrl/event.h>
 #include <sstream>
@@ -33,6 +34,21 @@ std::wstring FormatHresult(HRESULT hr) {
     return ss.str();
 }
 
+std::string Utf8FromWide(std::wstring_view text) {
+    if (text.empty()) {
+        return {};
+    }
+
+    const int required = WideCharToMultiByte(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), nullptr, 0, nullptr, nullptr);
+    if (required <= 0) {
+        return {};
+    }
+
+    std::string result(static_cast<std::size_t>(required), '\0');
+    WideCharToMultiByte(CP_UTF8, 0, text.data(), static_cast<int>(text.size()), result.data(), required, nullptr, nullptr);
+    return result;
+}
+
 std::wstring ResolveUserDataFolder() {
     fs::path base;
     wchar_t* localAppData = nullptr;
@@ -58,6 +74,28 @@ std::wstring ResolveUserDataFolder() {
     return dir.wstring();
 }
 
+std::wstring ResolveWebViewAdditionalBrowserArguments() {
+    constexpr wchar_t kRequiredArgs[] = L"--disable-gpu --disable-gpu-compositing";
+
+    wchar_t* existing = nullptr;
+    std::size_t existingLen = 0;
+    if (_wdupenv_s(&existing, &existingLen, L"WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS") != 0 || !existing || existing[0] == L'\0') {
+        free(existing);
+        return kRequiredArgs;
+    }
+
+    std::wstring combined = existing;
+    free(existing);
+    if (combined.find(L"--disable-gpu") != std::wstring::npos) {
+        return combined;
+    }
+    if (!combined.empty() && combined.back() != L' ') {
+        combined.push_back(L' ');
+    }
+    combined += kRequiredArgs;
+    return combined;
+}
+
 }
 
 struct WebViewHost::Impl {
@@ -78,10 +116,19 @@ struct WebViewHost::Impl {
 #endif
 
     void Log(const std::wstring& msg) {
+        if (!userDataFolder.empty()) {
+            std::ofstream stream(fs::path(userDataFolder) / L"webview_trace.log", std::ios::app | std::ios::binary);
+            if (stream.is_open()) {
+                const auto utf8 = Utf8FromWide(msg);
+                stream.write(utf8.data(), static_cast<std::streamsize>(utf8.size()));
+                stream.write("\r\n", 2);
+            }
+        }
         if (log) log(msg);
     }
 
     void EmitWebMessage(const std::wstring& msg) {
+        Log(L"WebView2: recv web message " + msg);
         if (webMessage) webMessage(msg);
     }
 
@@ -147,6 +194,9 @@ bool WebViewHost::Initialize(HWND parent, const RECT& bounds, std::function<void
     } else {
         m_impl->Log(L"WebView2: user data folder fallback to default runtime location");
     }
+    const std::wstring browserArgs = ResolveWebViewAdditionalBrowserArguments();
+    SetEnvironmentVariableW(L"WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS", browserArgs.c_str());
+    m_impl->Log(L"WebView2: browser arguments " + browserArgs);
     if (!runtimeProbe.version.empty()) {
         m_impl->Log(L"WebView2: detected runtime version " + runtimeProbe.version);
     }
@@ -225,6 +275,86 @@ bool WebViewHost::Initialize(HWND parent, const RECT& bounds, std::function<void
                                             return S_OK;
                                         }).Get(),
                                     &msgTok);
+
+                                EventRegistrationToken navStartTok{};
+                                current->webview->add_NavigationStarting(
+                                    Callback<ICoreWebView2NavigationStartingEventHandler>(
+                                        [this](ICoreWebView2*, ICoreWebView2NavigationStartingEventArgs* args) -> HRESULT {
+                                            if (!m_impl || !args) return S_OK;
+                                            LPWSTR uri = nullptr;
+                                            if (SUCCEEDED(args->get_Uri(&uri)) && uri) {
+                                                m_impl->Log(L"WebView2: navigating to " + std::wstring(uri));
+                                                CoTaskMemFree(uri);
+                                            }
+                                            m_impl->detail.clear();
+                                            return S_OK;
+                                        }).Get(),
+                                    &navStartTok);
+
+                                EventRegistrationToken navCompletedTok{};
+                                current->webview->add_NavigationCompleted(
+                                    Callback<ICoreWebView2NavigationCompletedEventHandler>(
+                                        [this](ICoreWebView2*, ICoreWebView2NavigationCompletedEventArgs* args) -> HRESULT {
+                                            if (!m_impl || !args) return S_OK;
+
+                                            BOOL success = FALSE;
+                                            if (SUCCEEDED(args->get_IsSuccess(&success)) && success) {
+                                                m_impl->detail.clear();
+                                                m_impl->Log(L"WebView2: navigation completed");
+                                                const std::wstring activeUrl = !m_impl->currentUrl.empty() ? m_impl->currentUrl : m_impl->pendingUrl;
+                                                if (m_impl->webview && activeUrl.find(L"/admin/") != std::wstring::npos) {
+                                                    static constexpr wchar_t kAdminDomProbe[] = LR"JS(
+(() => {
+  try {
+    const shell = document.querySelector('.shell');
+    const activeRoute = Array.from(document.querySelectorAll('[data-route-view]')).find((node) => !node.hasAttribute('hidden'));
+    const shellStyle = shell ? getComputedStyle(shell) : null;
+    const bodyStyle = document.body ? getComputedStyle(document.body) : null;
+    const rect = shell ? shell.getBoundingClientRect() : { width: 0, height: 0 };
+    const text = shell ? shell.innerText.trim() : (document.body ? document.body.innerText.trim() : '');
+    return {
+      title: document.title || '',
+      readyState: document.readyState,
+      shellPresent: !!shell,
+      activeRoute: activeRoute ? activeRoute.getAttribute('data-route-view') : '',
+      shellDisplay: shellStyle ? shellStyle.display : '',
+      shellVisibility: shellStyle ? shellStyle.visibility : '',
+      shellOpacity: shellStyle ? shellStyle.opacity : '',
+      shellWidth: Math.round(rect.width || 0),
+      shellHeight: Math.round(rect.height || 0),
+      bodyBackgroundColor: bodyStyle ? bodyStyle.backgroundColor : '',
+      textLength: text.length,
+      textSample: text.slice(0, 180)
+    };
+  } catch (error) {
+    return { probeError: String(error) };
+  }
+})()
+)JS";
+                                                    m_impl->webview->ExecuteScript(
+                                                        kAdminDomProbe,
+                                                        Callback<ICoreWebView2ExecuteScriptCompletedHandler>(
+                                                            [this](HRESULT scriptResult, LPCWSTR resultObjectAsJson) -> HRESULT {
+                                                                if (!m_impl) return S_OK;
+                                                                if (FAILED(scriptResult)) {
+                                                                    m_impl->Log(L"WebView2: admin DOM probe failed " + FormatHresult(scriptResult));
+                                                                    return S_OK;
+                                                                }
+                                                                m_impl->Log(L"WebView2: admin DOM probe " +
+                                                                            std::wstring(resultObjectAsJson ? resultObjectAsJson : L"null"));
+                                                                return S_OK;
+                                                            }).Get());
+                                                }
+                                                return S_OK;
+                                            }
+
+                                            COREWEBVIEW2_WEB_ERROR_STATUS errorStatus = COREWEBVIEW2_WEB_ERROR_STATUS_UNKNOWN;
+                                            args->get_WebErrorStatus(&errorStatus);
+                                            m_impl->detail = L"Navigation failed with WebErrorStatus=" + std::to_wstring(static_cast<int>(errorStatus));
+                                            m_impl->Log(L"WebView2: " + m_impl->detail);
+                                            return S_OK;
+                                        }).Get(),
+                                    &navCompletedTok);
 
                                 current->status = L"ready";
                                 current->detail.clear();

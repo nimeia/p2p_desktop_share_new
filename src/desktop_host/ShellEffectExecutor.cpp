@@ -14,6 +14,64 @@ UINT TrayMenuFlags(bool enabled) {
     return MF_STRING | (enabled ? 0 : MF_GRAYED);
 }
 
+int GetTrayIconMetric(int metric, HWND hwnd) {
+    using GetDpiForWindowFn = UINT(WINAPI*)(HWND);
+    using GetSystemMetricsForDpiFn = int(WINAPI*)(int, UINT);
+
+    const HMODULE user32 = GetModuleHandleW(L"user32.dll");
+    const auto getDpiForWindow = reinterpret_cast<GetDpiForWindowFn>(
+        user32 ? GetProcAddress(user32, "GetDpiForWindow") : nullptr);
+    const auto getSystemMetricsForDpi = reinterpret_cast<GetSystemMetricsForDpiFn>(
+        user32 ? GetProcAddress(user32, "GetSystemMetricsForDpi") : nullptr);
+
+    if (hwnd && getDpiForWindow && getSystemMetricsForDpi) {
+        const UINT dpi = getDpiForWindow(hwnd);
+        if (dpi > 0) {
+            const int scaled = getSystemMetricsForDpi(metric, dpi);
+            if (scaled > 0) return scaled;
+        }
+    }
+
+    const int fallback = GetSystemMetrics(metric);
+    return fallback > 0 ? fallback : 16;
+}
+
+UINT SelectTrayIconResourceId(const lan::runtime::ShellChromeStateInput& input) {
+    if (input.attentionNeeded) return 103;
+    if (input.viewerCount > 0) return 105;
+    if (input.serverRunning && input.hostStateSharing) return 107;
+    return 101;
+}
+
+UINT SelectTrayIconFallbackResourceId(UINT resourceId) {
+    switch (resourceId) {
+    case 103:
+        return 104;
+    case 105:
+        return 106;
+    case 107:
+        return 108;
+    case 101:
+    default:
+        return 102;
+    }
+}
+
+HICON LoadTrayIconForState(const lan::runtime::ShellChromeStateInput& input, HWND hwnd) {
+    const UINT resourceId = SelectTrayIconResourceId(input);
+    const UINT fallbackId = SelectTrayIconFallbackResourceId(resourceId);
+    const int width = GetTrayIconMetric(SM_CXSMICON, hwnd);
+    const int height = GetTrayIconMetric(SM_CYSMICON, hwnd);
+    const UINT flags = LR_DEFAULTCOLOR | LR_SHARED;
+    HICON icon = static_cast<HICON>(LoadImageW(
+        GetModuleHandle(nullptr), MAKEINTRESOURCEW(resourceId), IMAGE_ICON, width, height, flags));
+    if (!icon) {
+        icon = static_cast<HICON>(LoadImageW(
+            GetModuleHandle(nullptr), MAKEINTRESOURCEW(fallbackId), IMAGE_ICON, width, height, flags));
+    }
+    return icon ? icon : LoadIcon(nullptr, IDI_APPLICATION);
+}
+
 } // namespace
 
 namespace lan::desktop {
@@ -144,16 +202,15 @@ void ShellEffectExecutor::ExecuteTrayShellCommand(MainWindow& window,
 void ShellEffectExecutor::CreateTrayIcon(MainWindow& window) {
     if (!window.m_hwnd || window.m_trayIconAdded) return;
 
+    const auto shellState = window.BuildShellChromeStateInput();
+
     NOTIFYICONDATAW nid{};
     nid.cbSize = sizeof(nid);
     nid.hWnd = window.m_hwnd;
     nid.uID = kHostTrayIconUid;
     nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_SHOWTIP;
     nid.uCallbackMessage = kHostAppTrayIconMessage;
-    nid.hIcon = static_cast<HICON>(LoadImageW(GetModuleHandle(nullptr), MAKEINTRESOURCEW(1), IMAGE_ICON, 16, 16, LR_DEFAULTCOLOR));
-    if (!nid.hIcon) {
-        nid.hIcon = LoadIcon(nullptr, IDI_APPLICATION);
-    }
+    nid.hIcon = LoadTrayIconForState(shellState, window.m_hwnd);
     const auto tip = lan::i18n::TranslateNativeText(L"LAN Screen Share Host", window.m_localeCode);
     lstrcpynW(nid.szTip, tip.c_str(), _countof(nid.szTip));
     if (Shell_NotifyIconW(NIM_ADD, &nid)) {
@@ -178,16 +235,19 @@ void ShellEffectExecutor::RemoveTrayIcon(MainWindow& window) {
 void ShellEffectExecutor::UpdateTrayIcon(MainWindow& window) {
     if (!window.m_hwnd || !window.m_trayIconAdded) return;
 
-    const auto viewModel = lan::runtime::BuildTrayIconViewModel(window.BuildShellChromeStateInput());
+    const auto shellState = window.BuildShellChromeStateInput();
+    const auto viewModel = lan::runtime::BuildTrayIconViewModel(shellState);
 
     NOTIFYICONDATAW nid{};
     nid.cbSize = sizeof(nid);
     nid.hWnd = window.m_hwnd;
     nid.uID = kHostTrayIconUid;
-    nid.uFlags = NIF_TIP | NIF_SHOWTIP | NIF_INFO;
+    nid.uFlags = NIF_TIP | NIF_SHOWTIP | NIF_ICON;
+    nid.hIcon = LoadTrayIconForState(shellState, window.m_hwnd);
     const auto tooltip = lan::i18n::TranslateNativeText(viewModel.tooltip, window.m_localeCode);
     lstrcpynW(nid.szTip, tooltip.c_str(), _countof(nid.szTip));
     if (viewModel.showBalloon) {
+        nid.uFlags |= NIF_INFO;
         const auto title = lan::i18n::TranslateNativeText(viewModel.balloonTitle, window.m_localeCode);
         const auto body = lan::i18n::TranslateNativeText(viewModel.balloonText, window.m_localeCode);
         lstrcpynW(nid.szInfoTitle, title.c_str(), _countof(nid.szInfoTitle));

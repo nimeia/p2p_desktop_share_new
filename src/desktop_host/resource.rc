@@ -1,0 +1,28 @@
+#include <winuser.h>
+
+// Resource IDs:
+// 1 = Main application icon (large, for window)
+// 2 = App icon (large, for file explorer)
+// 101 = Light tray icon (16x16)
+// 102 = Dark tray icon (16x16)
+// 103 = Light tray icon - alert variant (16x16)
+// 104 = Dark tray icon - alert variant (16x16)
+// 105 = Light tray icon - connected variant (16x16)
+// 106 = Dark tray icon - connected variant (16x16)
+// 107 = Light tray icon - sharing variant (16x16)
+// 108 = Dark tray icon - sharing variant (16x16)
+
+1   ICON   "..\\..\\src\\resources\\icons\\windows\\app_icon_v2.ico"
+2   ICON   "..\\..\\src\\resources\\icons\\windows\\app_icon_v2.ico"
+
+101 ICON   "..\\..\\src\\resources\\icons\\windows\\tray_icon_light_v2.ico"
+102 ICON   "..\\..\\src\\resources\\icons\\windows\\tray_icon_dark_v2.ico"
+
+103 ICON   "..\\..\\src\\resources\\icons\\windows\\tray_icon_light_alert_v2.ico"
+104 ICON   "..\\..\\src\\resources\\icons\\windows\\tray_icon_dark_alert_v2.ico"
+
+105 ICON   "..\\..\\src\\resources\\icons\\windows\\tray_icon_light_connected_v2.ico"
+106 ICON   "..\\..\\src\\resources\\icons\\windows\\tray_icon_dark_connected_v2.ico"
+
+107 ICON   "..\\..\\src\\resources\\icons\\windows\\tray_icon_light_sharing_v2.ico"
+108 ICON   "..\\..\\src\\resources\\icons\\windows\\tray_icon_dark_sharing_v2.ico"

@@ -1,6 +1,7 @@
 #include "host_shell/native_shell_action_controller.h"
 #include "host_shell/native_shell_runtime_loop.h"
 #include "core/i18n/localization.h"
+#include "platform/abstraction/runtime_paths.h"
 
 #include <dlfcn.h>
 
@@ -30,6 +31,14 @@ struct AppIndicator;
 constexpr int kIndicatorCategoryApplicationStatus = 0;
 constexpr int kIndicatorStatusActive = 1;
 constexpr int kGConnectAfter = 0;
+constexpr const char* kFallbackIndicatorIcon = "lanscreenshare";
+
+enum class LinuxTrayIconState {
+  Base,
+  Alert,
+  Connected,
+  Sharing,
+};
 
 std::string Narrow(std::wstring_view value) {
   std::string out;
@@ -68,6 +77,125 @@ std::string ViewerLabel(std::size_t viewers) {
   return TranslateWide(L"Open Viewer URL (" + std::to_wstring(viewers) + L" viewers)");
 }
 
+std::filesystem::path ResolveLinuxStateDir() {
+  if (const char* stateHome = std::getenv("XDG_STATE_HOME")) {
+    if (*stateHome) return std::filesystem::path(stateHome) / "lan_screenshare";
+  }
+  if (const char* home = std::getenv("HOME")) {
+    if (*home) return std::filesystem::path(home) / ".local" / "state" / "lan_screenshare";
+  }
+  return std::filesystem::current_path() / ".lan_screenshare";
+}
+
+std::filesystem::path ResolveLinuxDefaultServerExecutable(const std::filesystem::path& executableDir) {
+  const std::filesystem::path candidates[] = {
+      executableDir / "lan_screenshare_server",
+      executableDir.parent_path() / "server" / "lan_screenshare_server",
+      executableDir.parent_path() / "runtime" / "lan_screenshare_server",
+      executableDir.parent_path().parent_path() / "runtime" / "lan_screenshare_server",
+  };
+
+  for (const auto& candidate : candidates) {
+    if (!candidate.empty() && std::filesystem::exists(candidate)) return candidate;
+  }
+  return {};
+}
+
+std::vector<std::filesystem::path> BuildSearchRoots(const std::filesystem::path& start) {
+  std::vector<std::filesystem::path> roots;
+  for (std::filesystem::path current = start; !current.empty();) {
+    roots.push_back(current);
+    const auto parent = current.parent_path();
+    if (parent == current) break;
+    current = parent;
+  }
+  return roots;
+}
+
+bool HasTrayIconSet(const std::filesystem::path& root) {
+  return std::filesystem::exists(root / "tray" / "lanscreenshare-tray-24.png") &&
+         std::filesystem::exists(root / "tray_states" / "color" / "lanscreenshare-tray-alert-24.png") &&
+         std::filesystem::exists(root / "tray_states" / "color" / "lanscreenshare-tray-connected-24.png") &&
+         std::filesystem::exists(root / "tray_states" / "color" / "lanscreenshare-tray-sharing-24.png");
+}
+
+std::filesystem::path DiscoverLinuxIconRoot(const std::filesystem::path& executableDir) {
+  std::vector<std::filesystem::path> searchRoots = BuildSearchRoots(executableDir);
+  try {
+    const auto cwdRoots = BuildSearchRoots(std::filesystem::current_path());
+    searchRoots.insert(searchRoots.end(), cwdRoots.begin(), cwdRoots.end());
+  } catch (...) {
+  }
+
+  for (const auto& root : searchRoots) {
+    const auto sourceRoot = root / "src" / "resources" / "icons" / "linux";
+    if (HasTrayIconSet(sourceRoot)) return sourceRoot;
+
+    const auto stagedRoot = root / "icons" / "linux";
+    if (HasTrayIconSet(stagedRoot)) return stagedRoot;
+
+    const auto installedRoot = root / "share" / "lan_screenshare" / "icons" / "linux";
+    if (HasTrayIconSet(installedRoot)) return installedRoot;
+  }
+
+  const std::filesystem::path systemRoots[] = {
+      "/usr/local/share/lan_screenshare/icons/linux",
+      "/usr/share/lan_screenshare/icons/linux",
+  };
+  for (const auto& root : systemRoots) {
+    if (HasTrayIconSet(root)) return root;
+  }
+
+  return {};
+}
+
+LinuxTrayIconState SelectLinuxTrayIconState(const lan::host_shell::NativeShellRuntimeLoopResult& tick) {
+  if (tick.tracker.chromeInput.attentionNeeded) return LinuxTrayIconState::Alert;
+  if (tick.tracker.chromeInput.viewerCount > 0) return LinuxTrayIconState::Connected;
+  if (tick.tracker.chromeInput.serverRunning && tick.tracker.chromeInput.hostStateSharing) return LinuxTrayIconState::Sharing;
+  return LinuxTrayIconState::Base;
+}
+
+std::filesystem::path IconPathForState(const std::filesystem::path& iconRoot, LinuxTrayIconState state) {
+  switch (state) {
+    case LinuxTrayIconState::Alert:
+      return iconRoot / "tray_states" / "color" / "lanscreenshare-tray-alert-24.png";
+    case LinuxTrayIconState::Connected:
+      return iconRoot / "tray_states" / "color" / "lanscreenshare-tray-connected-24.png";
+    case LinuxTrayIconState::Sharing:
+      return iconRoot / "tray_states" / "color" / "lanscreenshare-tray-sharing-24.png";
+    case LinuxTrayIconState::Base:
+    default:
+      return iconRoot / "tray" / "lanscreenshare-tray-24.png";
+  }
+}
+
+std::filesystem::path IconDirectoryForState(const std::filesystem::path& iconRoot, LinuxTrayIconState state) {
+  switch (state) {
+    case LinuxTrayIconState::Alert:
+    case LinuxTrayIconState::Connected:
+    case LinuxTrayIconState::Sharing:
+      return iconRoot / "tray_states" / "color";
+    case LinuxTrayIconState::Base:
+    default:
+      return iconRoot / "tray";
+  }
+}
+
+std::string IconNameForState(LinuxTrayIconState state) {
+  switch (state) {
+    case LinuxTrayIconState::Alert:
+      return "lanscreenshare-tray-alert-24";
+    case LinuxTrayIconState::Connected:
+      return "lanscreenshare-tray-connected-24";
+    case LinuxTrayIconState::Sharing:
+      return "lanscreenshare-tray-sharing-24";
+    case LinuxTrayIconState::Base:
+    default:
+      return "lanscreenshare-tray-24";
+  }
+}
+
 struct GtkApi {
   void* gtkHandle = nullptr;
   void* appIndicatorHandle = nullptr;
@@ -86,9 +214,13 @@ struct GtkApi {
   GUInt (*g_timeout_add)(GUInt, GSourceFunc, GPointer) = nullptr;
 
   AppIndicator* (*app_indicator_new)(const char*, const char*, int) = nullptr;
+  AppIndicator* (*app_indicator_new_with_path)(const char*, const char*, int, const char*) = nullptr;
   void (*app_indicator_set_status)(AppIndicator*, int) = nullptr;
   void (*app_indicator_set_menu)(AppIndicator*, GtkWidget*) = nullptr;
   void (*app_indicator_set_label)(AppIndicator*, const char*, const char*) = nullptr;
+  void (*app_indicator_set_icon)(AppIndicator*, const char*) = nullptr;
+  void (*app_indicator_set_icon_full)(AppIndicator*, const char*, const char*) = nullptr;
+  void (*app_indicator_set_icon_theme_path)(AppIndicator*, const char*) = nullptr;
 
   ~GtkApi() {
     if (appIndicatorHandle) dlclose(appIndicatorHandle);
@@ -134,9 +266,13 @@ bool LoadGtkApi(GtkApi& api, std::string& err) {
   api.g_timeout_add = reinterpret_cast<GUInt (*)(GUInt, GSourceFunc, GPointer)>(LoadSymbol(api.gtkHandle, "g_timeout_add"));
 
   api.app_indicator_new = reinterpret_cast<AppIndicator* (*)(const char*, const char*, int)>(LoadSymbol(api.appIndicatorHandle, "app_indicator_new"));
+  api.app_indicator_new_with_path = reinterpret_cast<AppIndicator* (*)(const char*, const char*, int, const char*)>(LoadSymbol(api.appIndicatorHandle, "app_indicator_new_with_path"));
   api.app_indicator_set_status = reinterpret_cast<void (*)(AppIndicator*, int)>(LoadSymbol(api.appIndicatorHandle, "app_indicator_set_status"));
   api.app_indicator_set_menu = reinterpret_cast<void (*)(AppIndicator*, GtkWidget*)>(LoadSymbol(api.appIndicatorHandle, "app_indicator_set_menu"));
   api.app_indicator_set_label = reinterpret_cast<void (*)(AppIndicator*, const char*, const char*)>(LoadSymbol(api.appIndicatorHandle, "app_indicator_set_label"));
+  api.app_indicator_set_icon = reinterpret_cast<void (*)(AppIndicator*, const char*)>(LoadSymbol(api.appIndicatorHandle, "app_indicator_set_icon"));
+  api.app_indicator_set_icon_full = reinterpret_cast<void (*)(AppIndicator*, const char*, const char*)>(LoadSymbol(api.appIndicatorHandle, "app_indicator_set_icon_full"));
+  api.app_indicator_set_icon_theme_path = reinterpret_cast<void (*)(AppIndicator*, const char*)>(LoadSymbol(api.appIndicatorHandle, "app_indicator_set_icon_theme_path"));
 
   if (!api.gtk_init_check || !api.gtk_main || !api.gtk_main_quit || !api.gtk_menu_new ||
       !api.gtk_menu_item_new_with_label || !api.gtk_separator_menu_item_new || !api.gtk_menu_shell_append ||
@@ -155,8 +291,9 @@ class LinuxTrayApp {
 public:
   LinuxTrayApp(GtkApi& api,
                lan::host_shell::NativeShellActionController controller,
-               lan::host_shell::NativeShellRuntimeLoop loop)
-      : api_(api), controller_(std::move(controller)), loop_(std::move(loop)) {}
+               lan::host_shell::NativeShellRuntimeLoop loop,
+               std::filesystem::path iconRoot)
+      : api_(api), controller_(std::move(controller)), loop_(std::move(loop)), iconRoot_(std::move(iconRoot)) {}
 
   bool Initialize(std::string& err) {
     int argc = 0;
@@ -210,7 +347,20 @@ public:
     Connect(exportDiagnosticsItem_, &LinuxTrayApp::OnExportDiagnostics);
     Connect(quitItem_, &LinuxTrayApp::OnQuit);
 
-    indicator_ = api_.app_indicator_new("lan-screenshare-native-shell", "network-workgroup", kIndicatorCategoryApplicationStatus);
+    std::filesystem::path initialThemePath;
+    const std::string initialIcon = InitialIndicatorIcon(initialThemePath);
+    const std::string initialThemePathString = initialThemePath.string();
+    if (!initialThemePathString.empty() && api_.app_indicator_new_with_path) {
+      indicator_ = api_.app_indicator_new_with_path("lan-screenshare-native-shell",
+                                                    initialIcon.c_str(),
+                                                    kIndicatorCategoryApplicationStatus,
+                                                    initialThemePathString.c_str());
+    } else {
+      indicator_ = api_.app_indicator_new("lan-screenshare-native-shell", initialIcon.c_str(), kIndicatorCategoryApplicationStatus);
+      if (indicator_ && !initialThemePathString.empty() && api_.app_indicator_set_icon_theme_path) {
+        api_.app_indicator_set_icon_theme_path(indicator_, initialThemePathString.c_str());
+      }
+    }
     if (!indicator_) {
       err = "Failed to create AppIndicator instance.";
       return false;
@@ -245,6 +395,48 @@ private:
     if (!controller_.Platform().ShowNotification(translatedTitle, translatedBody, err) && !err.empty()) {
       std::cerr << "notification error: " << err << "\n";
     }
+  }
+
+  bool ResolveIconSpec(LinuxTrayIconState state, std::filesystem::path& themePath, std::string& iconName) const {
+    const auto path = IconPathForState(iconRoot_, state);
+    if (!std::filesystem::exists(path)) return false;
+
+    themePath = IconDirectoryForState(iconRoot_, state);
+    iconName = IconNameForState(state);
+    return !themePath.empty() && !iconName.empty();
+  }
+
+  std::string InitialIndicatorIcon(std::filesystem::path& themePath) const {
+    std::string iconName;
+    if (ResolveIconSpec(LinuxTrayIconState::Base, themePath, iconName)) {
+      return iconName;
+    }
+    themePath.clear();
+    return kFallbackIndicatorIcon;
+  }
+
+  void UpdateIndicatorIcon(const lan::host_shell::NativeShellRuntimeLoopResult& tick) {
+    std::filesystem::path themePath;
+    std::string iconName;
+    if (!ResolveIconSpec(SelectLinuxTrayIconState(tick), themePath, iconName)) return;
+
+    const std::string themePathString = themePath.string();
+    const std::string iconKey = themePathString + "|" + iconName;
+    if (iconKey == currentIconKey_) return;
+
+    if (api_.app_indicator_set_icon_theme_path) {
+      api_.app_indicator_set_icon_theme_path(indicator_, themePathString.c_str());
+    }
+
+    if (api_.app_indicator_set_icon_full) {
+      api_.app_indicator_set_icon_full(indicator_, iconName.c_str(), iconName.c_str());
+    } else if (api_.app_indicator_set_icon) {
+      api_.app_indicator_set_icon(indicator_, iconName.c_str());
+    } else {
+      return;
+    }
+
+    currentIconKey_ = iconKey;
   }
 
   void ApplyTick(const lan::host_shell::NativeShellRuntimeLoopResult& tick) {
@@ -296,6 +488,7 @@ private:
     api_.gtk_widget_set_sensitive(stopServerItem_, canStopServer ? 1 : 0);
     api_.gtk_widget_set_sensitive(openDiagnosticsItem_, canOpenDiagnostics ? 1 : 0);
     api_.gtk_widget_set_sensitive(exportDiagnosticsItem_, canExportDiagnostics ? 1 : 0);
+    UpdateIndicatorIcon(tick);
     api_.app_indicator_set_label(indicator_, badge.c_str(), badge.c_str());
   }
 
@@ -386,9 +579,11 @@ private:
   GtkApi& api_;
   lan::host_shell::NativeShellActionController controller_;
   lan::host_shell::NativeShellRuntimeLoop loop_;
-  lan::host_shell::NativeShellRuntimeLoopResult lastTick_{};
+  lan::host_shell::NativeShellRuntimeLoopResult lastTick_{}; 
   bool hasLastTick_ = false;
   AppIndicator* indicator_ = nullptr;
+  std::filesystem::path iconRoot_;
+  std::string currentIconKey_;
   GtkWidget* menu_ = nullptr;
   GtkWidget* statusItem_ = nullptr;
   GtkWidget* detailItem_ = nullptr;
@@ -407,6 +602,9 @@ private:
 int main(int argc, char** argv) {
   lan::host_shell::NativeShellActionConfig actionConfig;
   lan::host_shell::NativeShellEndpointConfig endpoint;
+  const auto executableDir = lan::platform::ExecutableDir(argv[0]);
+  bool diagnosticsDirExplicit = false;
+  bool serverExecutableExplicit = false;
 
   for (int i = 1; i < argc; ++i) {
     const std::string arg = argv[i];
@@ -414,9 +612,24 @@ int main(int argc, char** argv) {
     else if (arg == "--port" && i + 1 < argc) endpoint.port = std::atoi(argv[++i]);
     else if (arg == "--room" && i + 1 < argc) { const char* value = argv[++i]; actionConfig.room.assign(value, value + std::strlen(value)); }
     else if (arg == "--token" && i + 1 < argc) { const char* value = argv[++i]; actionConfig.token.assign(value, value + std::strlen(value)); }
-    else if (arg == "--diagnostics-dir" && i + 1 < argc) actionConfig.diagnosticsDir = argv[++i];
-    else if (arg == "--server-executable" && i + 1 < argc) actionConfig.serverExecutable = argv[++i];
+    else if (arg == "--diagnostics-dir" && i + 1 < argc) {
+      actionConfig.diagnosticsDir = argv[++i];
+      diagnosticsDirExplicit = true;
+    }
+    else if (arg == "--server-executable" && i + 1 < argc) {
+      actionConfig.serverExecutable = argv[++i];
+      serverExecutableExplicit = true;
+    }
     else if (arg == "--server-arg" && i + 1 < argc) actionConfig.serverArguments.emplace_back(argv[++i]);
+  }
+  if (!diagnosticsDirExplicit) {
+    actionConfig.diagnosticsDir = ResolveLinuxStateDir() / "out" / "diagnostics";
+  }
+  if (!serverExecutableExplicit) {
+    const auto defaultServerExecutable = ResolveLinuxDefaultServerExecutable(executableDir);
+    if (!defaultServerExecutable.empty()) {
+      actionConfig.serverExecutable = defaultServerExecutable;
+    }
   }
   actionConfig.host = endpoint.host;
   actionConfig.port = endpoint.port;
@@ -432,8 +645,9 @@ int main(int argc, char** argv) {
   auto controller = lan::host_shell::NativeShellActionController(std::move(actionConfig));
   auto loop = lan::host_shell::NativeShellRuntimeLoop(lan::host_shell::MakeNativeShellPollFunction(endpoint),
                                                       controller.Platform());
+  const auto iconRoot = DiscoverLinuxIconRoot(lan::platform::ExecutableDir(argv[0]));
 
-  LinuxTrayApp app(api, std::move(controller), std::move(loop));
+  LinuxTrayApp app(api, std::move(controller), std::move(loop), iconRoot);
   if (!app.Initialize(err)) {
     std::cerr << err << "\n";
     return 1;

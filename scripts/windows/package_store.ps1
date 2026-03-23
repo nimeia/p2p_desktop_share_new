@@ -402,6 +402,13 @@ $symbolsPath = Join-Path $packageRoot ($packageStem + ".msixsym")
 $manifestPath = Join-Path $stageDir "AppxManifest.xml"
 $assetsStageDir = Join-Path $stageDir "Assets"
 $metadataPath = Join-Path $packageRoot "store_package_manifest.json"
+$resolvedAssetsDir = $AssetsDir
+if (-not $resolvedAssetsDir) {
+  $defaultAssetsDir = Join-Path $repoRoot "src\resources\icons\windows\store"
+  if (Test-Path -LiteralPath $defaultAssetsDir) {
+    $resolvedAssetsDir = $defaultAssetsDir
+  }
+}
 
 if (-not $SkipBuild) {
   Write-Section "Build desktop + server"
@@ -414,7 +421,7 @@ if (Test-Path -LiteralPath $packageRoot) { Remove-Item -LiteralPath $packageRoot
 New-Item -ItemType Directory -Force -Path $stageDir | Out-Null
 
 Copy-RequiredPayload -DesktopDir $desktopDir -RepoRoot $repoRoot -StageDir $stageDir
-$generatedAssets = Ensure-StoreAssets -DestinationDir $assetsStageDir -SourceDir $AssetsDir -BackgroundHex $BackgroundColor -DisplayTitle $DisplayName
+$generatedAssets = Ensure-StoreAssets -DestinationDir $assetsStageDir -SourceDir $resolvedAssetsDir -BackgroundHex $BackgroundColor -DisplayTitle $DisplayName
 Write-AppxManifest -Path $manifestPath `
   -Identity $IdentityName `
   -PublisherName $Publisher `
@@ -444,7 +451,7 @@ $metadata = [ordered]@{
   stage_dir = $stageDir
   package_path = $msixPath
   upload_path = if ($SkipUploadBundle) { "" } else { $uploadPath }
-  assets_dir = if ($AssetsDir) { $AssetsDir } else { "" }
+  assets_dir = if ($resolvedAssetsDir) { $resolvedAssetsDir } else { "" }
   generated_placeholder_assets = @($generatedAssets)
   sign_pfx = $SignPfx
   sdk_version = $sdkTools.Version

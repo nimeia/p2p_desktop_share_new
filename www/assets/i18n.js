@@ -1,5 +1,10 @@
 (function () {
   const STORAGE_KEY = "lan_share_locale";
+  const CONFIG = window.LanShareI18nConfig && typeof window.LanShareI18nConfig === "object"
+    ? window.LanShareI18nConfig
+    : {};
+  const STORAGE_READ_ENABLED = CONFIG.useStorage !== false;
+  const STORAGE_WRITE_ENABLED = CONFIG.persist !== false;
   const SUPPORTED = [
     { code: "en", label: "English" },
     { code: "zh-CN", label: "简体中文" },
@@ -86,10 +91,14 @@
   function detectLocale() {
     const rawUrl = currentUrlLocale();
     if (rawUrl) return normalize(rawUrl);
-    try {
-      const storedRaw = localStorage.getItem(STORAGE_KEY) || "";
-      if (storedRaw) return normalize(storedRaw);
-    } catch {}
+    const configuredInitial = String(CONFIG.initialLocale || "").trim();
+    if (configuredInitial) return normalize(configuredInitial);
+    if (STORAGE_READ_ENABLED) {
+      try {
+        const storedRaw = localStorage.getItem(STORAGE_KEY) || "";
+        if (storedRaw) return normalize(storedRaw);
+      } catch {}
+    }
     const languages = Array.isArray(navigator.languages) && navigator.languages.length ? navigator.languages : [navigator.language || document.documentElement.lang || "en"];
     return normalize(languages.find(Boolean) || "en");
   }
@@ -135,6 +144,17 @@
   const state = {
     locale: detectLocale(),
     observer: null,
+    observerSuspendDepth: 0,
+    observerConnected: false,
+    pendingApplyRoot: null,
+    pendingApplyQueued: false,
+  };
+
+  const OBSERVER_OPTIONS = {
+    childList: true,
+    subtree: true,
+    attributes: true,
+    attributeFilter: ["title", "placeholder", "aria-label"],
   };
 
   function translateByPattern(text, locale) {
@@ -220,62 +240,123 @@
     });
   }
 
+  function connectObserver() {
+    if (!state.observer || state.observerConnected || !document.documentElement) return;
+    state.observer.observe(document.documentElement, OBSERVER_OPTIONS);
+    state.observerConnected = true;
+  }
+
+  function disconnectObserver() {
+    if (!state.observer || !state.observerConnected) return;
+    state.observer.disconnect();
+    state.observerConnected = false;
+  }
+
+  function withObserverSuppressed(action) {
+    state.observerSuspendDepth += 1;
+    if (state.observerSuspendDepth === 1) {
+      disconnectObserver();
+    }
+    try {
+      return action();
+    } finally {
+      state.observerSuspendDepth = Math.max(0, state.observerSuspendDepth - 1);
+      if (state.observerSuspendDepth === 0) {
+        connectObserver();
+      }
+    }
+  }
+
+  function coerceApplyRoot(root) {
+    if (root && root.nodeType === Node.TEXT_NODE) {
+      return root;
+    }
+    if (root && root.nodeType === Node.ELEMENT_NODE) {
+      return root;
+    }
+    return document.body || document.documentElement;
+  }
+
+  function scheduleApply(root) {
+    const fullRoot = document.body || document.documentElement;
+    const nextRoot = coerceApplyRoot(root);
+    if (!nextRoot || !fullRoot) return;
+
+    if (!state.pendingApplyRoot || nextRoot === fullRoot || state.pendingApplyRoot === fullRoot) {
+      state.pendingApplyRoot = nextRoot === fullRoot ? fullRoot : nextRoot;
+    } else {
+      const currentRoot = state.pendingApplyRoot;
+      const currentIsText = currentRoot.nodeType === Node.TEXT_NODE;
+      const nextIsText = nextRoot.nodeType === Node.TEXT_NODE;
+      const currentElement = currentIsText ? currentRoot.parentElement : currentRoot;
+      const nextElement = nextIsText ? nextRoot.parentElement : nextRoot;
+      if (!currentElement || !nextElement ||
+          currentElement === nextElement ||
+          currentElement.contains(nextElement) ||
+          nextElement.contains(currentElement)) {
+        state.pendingApplyRoot = currentElement && currentElement.contains(nextElement) ? currentRoot : nextRoot;
+      } else {
+        state.pendingApplyRoot = fullRoot;
+      }
+    }
+
+    if (state.pendingApplyQueued) return;
+    state.pendingApplyQueued = true;
+    queueMicrotask(() => {
+      state.pendingApplyQueued = false;
+      const target = state.pendingApplyRoot || fullRoot;
+      state.pendingApplyRoot = null;
+      apply(target);
+    });
+  }
+
   function apply(root) {
     const target = root && root.nodeType ? root : document.body;
     if (!target) return;
-    if (target.nodeType === Node.TEXT_NODE) {
-      translateTextNode(target);
-    } else {
-      const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
-      let node = walker.nextNode();
-      while (node) {
-        translateTextNode(node);
-        node = walker.nextNode();
+    withObserverSuppressed(() => {
+      if (target.nodeType === Node.TEXT_NODE) {
+        translateTextNode(target);
+      } else {
+        const walker = document.createTreeWalker(target, NodeFilter.SHOW_TEXT);
+        let node = walker.nextNode();
+        while (node) {
+          translateTextNode(node);
+          node = walker.nextNode();
+        }
+        translateAttributes(target);
       }
-      translateAttributes(target);
-    }
-    document.documentElement.lang = state.locale;
-    document.title = translateText(document.title, state.locale);
-    const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
-    if (appleTitle) {
-      appleTitle.setAttribute("content", translateText(appleTitle.getAttribute("content") || "", state.locale));
-    }
-    syncSelects();
+      document.documentElement.lang = state.locale;
+      document.title = translateText(document.title, state.locale);
+      const appleTitle = document.querySelector('meta[name="apple-mobile-web-app-title"]');
+      if (appleTitle) {
+        appleTitle.setAttribute("content", translateText(appleTitle.getAttribute("content") || "", state.locale));
+      }
+      syncSelects();
+    });
   }
 
   function watch() {
     if (state.observer || !document.documentElement) return;
     state.observer = new MutationObserver((mutations) => {
-      mutations.forEach((mutation) => {
-        if (mutation.type === "characterData") {
-          translateTextNode(mutation.target);
-          return;
-        }
-        if (mutation.type === "attributes") {
-          translateAttributes(mutation.target);
-          return;
-        }
-        mutation.addedNodes.forEach((node) => apply(node));
-      });
+      if (!mutations.length) {
+        return;
+      }
+      scheduleApply(document.body || document.documentElement);
     });
-    state.observer.observe(document.documentElement, {
-      childList: true,
-      subtree: true,
-      characterData: true,
-      attributes: true,
-      attributeFilter: ["title", "placeholder", "aria-label"],
-    });
+    connectObserver();
   }
 
   function setLocale(locale, options) {
     const settings = options || {};
     state.locale = normalize(locale || state.locale);
     try {
-      if (settings.persist !== false) {
+      if (STORAGE_WRITE_ENABLED && settings.persist !== false) {
         localStorage.setItem(STORAGE_KEY, state.locale);
       }
     } catch {}
-    apply(document.body || document.documentElement);
+    if (settings.apply !== false) {
+      apply(document.body || document.documentElement);
+    }
     return state.locale;
   }
 

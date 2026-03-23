@@ -111,7 +111,8 @@ DiagnosticsViewModel BuildDiagnosticsViewModel(const AdminViewModelInput& input)
 
 ShellFallbackViewModel BuildShellFallbackViewModel(const ShellStateInput& input) {
   ShellFallbackViewModel model;
-  model.showFallback = input.htmlAdminMode && (!input.adminShellReady || input.webviewStatus != L"ready");
+  model.showFallback = input.htmlAdminMode &&
+                       (!input.shellStartupError.empty() || !input.uiBundleExists || input.webviewStatus != L"ready");
   model.startButtonLabel = input.serverRunning ? L"Service Running" : L"Start Service";
   model.startButtonEnabled = !input.serverRunning;
   model.startHostButtonLabel = input.serverRunning ? L"Open Host In Browser" : L"Start + Open Host";

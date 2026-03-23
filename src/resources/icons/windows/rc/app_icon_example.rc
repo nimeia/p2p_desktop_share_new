@@ -1,0 +1,3 @@
+IDI_APP_ICON ICON "app_icon_v2.ico"
+IDI_TRAY_LIGHT ICON "tray_icon_light_v2.ico"
+IDI_TRAY_DARK ICON "tray_icon_dark_v2.ico"

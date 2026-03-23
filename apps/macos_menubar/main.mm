@@ -3,7 +3,9 @@
 #include "core/i18n/localization.h"
 #include "host_shell/native_shell_action_controller.h"
 #include "host_shell/native_shell_runtime_loop.h"
+#include "platform/abstraction/runtime_paths.h"
 
+#include <cstdlib>
 #include <cstring>
 #include <filesystem>
 #include <memory>
@@ -50,6 +52,58 @@ NSString* ViewerTitle(std::size_t viewers) {
   return LocalizedWide(L"Open Viewer URL (" + std::to_wstring(viewers) + L" viewers)");
 }
 
+std::filesystem::path ResolveMacSupportDir() {
+  @autoreleasepool {
+    NSArray<NSString*>* paths = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES);
+    if (paths.count > 0) {
+      return std::filesystem::path([[paths objectAtIndex:0] UTF8String]) / "LanScreenShareHost";
+    }
+  }
+
+  if (const char* home = std::getenv("HOME")) {
+    return std::filesystem::path(home) / "Library" / "Application Support" / "LanScreenShareHost";
+  }
+  return std::filesystem::current_path() / "LanScreenShareHost";
+}
+
+std::filesystem::path ResolveMacDefaultServerExecutable(const std::filesystem::path& executableDir) {
+  const std::filesystem::path candidates[] = {
+      executableDir / "lan_screenshare_server",
+      executableDir.parent_path() / "Resources" / "runtime" / "lan_screenshare_server",
+      executableDir.parent_path().parent_path().parent_path() / "lan_screenshare_server",
+      executableDir.parent_path().parent_path().parent_path() / "server" / "lan_screenshare_server",
+  };
+
+  for (const auto& candidate : candidates) {
+    if (!candidate.empty() && std::filesystem::exists(candidate)) return candidate;
+  }
+  return {};
+}
+
+NSString* MenuBarIconName(bool attention, std::size_t viewers, bool sharing) {
+  if (attention) return @"statusbar_alertTemplate";
+  if (viewers > 0) return @"statusbar_connectedTemplate";
+  if (sharing) return @"statusbar_sharingTemplate";
+  return @"statusbarTemplate";
+}
+
+NSImage* LoadMenuBarImage(NSString* name) {
+  if (!name.length) return nil;
+
+  NSImage* image = [NSImage imageNamed:name];
+  if (!image) {
+    NSString* path = [[NSBundle mainBundle] pathForResource:name ofType:@"png"];
+    if (path) {
+      image = [[NSImage alloc] initWithContentsOfFile:path];
+    }
+  }
+
+  if (image) {
+    image.template = YES;
+  }
+  return image;
+}
+
 @interface LanMenuBarController : NSObject {
  @private
   NSStatusItem* _statusItem;
@@ -93,7 +147,9 @@ NSString* ViewerTitle(std::size_t viewers) {
   _hasLastTick = NO;
 
   _statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
-  _statusItem.button.title = @"LAN Share";
+  _statusItem.button.imagePosition = NSImageOnly;
+  _statusItem.button.image = LoadMenuBarImage(MenuBarIconName(false, 0, false));
+  _statusItem.button.title = _statusItem.button.image ? @"" : @"LAN Share";
   _statusItem.button.toolTip = LocalizedWide(L"LAN Screen Share Host");
 
   NSMenu* menu = [[NSMenu alloc] initWithTitle:LocalizedWide(L"LAN Screen Share Host")];
@@ -157,6 +213,7 @@ NSString* ViewerTitle(std::size_t viewers) {
   const bool stableHealthy = tick.tracker.memory.stableHealthReady;
   const bool attention = tick.tracker.chromeInput.attentionNeeded;
   const auto viewers = tick.tracker.memory.stableViewerCount;
+  const bool sharing = stableRunning && tick.tracker.chromeInput.hostStateSharing;
   const bool canRefreshDashboard = stableRunning;
   const bool canOpenViewer = stableRunning && stableHealthy && tick.tracker.trayMenuViewModel.copyViewerUrlEnabled;
   const bool canStartServer = !stableRunning;
@@ -173,10 +230,12 @@ NSString* ViewerTitle(std::size_t viewers) {
   }
   NSString* detailText = ToNSString(detail);
   NSString* badge = LocalizedWide(tick.tracker.trayIconViewModel.statusBadge);
+  NSImage* statusImage = LoadMenuBarImage(MenuBarIconName(attention, viewers, sharing));
 
   _statusLineItem.title = status;
   _detailLineItem.title = detailText;
-  _statusItem.button.title = badge.length > 0 ? badge : @"LAN Share";
+  _statusItem.button.image = statusImage;
+  _statusItem.button.title = statusImage ? @"" : (badge.length > 0 ? badge : @"LAN Share");
   _statusItem.button.toolTip = detailText.length > 0 ? detailText : LocalizedWide(L"LAN Screen Share Host");
   _openDashboardItem.enabled = stableRunning;
   _refreshDashboardItem.enabled = canRefreshDashboard;
@@ -287,6 +346,9 @@ int main(int argc, char** argv) {
   @autoreleasepool {
     lan::host_shell::NativeShellActionConfig actionConfig;
     lan::host_shell::NativeShellEndpointConfig endpoint;
+    const auto executableDir = lan::platform::ExecutableDir(argv[0]);
+    bool diagnosticsDirExplicit = false;
+    bool serverExecutableExplicit = false;
 
     for (int i = 1; i < argc; ++i) {
       const std::string arg = argv[i];
@@ -300,12 +362,25 @@ int main(int argc, char** argv) {
         actionConfig.token.assign(value, value + std::strlen(value));
       } else if (arg == "--diagnostics-dir" && i + 1 < argc) {
         actionConfig.diagnosticsDir = argv[++i];
+        diagnosticsDirExplicit = true;
       } else if (arg == "--server-executable" && i + 1 < argc) {
         actionConfig.serverExecutable = argv[++i];
+        serverExecutableExplicit = true;
       } else if (arg == "--server-arg" && i + 1 < argc) {
         actionConfig.serverArguments.emplace_back(argv[++i]);
       }
     }
+
+    if (!diagnosticsDirExplicit) {
+      actionConfig.diagnosticsDir = ResolveMacSupportDir() / "out" / "diagnostics";
+    }
+    if (!serverExecutableExplicit) {
+      const auto defaultServerExecutable = ResolveMacDefaultServerExecutable(executableDir);
+      if (!defaultServerExecutable.empty()) {
+        actionConfig.serverExecutable = defaultServerExecutable;
+      }
+    }
+
     actionConfig.host = endpoint.host;
     actionConfig.port = endpoint.port;
     actionConfig.localeCode = CurrentLocaleCode();

@@ -158,6 +158,17 @@ Linux staged outputs:
 - Server: `out/linux/<Config>/server/lan_screenshare_server`
 - Linux tray: `out/linux/<Config>/tray/lan_screenshare_linux_tray`
 
+Packaging scripts:
+
+- Windows zip package: `.\scripts\windows\package.ps1 -Config Release`
+- Linux tarball package: `./scripts/package_linux.sh --config Release --vcpkg-root "$VCPKG_ROOT"`
+- macOS app package: `./scripts/package_macos.sh --config Release --vcpkg-root "$VCPKG_ROOT"`
+
+GitHub Actions packaging:
+
+- `.github/workflows/package-platforms.yml` builds Windows, Linux, macOS Intel, and macOS Apple Silicon packages
+- tag pushes matching `v*` upload the generated archives to the matching GitHub Release
+
 ## Runtime Notes
 
 - The server depends on vcpkg runtime DLLs. The build script now copies them into the output directory.

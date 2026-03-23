@@ -604,6 +604,13 @@
     </div>
   </div>
 
+  <script>
+    window.LanShareI18nConfig = {
+      useStorage: false,
+      persist: false,
+      initialLocale: (navigator.languages && navigator.languages[0]) || navigator.language || document.documentElement.lang || "en"
+    };
+  </script>
   <script src="/assets/i18n.js"></script>
   <script src="./app.js"></script>
 </body>

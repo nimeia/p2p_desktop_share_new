@@ -1,0 +1,5 @@
+#include <winuser.h>
+
+// Main executable icon for lan_screenshare_server on Windows.
+1 ICON "..\\..\\src\\resources\\icons\\windows\\app_icon_v2.ico"
+2 ICON "..\\..\\src\\resources\\icons\\windows\\app_icon_v2.ico"

@@ -8,6 +8,10 @@ project(lan_screenshare LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
+if(MSVC)
+  add_compile_options(/utf-8)
+endif()
+
 find_package(boost_system CONFIG REQUIRED)
 find_package(boost_thread CONFIG REQUIRED)
 find_package(boost_json CONFIG REQUIRED)
@@ -155,6 +159,11 @@ endif()
 add_executable(lan_screenshare_server
   apps/server_cli/main.cpp
 )
+if (WIN32)
+  target_sources(lan_screenshare_server PRIVATE
+    apps/server_cli/resource.rc
+  )
+endif()
 target_link_libraries(lan_screenshare_server PRIVATE
   lan_screenshare_shared
   lan_screenshare_platform_abstraction
@@ -202,6 +211,30 @@ if (APPLE)
     apps/macos_menubar/main.mm
   )
   target_link_libraries(lan_screenshare_macos_menubar PRIVATE lan_screenshare_native_shell "-framework Cocoa")
+  
+  # Set macOS bundle properties
+  set_target_properties(lan_screenshare_macos_menubar PROPERTIES
+    MACOSX_BUNDLE TRUE
+    MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/apps/macos_menubar/Info.plist"
+    MACOSX_BUNDLE_BUNDLE_NAME "LAN Screen Share"
+    MACOSX_BUNDLE_BUNDLE_VERSION "1.0"
+    MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0"
+    MACOSX_BUNDLE_ICON_FILE "AppIcon"
+  )
+  
+  # Copy icon file to app bundle
+  add_custom_command(TARGET lan_screenshare_macos_menubar POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/icons/macos/AppIcon.icns"
+    "$<TARGET_BUNDLE_CONTENT_DIR:lan_screenshare_macos_menubar>/Resources/AppIcon.icns"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/icons/macos/statusbar"
+    "$<TARGET_BUNDLE_CONTENT_DIR:lan_screenshare_macos_menubar>/Resources"
+    COMMAND ${CMAKE_COMMAND} -E copy_directory
+    "${CMAKE_CURRENT_SOURCE_DIR}/src/resources/icons/macos/statusbar_states"
+    "$<TARGET_BUNDLE_CONTENT_DIR:lan_screenshare_macos_menubar>/Resources"
+    COMMENT "Copying macOS app icon"
+  )
 endif()
 
 include(CTest)
@@ -378,5 +411,24 @@ if (BUILD_TESTING)
   )
   target_link_libraries(lan_screenshare_native_shell_runtime_loop_tests PRIVATE lan_screenshare_native_shell)
   add_test(NAME lan_screenshare_native_shell_runtime_loop_tests COMMAND lan_screenshare_native_shell_runtime_loop_tests)
+endif()
 
+if (UNIX AND NOT APPLE)
+  file(GLOB ICON_SIZES "src/resources/icons/linux/hicolor/*/apps/*.png")
+  foreach(ICON ${ICON_SIZES})
+    string(REGEX MATCH "icons/linux/hicolor/([^/]+)/apps" MATCH_DIR "${ICON}")
+    set(ICON_SIZE "${CMAKE_MATCH_1}")
+    install(FILES "${ICON}" DESTINATION "share/icons/hicolor/${ICON_SIZE}/apps")
+  endforeach()
+
+  file(GLOB TRAY_ICONS "src/resources/icons/linux/tray/*.png")
+  install(FILES ${TRAY_ICONS} DESTINATION "share/icons/hicolor/scalable/apps")
+
+  install(DIRECTORY
+    "src/resources/icons/linux/tray"
+    "src/resources/icons/linux/tray_states"
+    DESTINATION "share/lan_screenshare/icons/linux"
+  )
+
+  install(FILES "src/resources/icons/linux/desktop/lanscreenshare.desktop" DESTINATION "share/applications")
 endif()

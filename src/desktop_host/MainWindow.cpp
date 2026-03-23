@@ -42,6 +42,7 @@ const UINT WM_APP_LOG = WM_APP + 1;
 const UINT WM_APP_POLL = WM_APP + 2;
 const UINT WM_APP_WEBVIEW = WM_APP + 3;
 const UINT WM_APP_TRAY_RESHOW = WM_APP + 5;
+const int kAppIconResourceId = 1;
 
 
 
@@ -748,6 +749,18 @@ static RuntimeDiagnosticsSnapshot CollectRuntimeDiagnostics(const ServerControll
     return snapshot;
 }
 
+static HICON LoadResourceIconForMetrics(int resourceId, int widthMetric, int heightMetric) {
+    const HINSTANCE instance = GetModuleHandle(nullptr);
+    const int width = GetSystemMetrics(widthMetric);
+    const int height = GetSystemMetrics(heightMetric);
+    return static_cast<HICON>(LoadImageW(instance,
+                                         MAKEINTRESOURCEW(resourceId),
+                                         IMAGE_ICON,
+                                         width > 0 ? width : 0,
+                                         height > 0 ? height : 0,
+                                         LR_DEFAULTCOLOR | LR_SHARED));
+}
+
 static bool WideContainsCaseInsensitive(std::wstring_view text, std::wstring_view needle) {
     std::wstring hay(text);
     std::wstring ndl(needle);
@@ -775,14 +788,21 @@ MainWindow::~MainWindow() {
 }
 
 bool MainWindow::Create() {
-    WNDCLASS wc{};
+    const HINSTANCE instance = GetModuleHandle(nullptr);
+    const HICON largeIcon = LoadResourceIconForMetrics(kAppIconResourceId, SM_CXICON, SM_CYICON);
+    const HICON smallIcon = LoadResourceIconForMetrics(kAppIconResourceId, SM_CXSMICON, SM_CYSMICON);
+
+    WNDCLASSEXW wc{};
+    wc.cbSize = sizeof(wc);
     wc.lpfnWndProc = WndProc;
-    wc.hInstance = GetModuleHandle(nullptr);
+    wc.hInstance = instance;
     wc.lpszClassName = CLASS_NAME;
     wc.hbrBackground = (HBRUSH)(COLOR_WINDOW + 1);
     wc.hCursor = LoadCursor(nullptr, IDC_ARROW);
+    wc.hIcon = largeIcon ? largeIcon : LoadIcon(nullptr, IDI_APPLICATION);
+    wc.hIconSm = smallIcon ? smallIcon : wc.hIcon;
 
-    RegisterClass(&wc);
+    RegisterClassExW(&wc);
 
     m_hwnd = CreateWindowExW(
         0,
@@ -795,10 +815,12 @@ bool MainWindow::Create() {
         940,
         nullptr,
         nullptr,
-        GetModuleHandle(nullptr),
+        instance,
         this);
 
     if (!m_hwnd) return false;
+    SendMessageW(m_hwnd, WM_SETICON, ICON_BIG, reinterpret_cast<LPARAM>(wc.hIcon));
+    SendMessageW(m_hwnd, WM_SETICON, ICON_SMALL, reinterpret_cast<LPARAM>(wc.hIconSm));
     return true;
 }
 
@@ -1695,11 +1717,16 @@ void MainWindow::NavigateHtmlAdminInWebView() {
     }
 
     m_shellStartupError.clear();
+    const bool adminReady = WaitForLocalAdminServerReady(1600);
+    if (!adminReady) {
+        AppendLog(L"HTML admin shell is still waiting for local /health; navigation retry will continue in the background.");
+    }
     auto state = BuildWebViewShellState();
     const auto context = BuildWebViewShellContext();
     const auto plan = lan::desktop::BuildWebViewHtmlAdminNavigationPlan(state, context);
     lan::desktop::ApplyWebViewShellPlan(m_webview, state, plan, context, BuildWebViewShellHooks());
     ApplyWebViewShellState(state);
+    m_lastHtmlAdminNavigateTick = GetTickCount64();
 }
 
 void MainWindow::EnsureWebViewInitialized() {
@@ -1710,6 +1737,64 @@ void MainWindow::EnsureWebViewInitialized() {
     const auto context = BuildWebViewShellContext();
     lan::desktop::ApplyWebViewShellPlan(m_webview, state, plan, context, BuildWebViewShellHooks());
     ApplyWebViewShellState(state);
+}
+
+bool MainWindow::IsLocalAdminServerReady(DWORD timeoutMs) const {
+    if (!m_server || !m_server->IsRunning() || m_port <= 0) {
+        return false;
+    }
+
+    const std::wstring url = L"http://127.0.0.1:" + std::to_wstring(m_port) + L"/health";
+    const HttpResponse health = HttpClient::Get(url, timeoutMs);
+    return health.status == 200 && health.body == "ok";
+}
+
+bool MainWindow::WaitForLocalAdminServerReady(DWORD timeoutMs) const {
+    if (timeoutMs == 0) {
+        return IsLocalAdminServerReady(250);
+    }
+
+    const ULONGLONG started = GetTickCount64();
+    while (true) {
+        if (IsLocalAdminServerReady(250)) {
+            return true;
+        }
+
+        if (GetTickCount64() - started >= timeoutMs) {
+            return false;
+        }
+
+        Sleep(120);
+    }
+}
+
+void MainWindow::RetryHtmlAdminNavigationIfNeeded(bool serviceReadyConfirmed) {
+    if (!IsHtmlAdminActive() || m_webviewMode != WebViewSurfaceMode::HtmlAdminPreview) {
+        return;
+    }
+    if (m_adminShellReady || !m_htmlAdminNavigated) {
+        return;
+    }
+    if (!m_server || !m_server->IsRunning() || !m_webview.IsReady()) {
+        return;
+    }
+
+    const ULONGLONG now = GetTickCount64();
+    if (m_lastHtmlAdminNavigateTick != 0 && now - m_lastHtmlAdminNavigateTick < 1200) {
+        return;
+    }
+    if (!serviceReadyConfirmed && !IsLocalAdminServerReady(250)) {
+        return;
+    }
+
+    const auto url = BuildAdminUrlLocal();
+    if (url.empty()) {
+        return;
+    }
+
+    AppendLog(L"Retrying HTML admin shell navigate: " + url);
+    m_webview.Navigate(url);
+    m_lastHtmlAdminNavigateTick = now;
 }
 
 void MainWindow::PublishAdminShellRuntime() {
@@ -1726,6 +1811,7 @@ void MainWindow::PublishAdminShellRuntime() {
 }
 
 void MainWindow::RefreshHtmlAdminPreview() {
+    RetryHtmlAdminNavigationIfNeeded(false);
     PublishAdminShellRuntime();
     RefreshShellFallback();
 }
@@ -1939,16 +2025,16 @@ void MainWindow::RefreshShellFallback() {
         const int width = (rc.right > rc.left) ? static_cast<int>(rc.right - rc.left) : 0;
         const int height = (rc.bottom > rc.top) ? static_cast<int>(rc.bottom - rc.top) : 0;
 
-        if (viewModel.showFallback) {
-            RECT hidden{};
-            m_webview.Resize(hidden);
-        } else if (input.htmlAdminMode) {
+        if (input.htmlAdminMode) {
             RECT admin{};
             admin.left = 0;
             admin.top = 0;
             admin.right = width;
             admin.bottom = height;
             m_webview.Resize(admin);
+        } else if (viewModel.showFallback) {
+            RECT hidden{};
+            m_webview.Resize(hidden);
         }
     }
 
@@ -2859,6 +2945,9 @@ void MainWindow::KickPoll() {
 
 void MainWindow::HandlePollResult(DWORD status, std::size_t rooms, std::size_t viewers) {
     m_polling.store(false);
+    if (status == 200) {
+        RetryHtmlAdminNavigationIfNeeded(true);
+    }
     if (!m_statsText) return;
 
     const auto result = lan::runtime::CoordinateHostPollResult(BuildHostObservabilityState(), static_cast<long>(status), rooms, viewers, NowTs());
@@ -2913,7 +3002,8 @@ fs::path MainWindow::AdminUiDir() const {
         return runtimeDir;
     }
 
-    const fs::path sourceDir = AppDir().parent_path().parent_path().parent_path() / L"LanScreenShareHostApp" / L"webui";
+    const fs::path repoRoot = AppDir().parent_path().parent_path().parent_path().parent_path();
+    const fs::path sourceDir = repoRoot / L"src" / L"desktop_host" / L"webui";
     if (fs::exists(sourceDir / L"index.html")) {
         return sourceDir;
     }

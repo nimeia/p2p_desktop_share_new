@@ -73,7 +73,7 @@
       <PrecompiledHeaderFile>pch.h</PrecompiledHeaderFile>
       <AdditionalIncludeDirectories>$(ProjectDir);$(ProjectDir)..\;$(VcpkgInstalledRoot)include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
       <LanguageStandard>stdcpp17</LanguageStandard>
-      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/utf-8 /FS %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
     <Link>
       <SubSystem>Windows</SubSystem>
@@ -264,6 +264,10 @@
   </ItemGroup>
 
   <ItemGroup>
+    <ResourceCompile Include="resource.rc" />
+  </ItemGroup>
+
+  <ItemGroup>
     <None Include="packages.config" />
   </ItemGroup>
 
@@ -279,6 +283,22 @@
     </PropertyGroup>
     <Error Condition="!exists('$(WebView2Targets)')"
            Text="$([System.String]::Format('$(ErrorText)', '$(WebView2Targets)'))" />
+  </Target>
+
+  <Target Name="CopyRuntimeWebAssets" AfterTargets="Build">
+    <ItemGroup>
+      <AdminUiAssets Include="$(ProjectDir)webui\**\*" />
+      <AdminUiAssetDirs Include="@(AdminUiAssets->'$(OutDir)webui\%(RecursiveDir)')" />
+      <RuntimeWebAssets Include="$(RepoRoot)www\**\*" />
+      <RuntimeWebAssetDirs Include="@(RuntimeWebAssets->'$(OutDir)www\%(RecursiveDir)')" />
+    </ItemGroup>
+    <MakeDir Directories="@(AdminUiAssetDirs);@(RuntimeWebAssetDirs)" />
+    <Copy SourceFiles="@(AdminUiAssets)"
+          DestinationFiles="@(AdminUiAssets->'$(OutDir)webui\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
+    <Copy SourceFiles="@(RuntimeWebAssets)"
+          DestinationFiles="@(RuntimeWebAssets->'$(OutDir)www\%(RecursiveDir)%(Filename)%(Extension)')"
+          SkipUnchangedFiles="true" />
   </Target>
 
 </Project>
