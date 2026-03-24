@@ -31,14 +31,11 @@ Write-Section "Validate package payload"
 $required = @(
   (Join-Path $desktopDir "LanScreenShareHostApp.exe"),
   (Join-Path $desktopDir "lan_screenshare_server.exe"),
-  (Join-Path $desktopDir "cert\server.crt"),
-  (Join-Path $desktopDir "cert\server.key"),
   (Join-Path $desktopDir "www"),
   (Join-Path $desktopDir "webui"),
   (Join-Path $repoRoot "scripts\windows\Install-LanScreenShare.ps1"),
   (Join-Path $repoRoot "scripts\windows\Uninstall-LanScreenShare.ps1"),
-  (Join-Path $repoRoot "scripts\windows\Check-WebView2Runtime.ps1"),
-  (Join-Path $repoRoot "scripts\windows\Trust-LocalCertificate.ps1")
+  (Join-Path $repoRoot "scripts\windows\Check-WebView2Runtime.ps1")
 )
 foreach ($item in $required) {
   if (-not (Test-Path -LiteralPath $item)) {
@@ -58,7 +55,6 @@ New-Item -ItemType Directory -Force -Path $stageScriptsDir | Out-Null
   "common.ps1",
   "package_common.ps1",
   "Check-WebView2Runtime.ps1",
-  "Trust-LocalCertificate.ps1",
   "Run-NetworkDiagnostics.ps1",
   "browser_smoke.ps1",
   "validate_release.ps1",
@@ -82,12 +78,10 @@ $manifest = [ordered]@{
   generated_at = (Get-Date).ToString("s")
   desktop_dir = $desktopDir
   server_dir = $serverDir
-  cert_policy = "allow-loopback-and-private-lan-self-signed"
   included_helpers = @(
     "Install-LanScreenShare.ps1",
     "Uninstall-LanScreenShare.ps1",
     "scripts/windows/Check-WebView2Runtime.ps1",
-    "scripts/windows/Trust-LocalCertificate.ps1",
     "scripts/windows/Run-NetworkDiagnostics.ps1"
   )
 }

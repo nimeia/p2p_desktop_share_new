@@ -156,7 +156,7 @@ private:
         window_.m_advancedToggle = factory_.CreateButton(L"Advanced", BS_PUSHBUTTON, x + leftW - 130 - pad, y - 1, 120, btnH, ID_BTN_ADVANCED);
         y += 30;
 
-        window_.m_sanIpLabel = factory_.CreateStatic(L"SAN IP / Host IP:", 0, x, y, 120, rowH);
+        window_.m_sanIpLabel = factory_.CreateStatic(L"Host IP:", 0, x, y, 120, rowH);
         window_.m_sanIpValue = factory_.CreateStatic(L"", 0, x + 125, y, leftW - 140 - pad * 2, rowH);
         y += 30;
 

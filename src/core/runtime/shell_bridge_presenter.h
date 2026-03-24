@@ -30,9 +30,6 @@ struct ShellBridgeSnapshotState {
   bool serverRunning = false;
   bool healthReady = false;
   bool hostReachable = false;
-  bool certReady = false;
-  std::wstring certDetail;
-  std::wstring certExpectedSans;
   bool firewallReady = false;
   std::wstring firewallDetail;
   bool remoteViewerReady = false;
@@ -66,7 +63,7 @@ struct ShellBridgeSnapshotState {
   std::wstring outputDir;
   std::wstring bundleDir;
   std::wstring serverExePath;
-  std::wstring certDir;
+  std::wstring adminDir;
   std::wstring timelineText;
   std::wstring logTail;
   bool viewerUrlCopied = false;
@@ -90,7 +87,6 @@ struct ShellBridgeSnapshotState {
   bool autoGenerateQr = false;
   bool autoExportBundle = false;
   bool saveStdStreams = false;
-  std::wstring certBypassPolicy;
   std::wstring webViewBehavior;
   std::wstring startupHook;
 };
@@ -131,7 +127,6 @@ enum class ShellBridgeAdminCommandKind {
   ShowShareWizard,
   ShowQr,
   QuickFixNetwork,
-  QuickFixCertificate,
   QuickFixSharing,
   QuickFixHandoff,
   QuickFixHotspot,
@@ -144,7 +139,6 @@ enum class ShellBridgeAdminCommandKind {
   OpenFirewallSettings,
   RunNetworkDiagnostics,
   CheckWebViewRuntime,
-  TrustLocalCertificate,
   ExportRemoteProbeGuide,
   OpenConnectedDevices,
   SwitchPage,

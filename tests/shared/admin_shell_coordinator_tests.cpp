@@ -40,7 +40,6 @@ int main() {
   int firewallSettingsCalls = 0;
   int networkDiagnosticsCalls = 0;
   int webviewRuntimeCalls = 0;
-  int trustCertificateCalls = 0;
   int remoteProbeGuideCalls = 0;
   int connectedDevicesCalls = 0;
   int navigateCalls = 0;
@@ -78,7 +77,6 @@ int main() {
   hooks.openFirewallSettings = [&]() { ++firewallSettingsCalls; };
   hooks.runNetworkDiagnostics = [&]() { ++networkDiagnosticsCalls; };
   hooks.checkWebViewRuntime = [&]() { ++webviewRuntimeCalls; };
-  hooks.trustLocalCertificate = [&]() { ++trustCertificateCalls; };
   hooks.exportRemoteProbeGuide = [&]() { ++remoteProbeGuideCalls; };
   hooks.openConnectedDevices = [&]() { ++connectedDevicesCalls; };
   hooks.navigatePage = [&](std::wstring page) {

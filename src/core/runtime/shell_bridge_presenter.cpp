@@ -141,7 +141,6 @@ ShellBridgeAdminCommandKind ParseAdminCommandKind(std::wstring_view command) {
   if (command == L"show-share-wizard") return ShellBridgeAdminCommandKind::ShowShareWizard;
   if (command == L"show-qr") return ShellBridgeAdminCommandKind::ShowQr;
   if (command == L"quick-fix-network") return ShellBridgeAdminCommandKind::QuickFixNetwork;
-  if (command == L"quick-fix-certificate") return ShellBridgeAdminCommandKind::QuickFixCertificate;
   if (command == L"quick-fix-sharing") return ShellBridgeAdminCommandKind::QuickFixSharing;
   if (command == L"quick-fix-handoff") return ShellBridgeAdminCommandKind::QuickFixHandoff;
   if (command == L"quick-fix-hotspot") return ShellBridgeAdminCommandKind::QuickFixHotspot;
@@ -154,7 +153,6 @@ ShellBridgeAdminCommandKind ParseAdminCommandKind(std::wstring_view command) {
   if (command == L"open-firewall-settings") return ShellBridgeAdminCommandKind::OpenFirewallSettings;
   if (command == L"run-network-diagnostics") return ShellBridgeAdminCommandKind::RunNetworkDiagnostics;
   if (command == L"check-webview-runtime") return ShellBridgeAdminCommandKind::CheckWebViewRuntime;
-  if (command == L"trust-local-certificate") return ShellBridgeAdminCommandKind::TrustLocalCertificate;
   if (command == L"export-remote-probe-guide") return ShellBridgeAdminCommandKind::ExportRemoteProbeGuide;
   if (command == L"open-connected-devices") return ShellBridgeAdminCommandKind::OpenConnectedDevices;
   if (command == L"switch-page") return ShellBridgeAdminCommandKind::SwitchPage;
@@ -274,9 +272,6 @@ std::wstring BuildShellBridgeSnapshotEventJson(const ShellBridgeSnapshotState& s
   AppendJsonBool(json, "serverRunning", snapshot.serverRunning);
   AppendJsonBool(json, "healthReady", snapshot.healthReady);
   AppendJsonBool(json, "hostReachable", snapshot.hostReachable);
-  AppendJsonBool(json, "certReady", snapshot.certReady);
-  AppendJsonString(json, "certDetail", snapshot.certDetail);
-  AppendJsonString(json, "certExpectedSans", snapshot.certExpectedSans);
   AppendJsonBool(json, "firewallReady", snapshot.firewallReady);
   AppendJsonString(json, "firewallDetail", snapshot.firewallDetail);
   AppendJsonBool(json, "remoteViewerReady", snapshot.remoteViewerReady);
@@ -310,7 +305,7 @@ std::wstring BuildShellBridgeSnapshotEventJson(const ShellBridgeSnapshotState& s
   AppendJsonString(json, "outputDir", snapshot.outputDir);
   AppendJsonString(json, "bundleDir", snapshot.bundleDir);
   AppendJsonString(json, "serverExePath", snapshot.serverExePath);
-  AppendJsonString(json, "certDir", snapshot.certDir);
+  AppendJsonString(json, "adminDir", snapshot.adminDir);
   AppendJsonString(json, "timelineText", snapshot.timelineText);
   AppendJsonString(json, "logTail", snapshot.logTail);
   AppendJsonBool(json, "viewerUrlCopied", snapshot.viewerUrlCopied);
@@ -332,7 +327,6 @@ std::wstring BuildShellBridgeSnapshotEventJson(const ShellBridgeSnapshotState& s
   AppendJsonBool(json, "autoGenerateQr", snapshot.autoGenerateQr);
   AppendJsonBool(json, "autoExportBundle", snapshot.autoExportBundle);
   AppendJsonBool(json, "saveStdStreams", snapshot.saveStdStreams);
-  AppendJsonString(json, "certBypassPolicy", snapshot.certBypassPolicy);
   AppendJsonString(json, "webViewBehavior", snapshot.webViewBehavior);
   AppendJsonString(json, "startupHook", snapshot.startupHook);
   json << "\"networkCandidates\":[";

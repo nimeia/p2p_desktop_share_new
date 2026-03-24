@@ -37,6 +37,7 @@ let playRetryTimer = null;
 let chromeHideTimer = null;
 let deferredInstallPrompt = null;
 let wakeLock = null;
+let landscapeLockUnsupported = false;
 
 function setState(nextState) {
   if (statePill) {
@@ -113,11 +114,21 @@ function scheduleChromeHide() {
 }
 
 async function tryLockLandscape(reason) {
-  if (!screen.orientation || typeof screen.orientation.lock !== "function") return;
+  if (landscapeLockUnsupported) return;
+  if (!screen.orientation || typeof screen.orientation.lock !== "function") {
+    landscapeLockUnsupported = true;
+    return;
+  }
   try {
     await screen.orientation.lock("landscape");
     log(`orientation locked (${reason})`);
   } catch (e) {
+    const name = e && e.name ? String(e.name) : "";
+    const message = String(e || "").toLowerCase();
+    if (name === "NotSupportedError" || message.includes("orientation.lock() is not available") || message.includes("not supported")) {
+      landscapeLockUnsupported = true;
+      return;
+    }
     log(`orientation lock skipped (${reason}): ${e}`);
   }
 }

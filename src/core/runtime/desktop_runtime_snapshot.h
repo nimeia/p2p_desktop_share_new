@@ -35,9 +35,6 @@ struct DesktopRuntimeSnapshotInput {
   std::size_t lastViewers = 0;
 
   bool serverProcessRunning = false;
-  bool certReady = false;
-  std::wstring certDetail;
-  std::wstring expectedSans;
   bool portReady = false;
   std::wstring portDetail;
   bool localHealthReady = false;

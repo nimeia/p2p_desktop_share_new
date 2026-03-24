@@ -35,21 +35,8 @@ struct SelfCheckReport {
   int p0 = 0;
   int p1 = 0;
   int p2 = 0;
-  int certificateCount = 0;
   int networkCount = 0;
   int sharingCount = 0;
-};
-
-struct ShareArtifactCertState {
-  std::filesystem::path certDir;
-  std::filesystem::path certFile;
-  std::filesystem::path keyFile;
-  bool certExists = false;
-  bool keyExists = false;
-  bool ready = false;
-  std::wstring detail;
-  std::wstring expectedSans;
-  std::wstring missingSans;
 };
 
 struct ShareArtifactWriteRequest {
@@ -57,7 +44,6 @@ struct ShareArtifactWriteRequest {
   std::filesystem::path qrAssetSource;
   RuntimeSessionState session;
   RuntimeHealthState health;
-  ShareArtifactCertState cert;
   std::wstring generatedAt;
   bool liveReady = true;
 };
@@ -75,8 +61,6 @@ SelfCheckReport BuildSelfCheckReport(std::wstring_view hostState,
                                      std::wstring_view viewerUrl,
                                      std::size_t viewers,
                                      bool serverProcessRunning,
-                                     bool certReady,
-                                     std::wstring_view certDetail,
                                      bool portReady,
                                      std::wstring_view portDetail,
                                      bool localHealthReady,

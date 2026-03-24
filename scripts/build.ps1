@@ -7,10 +7,9 @@ param(
   [ValidateSet("x64-windows","x64-windows-static")] [string]$Triplet = "x64-windows",
   [int]$Port = 9443,
   [int]$MaxViewers = 10,
-  [string]$SanIp = "",
   [switch]$SkipVcpkgInstall,
   [switch]$VerboseCommands,
   [string]$BuildRoot = "auto"
 )
 
-& (Join-Path $PSScriptRoot "windows\build.ps1") -Config $Config -Target $Target -Clean:$Clean -VcpkgRoot $VcpkgRoot -Generator $Generator -Triplet $Triplet -Port $Port -MaxViewers $MaxViewers -SanIp $SanIp -SkipVcpkgInstall:$SkipVcpkgInstall -VerboseCommands:$VerboseCommands -BuildRoot:$BuildRoot
+& (Join-Path $PSScriptRoot "windows\build.ps1") -Config $Config -Target $Target -Clean:$Clean -VcpkgRoot $VcpkgRoot -Generator $Generator -Triplet $Triplet -Port $Port -MaxViewers $MaxViewers -SkipVcpkgInstall:$SkipVcpkgInstall -VerboseCommands:$VerboseCommands -BuildRoot:$BuildRoot

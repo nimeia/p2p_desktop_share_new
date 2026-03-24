@@ -26,8 +26,7 @@ Build only desktop host:
 - `-Generator auto|ninja|vs`
 - `-Triplet x64-windows|x64-windows-static`
 - `-Clean`: remove CMake build dir before configuring
-- `-SanIp <ip>`: SAN IP for self-signed cert (defaults to auto-detected IPv4)
-- `-SkipBrowserSmoke`: skip the C++ HTTPS/WSS browser smoke test target
+- `-SkipBrowserSmoke`: skip the C++ HTTP/WS browser smoke test target
 - `-SkipDesktopValidation`: skip desktop payload/startup validation after desktop builds
 
 ## Packaging
@@ -115,7 +114,7 @@ This collects Windows Firewall profile/rule state, current TCP listeners, and qu
 
 ## Browser smoke
 
-Run the C++ HTTPS/WSS browser smoke target against the configured build tree:
+Run the C++ HTTP/WS browser smoke target against the configured build tree:
 
 ```powershell
 .\scripts\windows\browser_smoke.ps1 -Config Debug
@@ -132,9 +131,8 @@ Validate the built desktop payload and startup behavior:
 This validates the copied runtime bundle, smoke-tests the bundled server, and verifies that the desktop process does not exit immediately after launch.
 
 
-## WebView2 / certificate bootstrap helpers
+## WebView2 helper
 
 ```powershell
 .\scripts\windows\Check-WebView2Runtime.ps1
-.\scripts\windows\Trust-LocalCertificate.ps1 -CertPath .\out\desktop_host\x64\Release\cert\server.crt
 ```

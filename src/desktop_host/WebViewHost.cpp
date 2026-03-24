@@ -2,7 +2,6 @@
 #include "WebViewHost.h"
 
 #include "WebViewRuntimeDetector.h"
-#include "core/runtime/bootstrap_policy.h"
 
 #include <fstream>
 #include <wrl.h>
@@ -240,28 +239,6 @@ bool WebViewHost::Initialize(HWND parent, const RECT& bounds, std::function<void
                             }
 
                             if (current->webview) {
-#if defined(__ICoreWebView2_14_INTERFACE_DEFINED__)
-                                ComPtr<ICoreWebView2_14> wv14;
-                                if (SUCCEEDED(current->webview.As(&wv14)) && wv14) {
-                                    EventRegistrationToken tok{};
-                                    wv14->add_ServerCertificateErrorDetected(
-                                        Callback<ICoreWebView2ServerCertificateErrorDetectedEventHandler>(
-                                            [this](ICoreWebView2*, ICoreWebView2ServerCertificateErrorDetectedEventArgs* args) -> HRESULT {
-                                                if (!args) return S_OK;
-                                                if (!m_impl) return S_OK;
-                                                const std::wstring activeUrl = !m_impl->currentUrl.empty() ? m_impl->currentUrl : m_impl->pendingUrl;
-                                                if (lan::runtime::ShouldBypassLocalCertificateForUrl(activeUrl)) {
-                                                    args->put_Action(COREWEBVIEW2_SERVER_CERTIFICATE_ERROR_ACTION_ALWAYS_ALLOW);
-                                                    m_impl->Log(L"WebView2: allowed local certificate error for " + activeUrl);
-                                                } else {
-                                                    args->put_Action(COREWEBVIEW2_SERVER_CERTIFICATE_ERROR_ACTION_CANCEL);
-                                                    m_impl->Log(L"WebView2: blocked certificate bypass for non-local URL " + activeUrl);
-                                                }
-                                                return S_OK;
-                                            }).Get(),
-                                        &tok);
-                                }
-#endif
                                 EventRegistrationToken msgTok{};
                                 current->webview->add_WebMessageReceived(
                                     Callback<ICoreWebView2WebMessageReceivedEventHandler>(

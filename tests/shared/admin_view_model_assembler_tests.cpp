@@ -47,9 +47,6 @@ lan::runtime::AdminViewModelInput MakeInput() {
   input.runtimeSnapshot.session.lastRooms = 1;
   input.runtimeSnapshot.session.lastViewers = 2;
   input.runtimeSnapshot.health.serverProcessRunning = true;
-  input.runtimeSnapshot.health.certReady = true;
-  input.runtimeSnapshot.health.certDetail = L"ok";
-  input.runtimeSnapshot.health.expectedSans = L"192.168.1.10,localhost";
   input.runtimeSnapshot.health.portReady = true;
   input.runtimeSnapshot.health.portDetail = L"available";
   input.runtimeSnapshot.health.localHealthReady = true;
@@ -57,8 +54,8 @@ lan::runtime::AdminViewModelInput MakeInput() {
   input.runtimeSnapshot.health.activeIpv4Candidates = 2;
   input.runtimeSnapshot.health.embeddedHostReady = true;
   input.runtimeSnapshot.dashboardOverall = L"Ready";
-  input.runtimeSnapshot.hostUrl = L"https://192.168.1.10:9443/host";
-  input.runtimeSnapshot.viewerUrl = L"https://192.168.1.10:9443/view";
+  input.runtimeSnapshot.hostUrl = L"http://192.168.1.10:9443/host";
+  input.runtimeSnapshot.viewerUrl = L"http://192.168.1.10:9443/view";
   input.runtimeSnapshot.recentHeartbeat = L"/health ok";
   input.runtimeSnapshot.localReachability = L"ok";
   input.runtimeSnapshot.handoff.state = L"delivered";
@@ -67,12 +64,12 @@ lan::runtime::AdminViewModelInput MakeInput() {
   input.outputDir = L"C:/app/out";
   input.bundleDir = L"C:/app/out/share_bundle";
   input.serverExePath = L"C:/app/lan_screenshare_server.exe";
-  input.certDir = L"C:/app/cert";
+  input.adminDir = L"C:/app/webui";
   input.timelineText = L"Started";
   input.logTail = L"latest log";
   input.defaultServerExePath = input.serverExePath;
   input.defaultWwwPath = L"C:/app/www";
-  input.defaultCertDir = input.certDir;
+  input.defaultAdminDir = input.adminDir;
   input.defaultLaunchArgs = L"--bind {bind}";
   input.defaultIpStrategy = L"prefer-private-wifi";
   input.autoDetectFrequencySec = 15;
@@ -81,7 +78,6 @@ lan::runtime::AdminViewModelInput MakeInput() {
   input.configuredDefaultViewerOpenMode = L"app-window-preferred";
   input.outputDirSetting = L"C:/app/out";
   input.diagnosticsRetentionDays = 7;
-  input.certBypassPolicy = L"allow-local-self-signed";
   input.snapshotWebViewBehavior = L"html-admin";
   input.configuredWebViewBehavior = L"embedded-when-available";
   input.snapshotStartupHook = L"none";
@@ -92,7 +88,7 @@ lan::runtime::AdminViewModelInput MakeInput() {
   input.saveStdStreams = true;
   input.serverExeExists = true;
   input.wwwDirExists = true;
-  input.certDirExists = true;
+  input.adminDirExists = true;
   input.bundleDirExists = true;
   input.networkCandidates.push_back({L"Wi-Fi", L"192.168.1.10", L"wifi", true, true, true, L"LAN /health ok", L"Selected adapter answered"});
   return input;

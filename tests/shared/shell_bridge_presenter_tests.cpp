@@ -45,9 +45,6 @@ int main() {
   const auto webviewRuntimeCommand = ParseShellBridgeInboundMessage(L"{\"source\":\"admin-shell\",\"kind\":\"command\",\"command\":\"check-webview-runtime\"}");
   Expect(webviewRuntimeCommand.adminCommand.kind == ShellBridgeAdminCommandKind::CheckWebViewRuntime, "check-webview-runtime should map correctly");
 
-  const auto trustCertCommand = ParseShellBridgeInboundMessage(L"{\"source\":\"admin-shell\",\"kind\":\"command\",\"command\":\"trust-local-certificate\"}");
-  Expect(trustCertCommand.adminCommand.kind == ShellBridgeAdminCommandKind::TrustLocalCertificate, "trust-local-certificate should map correctly");
-
   const auto localeCommand = ParseShellBridgeInboundMessage(
       L"{\"source\":\"admin-shell\",\"kind\":\"command\",\"command\":\"set-language\",\"locale\":\"de\"}");
   Expect(localeCommand.adminCommand.kind == ShellBridgeAdminCommandKind::SetLanguage, "set-language should map correctly");
@@ -70,8 +67,8 @@ int main() {
   snapshot.dashboardState = L"ready";
   snapshot.dashboardLabel = L"Ready";
   snapshot.hostIp = L"192.168.1.5";
-  snapshot.hostUrl = L"https://192.168.1.5:9443/host";
-  snapshot.viewerUrl = L"https://192.168.1.5:9443/viewer";
+  snapshot.hostUrl = L"http://192.168.1.5:9443/host";
+  snapshot.viewerUrl = L"http://192.168.1.5:9443/viewer";
   snapshot.serverRunning = true;
   snapshot.firewallReady = false;
   snapshot.firewallDetail = L"Firewall rule missing";

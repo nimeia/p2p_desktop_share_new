@@ -181,9 +181,6 @@
     restart_service: makeLocalMessage("Restart service", "重新启动服务", "重新啟動服務"),
     sharing_service_still_not_ready: makeLocalMessage("The sharing service is not ready yet", "共享服务还未准备好", "分享服務還未準備好"),
     sharing_service_still_not_ready_detail: makeLocalMessage("The service is running, but the health check has not passed yet.", "服务已经启动，但健康检查还没有通过。", "服務已啟動，但健康檢查還沒有通過。"),
-    local_security_incomplete: makeLocalMessage("Local security setup is incomplete", "本地安全准备未完成", "本地安全準備未完成"),
-    local_certificate_not_ready: makeLocalMessage("The local certificate for the current sharing address is not ready yet.", "当前共享地址对应的本地证书还没有准备好。", "目前分享位址對應的本地憑證還沒有準備好。"),
-    fix_certificate: makeLocalMessage("Fix certificate", "处理证书", "處理憑證"),
     hotspot_name_password_detail: makeLocalMessage("The app is preparing the hotspot name and password.", "系统正在准备热点名称和密码。", "系統正在準備熱點名稱和密碼。"),
     viewer_join_hotspot_first: makeLocalMessage("The viewer needs to join this hotspot first.", "接收方需要先连接这个热点。", "接收方需要先連線這個熱點。"),
     local_service_needed_for_access: makeLocalMessage("Access info is generated only after the local sharing service starts.", "本地共享服务启动后才能生成访问入口。", "本地分享服務啟動後才能產生存取入口。"),
@@ -529,7 +526,6 @@
       verify_access_path: "접속 경로 먼저 확인",
       run_network_diagnostics: "네트워크 진단 실행",
       recheck_network: "네트워크 다시 확인",
-      fix_certificate: "인증서 처리",
       share_service_missing_one_step: "공유 서비스는 실행 중이지만 준비 항목 하나가 아직 끝나지 않았습니다.",
       share_service_missing_one_step_started: "공유 서비스는 실행 중이지만 준비 항목 하나가 아직 끝나지 않았습니다.",
       return_to_guide_then_prepare_page: "안내 페이지로 돌아가세요. 앱이 거기서 먼저 네트워크 경로와 공유 서비스를 준비한 뒤, 여기로 돌아와 공유할 내용을 선택할 수 있습니다.",
@@ -616,7 +612,6 @@
       verify_access_path: "接続経路を先に確認",
       run_network_diagnostics: "ネットワーク診断を実行",
       recheck_network: "ネットワークを再確認",
-      fix_certificate: "証明書を処理",
       share_service_missing_one_step: "共有サービスは動作中ですが、準備項目がまだ 1 つ完了していません。",
       share_service_missing_one_step_started: "共有サービスは動作中ですが、準備項目がまだ 1 つ完了していません。",
       return_to_guide_then_prepare_page: "ガイドページに戻ってください。アプリがそこで先にネットワーク経路と共有サービスを準備し、その後ここで共有内容を選べます。",
@@ -703,7 +698,6 @@
       verify_access_path: "Zugriffspfad zuerst prüfen",
       run_network_diagnostics: "Netzwerkdiagnose ausführen",
       recheck_network: "Netzwerk erneut prüfen",
-      fix_certificate: "Zertifikat bearbeiten",
       share_service_missing_one_step: "Der Freigabedienst läuft, aber ein Vorbereitungsschritt ist noch nicht abgeschlossen.",
       share_service_missing_one_step_started: "Der Freigabedienst läuft, aber ein Vorbereitungsschritt ist noch nicht abgeschlossen.",
       return_to_guide_then_prepare_page: "Gehen Sie zur Assistentenseite zurück. Dort bereitet die App zuerst Netzwerkpfad und Freigabedienst vor. Danach können Sie hier den Freigabeinhalt auswählen.",
@@ -790,7 +784,6 @@
       verify_access_path: "Сначала проверить путь доступа",
       run_network_diagnostics: "Запустить сетевую диагностику",
       recheck_network: "Проверить сеть ещё раз",
-      fix_certificate: "Обработать сертификат",
       share_service_missing_one_step: "Служба показа уже работает, но один шаг подготовки ещё не завершён.",
       share_service_missing_one_step_started: "Служба показа уже работает, но один шаг подготовки ещё не завершён.",
       return_to_guide_then_prepare_page: "Вернитесь на страницу мастера. Там приложение сначала подготовит сетевой путь и службу показа, а затем вы сможете выбрать здесь, что показывать.",
@@ -1366,16 +1359,6 @@
         payload.dashboardError || "服务已经启动，但健康检查还没有通过。",
         "刷新状态",
         "request-snapshot"
-      );
-    }
-
-    if (false && payload.serverRunning && elapsedMs > 8200 && !payload.certReady) {
-      return makeIssue(
-        "certificate",
-        "本地安全准备未完成",
-        payload.certDetail || "当前共享地址对应的本地证书还没有准备好。",
-        "处理证书",
-        "trust-local-certificate"
       );
     }
 
@@ -2224,15 +2207,6 @@
       };
     }
 
-    if (false && !payload.certReady) {
-      return {
-        title: localMessage("local_security_incomplete"),
-        text: payload.certDetail || localMessage("local_certificate_not_ready"),
-        actionLabel: localMessage("fix_certificate"),
-        action: "trust-local-certificate",
-      };
-    }
-
     if (!payload.hostReachable && !payload.hotspotRunning) {
       return {
         title: localMessage("address_not_ready"),
@@ -3000,7 +2974,7 @@
     setPairs("dashboardServiceCard", [
       ["Server EXE", state.serverExePath],
       ["Bind + Port", (state.bind || "-") + ":" + (state.port || "-")],
-      ["Cert Dir", state.certDir],
+      ["Admin UI Dir", state.adminDir],
       ["Host State", state.hostState]
     ]);
 
@@ -3120,7 +3094,7 @@
     setPairs("diagPaths", [
       ["Output Dir", state.outputDir],
       ["Bundle Dir", state.bundleDir],
-      ["Cert Dir", state.certDir],
+      ["Admin UI Dir", state.adminDir],
       ["Server EXE", state.serverExePath]
     ]);
     setText("diagWarningText", state.dashboardError || "None");
@@ -3144,7 +3118,6 @@
       ["Bundle Dir", state.bundleDir]
     ]);
     setPairs("settingsAdvanced", [
-      ["Cert Bypass", state.certBypassPolicy],
       ["WebView Behavior", state.webViewBehavior],
       ["Startup Hook", state.startupHook],
       ["Current Native Page", state.nativePage]

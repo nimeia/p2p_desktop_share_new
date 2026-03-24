@@ -59,10 +59,7 @@ DiagnosticsViewModel BuildDiagnosticsViewModel(const AdminViewModelInput& input)
   checklist << L"[" << (health.embeddedHostReady ? L"OK" : L"FIX") << L"] WebView2 available\r\n";
   checklist << L"  Fix: install/repair WebView2 Runtime or use browser fallback.\r\n\r\n";
   checklist << L"[OK] Plain HTTP mode\r\n";
-  checklist << L"  Fix: no certificate trust step is required in this mode.\r\n";
-  if (!health.certDetail.empty()) {
-    checklist << L"  Detail: " << health.certDetail << L"\r\n";
-  }
+  checklist << L"  Fix: no extra browser trust step is required in this mode.\r\n";
   checklist << L"\r\n";
   checklist << L"[" << (!session.hostIp.empty() ? L"OK" : L"FIX") << L"] LAN IP determined\r\n";
   checklist << L"  Fix: re-detect network or choose main IP manually.\r\n\r\n";

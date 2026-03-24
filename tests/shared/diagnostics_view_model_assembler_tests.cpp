@@ -35,8 +35,6 @@ lan::runtime::AdminViewModelInput MakeInput() {
   input.runtimeSnapshot.health.localHealthReady = true;
   input.runtimeSnapshot.health.lanBindReady = true;
   input.runtimeSnapshot.health.embeddedHostReady = false;
-  input.runtimeSnapshot.health.certReady = false;
-  input.runtimeSnapshot.health.certDetail = L"missing SAN";
   input.runtimeSnapshot.health.hostIpReachable = true;
   input.runtimeSnapshot.health.firewallReady = false;
   input.runtimeSnapshot.health.firewallDetail = L"No inbound allow rule";
@@ -62,8 +60,6 @@ int main() {
   const auto diagnostics = BuildDiagnosticsViewModel(input);
   Expect(diagnostics.checklistCard.find(L"[OK] Plain HTTP mode") != std::wstring::npos,
          "diagnostics checklist should reflect the current HTTP transport mode");
-  Expect(diagnostics.checklistCard.find(L"Detail: missing SAN") != std::wstring::npos,
-         "diagnostics checklist should include cert detail");
   Expect(diagnostics.checklistCard.find(L"Firewall inbound path") != std::wstring::npos,
          "diagnostics checklist should include firewall line");
   Expect(diagnostics.checklistCard.find(L"No inbound allow rule") != std::wstring::npos,

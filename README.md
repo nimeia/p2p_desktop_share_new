@@ -44,7 +44,6 @@ Implemented today:
 Not finished yet:
 
 - repeatable Windows packaging/install/upgrade/uninstall baseline (initial version landed)
-- first-run certificate trust/bootstrap guidance is now available through packaged helper scripts
 - WebView2 Runtime detection + helper scripts are now wired, but field validation is still pending
 - end-to-end Wi-Fi Direct workflow automation
 - reconnect/resume and broader stability work
@@ -63,7 +62,7 @@ See:
 ## Repository Layout
 
 - `src/`
-  - `core/` shared server, cert, protocol, util, and endpoint-selection rules
+  - `core/` shared server, runtime, protocol, util, and endpoint-selection rules
   - `platform/` Windows/POSIX provider, probe, and action implementations
 - `www/`
   - `host.html`, `viewer.html`, and JS assets
@@ -72,9 +71,9 @@ See:
 - `docs/desktop_host/`
   - desktop host build/status notes
 - `scripts/`
-  - build and certificate helper scripts
+  - build and packaging helper scripts
 - `out/`
-  - local build outputs, logs, certs, generated artifacts
+  - local build outputs, logs, and generated artifacts
 
 ## Build
 
@@ -173,9 +172,8 @@ GitHub Actions packaging:
 
 - The server depends on vcpkg runtime DLLs. The build script now copies them into the output directory.
 - The build script now also validates the server output layout, runs server smoke by default for `-Target server`, runs the browser smoke target after server builds, and performs desktop release validation after desktop builds unless you explicitly skip those stages.
-- Server certificate generation now uses the linked OpenSSL library through the platform provider layer instead of shelling out to `openssl.exe`.
 - The desktop app can run without build-time WebView2 headers, but embedded host-page functionality is degraded in that environment.
-- The embedded host page now only allows local self-signed certificate bypass for loopback / private-LAN URLs, and the Windows helper scripts can check WebView2 Runtime presence or import the generated certificate into the current-user root store.
+- The desktop host and share bundle now run plain HTTP / WS only; no local TLS/bootstrap helper, trust-import helper, or transport bypass path is required.
 - The desktop shell refreshes exported files in `out/share_bundle/` so the local share pages and diagnostics stay aligned with the current desktop snapshot.
 
 ## Suggested Next Work
@@ -183,14 +181,14 @@ GitHub Actions packaging:
 The most valuable next steps are:
 
 1. field-validate the packaged install/upgrade/uninstall flow on clean Windows machines
-2. field-validate the WebView2 Runtime + certificate bootstrap helpers on real operator environments
+2. field-validate the WebView2 Runtime helper flow on real operator environments
 3. harden reconnect/recovery and hotspot/manual-network UX
 4. deepen browser automation and release validation on real Windows hardware
 
 
 ## Cross-platform runtime refactor status
 
-- server CLI now resolves certificate and network concerns through provider interfaces under `src/platform/*`
+- server CLI now resolves bind/advertise address and network concerns through `src/platform/*`
 - shared endpoint-selection rules now live in `src/core/network/endpoint_selection.*`
 - Windows probe/action code now lives under `src/platform/windows/`
 - Linux/macOS now have a POSIX probe baseline under `src/platform/posix/` for the CLI target

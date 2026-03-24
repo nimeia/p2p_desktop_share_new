@@ -6,7 +6,6 @@
 
 #include "UrlUtil.h"
 #include "HttpClient.h"
-#include "../core/cert/cert_manager.h"
 #include "../core/runtime/runtime_controller.h"
 #include "../core/runtime/share_artifact_service.h"
 #include "../core/runtime/desktop_runtime_snapshot.h"
@@ -400,55 +399,6 @@ static std::wstring HtmlEscape(std::wstring_view value) {
     return out;
 }
 
-struct CertArtifactsInfo {
-    fs::path certDir;
-    fs::path certFile;
-    fs::path keyFile;
-    bool certExists = false;
-    bool keyExists = false;
-    bool ready = false;
-    std::wstring detail;
-    std::wstring expectedSans;
-    std::wstring missingSans;
-};
-
-static std::wstring LocalComputerHostName() {
-    wchar_t buf[MAX_COMPUTERNAME_LENGTH + 1]{};
-    DWORD size = _countof(buf);
-    if (GetComputerNameW(buf, &size) && size > 0) {
-        return buf;
-    }
-    return L"";
-}
-
-static std::wstring JoinWideValues(const std::vector<std::wstring>& values) {
-    std::wstringstream ss;
-    for (std::size_t i = 0; i < values.size(); ++i) {
-        if (i != 0) ss << L", ";
-        ss << values[i];
-    }
-    return ss.str();
-}
-
-static std::wstring BuildExpectedCertSans(std::wstring_view hostIp) {
-    std::vector<std::wstring> entries;
-    auto addUnique = [&](std::wstring value) {
-        if (value.empty()) return;
-        if (std::find(entries.begin(), entries.end(), value) == entries.end()) {
-            entries.push_back(std::move(value));
-        }
-    };
-
-    const std::wstring host(hostIp);
-    if (!host.empty() && host != L"(not found)" && host != L"0.0.0.0") {
-        addUnique(host);
-    }
-    addUnique(L"127.0.0.1");
-    addUnique(L"localhost");
-    addUnique(LocalComputerHostName());
-    return JoinWideValues(entries);
-}
-
 struct RuntimeDiagnosticsSnapshot {
     bool serverProcessRunning = false;
     bool portReady = false;
@@ -467,20 +417,6 @@ struct RuntimeDiagnosticsSnapshot {
     bool selectedIpRecommended = true;
     std::wstring adapterHint;
     std::vector<lan::runtime::RemoteProbeCandidateInput> remoteProbeCandidates;
-};
-
-static CertArtifactsInfo ProbeCertArtifacts(const fs::path& appDir, std::wstring_view hostIp) {
-    CertArtifactsInfo info;
-    info.certDir = appDir / L"cert";
-    info.certFile = info.certDir / L"server.crt";
-    info.keyFile = info.certDir / L"server.key";
-    info.certExists = fs::exists(info.certFile);
-    info.keyExists = fs::exists(info.keyFile);
-    info.expectedSans = BuildExpectedCertSans(hostIp);
-    info.ready = true;
-    info.detail = L"Plain HTTP mode is active. Local certificates are not used.";
-    info.missingSans.clear();
-    return info;
 }
 
 static bool IsHostStateServerRunning(std::wstring_view state) {
@@ -927,7 +863,7 @@ void MainWindow::OnCreate() {
     GenerateRoomToken();
     m_defaultServerExePath = (AppDir() / L"lan_screenshare_server.exe").wstring();
     m_defaultWwwPath = (AppDir() / L"www").wstring();
-    m_defaultCertDir = AdminUiDir().wstring();
+    m_defaultAdminDir = AdminUiDir().wstring();
     m_outputDir = (AppDir() / L"out").wstring();
 
     DesktopHostPageBuilders::BuildAll(*this);
@@ -1355,13 +1291,6 @@ void MainWindow::CheckWebViewRuntime() {
     }
 }
 
-void MainWindow::TrustLocalCertificate() {
-    AppendLog(L"Plain HTTP mode is active; local certificate trust is no longer required.");
-    MessageBoxW(m_hwnd,
-                L"当前使用的是 HTTP 模式，不再需要导入或信任本地证书。",
-                L"HTTP Mode",
-                MB_OK | MB_ICONINFORMATION);
-}
 
 void MainWindow::ExportRemoteProbeGuide() {
     const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, AppDir() / L"lan_screenshare_server.exe", m_bindAddress, m_hostIp, m_port);
@@ -1460,12 +1389,6 @@ void MainWindow::QuickFixNetwork() {
     AppendLog(L"Quick fix: refreshed network path");
 }
 
-void MainWindow::QuickFixCertificate() {
-    RefreshDiagnosticsBundle();
-    SetPage(UiPage::Diagnostics);
-    AppendLog(L"Quick fix: switched to diagnostics. Plain HTTP mode no longer uses certificate trust.");
-}
-
 void MainWindow::QuickFixSharing() {
     StartAndOpenHost();
     SetPage(UiPage::Setup);
@@ -1511,7 +1434,6 @@ void MainWindow::OpenOutputFolder() {
 
 lan::runtime::DesktopRuntimeSnapshot MainWindow::BuildDesktopRuntimeSnapshot(bool liveReady) const {
     const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, AppDir() / L"lan_screenshare_server.exe", m_bindAddress, m_hostIp, m_port);
-    const auto certInfo = ProbeCertArtifacts(AppDir(), m_hostIp);
 
     lan::runtime::DesktopRuntimeSnapshotInput input;
     input.localeCode = m_localeCode;
@@ -1542,9 +1464,6 @@ lan::runtime::DesktopRuntimeSnapshot MainWindow::BuildDesktopRuntimeSnapshot(boo
     input.lastViewers = m_lastViewers;
 
     input.serverProcessRunning = runtime.serverProcessRunning;
-    input.certReady = certInfo.ready;
-    input.certDetail = certInfo.detail;
-    input.expectedSans = certInfo.expectedSans;
     input.portReady = runtime.portReady;
     input.portDetail = runtime.portDetail;
     input.localHealthReady = runtime.localHealthReady;
@@ -1571,7 +1490,6 @@ bool MainWindow::WriteShareArtifacts(fs::path* shareCardPath,
                                      fs::path* desktopSelfCheckPath) {
     const fs::path outDir = AppDir() / L"out" / L"share_bundle";
     const auto generatedAt = NowDateTime();
-    const auto certInfo = ProbeCertArtifacts(AppDir(), m_hostIp);
     const auto snapshot = BuildDesktopRuntimeSnapshot(true);
 
     lan::runtime::ShareArtifactWriteRequest request;
@@ -1579,15 +1497,6 @@ bool MainWindow::WriteShareArtifacts(fs::path* shareCardPath,
     request.qrAssetSource = AppDir() / L"www" / L"assets" / L"share_card_qr.bundle.js";
     request.session = snapshot.session;
     request.health = snapshot.health;
-    request.cert.certDir = certInfo.certDir;
-    request.cert.certFile = certInfo.certFile;
-    request.cert.keyFile = certInfo.keyFile;
-    request.cert.certExists = certInfo.certExists;
-    request.cert.keyExists = certInfo.keyExists;
-    request.cert.ready = certInfo.ready;
-    request.cert.detail = certInfo.detail;
-    request.cert.expectedSans = certInfo.expectedSans;
-    request.cert.missingSans = certInfo.missingSans;
     request.generatedAt = generatedAt;
     request.liveReady = true;
 
@@ -1830,7 +1739,6 @@ lan::runtime::AdminShellCoordinatorHooks MainWindow::BuildAdminShellCoordinatorH
     hooks.copyHostUrl = [this]() { CopyHostUrl(); };
     hooks.copyViewerUrl = [this]() { CopyViewerUrl(); };
     hooks.quickFixNetwork = [this]() { QuickFixNetwork(); };
-    hooks.quickFixCertificate = [this]() { QuickFixCertificate(); };
     hooks.quickFixSharing = [this]() { QuickFixSharing(); };
     hooks.quickFixHandoff = [this]() { QuickFixHandoff(); };
     hooks.quickFixHotspot = [this]() { QuickFixHotspot(); };
@@ -1846,7 +1754,6 @@ lan::runtime::AdminShellCoordinatorHooks MainWindow::BuildAdminShellCoordinatorH
     hooks.openFirewallSettings = [this]() { OpenFirewallSettings(); };
     hooks.runNetworkDiagnostics = [this]() { RunNetworkDiagnostics(); };
     hooks.checkWebViewRuntime = [this]() { CheckWebViewRuntime(); };
-    hooks.trustLocalCertificate = [this]() { TrustLocalCertificate(); };
     hooks.exportRemoteProbeGuide = [this]() { ExportRemoteProbeGuide(); };
     hooks.openConnectedDevices = [this]() { OpenWifiDirectPairing(); };
     hooks.navigatePage = [this](std::wstring page) { TrySetPageFromAdminTab(page); };
@@ -1907,12 +1814,12 @@ lan::runtime::AdminViewModelInput MainWindow::BuildAdminViewModelInput() const {
     input.outputDir = (AppDir() / L"out").wstring();
     input.bundleDir = bundleDir.wstring();
     input.serverExePath = serverExe.wstring();
-    input.certDir = adminDir.wstring();
+    input.adminDir = adminDir.wstring();
     input.timelineText = m_timelineText;
     input.logTail = m_logs.size() > 8000 ? m_logs.substr(m_logs.size() - 8000) : m_logs;
     input.defaultServerExePath = m_defaultServerExePath;
     input.defaultWwwPath = m_defaultWwwPath;
-    input.defaultCertDir = adminDir.wstring();
+    input.defaultAdminDir = m_defaultAdminDir;
     input.defaultLaunchArgs = m_defaultLaunchArgs;
     input.defaultIpStrategy = m_defaultIpStrategy;
     input.autoDetectFrequencySec = m_autoDetectFrequencySec;
@@ -1921,7 +1828,6 @@ lan::runtime::AdminViewModelInput MainWindow::BuildAdminViewModelInput() const {
     input.configuredDefaultViewerOpenMode = m_defaultViewerOpenMode;
     input.outputDirSetting = m_outputDir;
     input.diagnosticsRetentionDays = m_diagnosticsRetentionDays;
-    input.certBypassPolicy = m_certBypassPolicy;
     input.snapshotWebViewBehavior = PreferHtmlAdminUi() ? L"html-admin" : L"embedded-host";
     input.configuredWebViewBehavior = m_webViewBehavior;
     input.snapshotStartupHook = L"none";
@@ -1932,7 +1838,7 @@ lan::runtime::AdminViewModelInput MainWindow::BuildAdminViewModelInput() const {
     input.saveStdStreams = m_saveStdStreams;
     input.serverExeExists = fs::exists(serverExe);
     input.wwwDirExists = fs::exists(wwwDir);
-    input.certDirExists = fs::exists(adminDir);
+    input.adminDirExists = fs::exists(adminDir);
     input.bundleDirExists = fs::exists(bundleDir);
 
     input.networkCandidates.reserve(runtime.remoteProbeCandidates.size());
@@ -2101,14 +2007,12 @@ void MainWindow::RefreshDashboard() {
 
 void MainWindow::RefreshSessionSetup() {
     if (PreferHtmlAdminUi()) return;
-    const auto certInfo = ProbeCertArtifacts(AppDir(), m_hostIp);
     const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, AppDir() / L"lan_screenshare_server.exe", m_bindAddress, m_hostIp, m_port);
     const std::wstring hostUrl = BuildHostUrlLocal();
     const auto editViewModel = lan::runtime::BuildDesktopEditSessionViewModel(BuildDesktopEditSessionInput());
 
     if (m_sanIpValue) {
-        std::wstring san = BuildExpectedCertSans(m_hostIp);
-        SetWindowTextW(m_sanIpValue, san.c_str());
+        SetWindowTextW(m_sanIpValue, m_hostIp.empty() ? L"(not found)" : m_hostIp.c_str());
     }
 
     ApplyDesktopEditSessionViewModel(editViewModel);
@@ -2139,9 +2043,6 @@ void MainWindow::RefreshSessionSetup() {
         ss << L"Action: Open Host in the local browser.\r\n";
         ss << L"Host URL: " << hostUrl << L"\r\n";
         ss << L"Transport: plain HTTP / WS";
-        if (!certInfo.detail.empty()) {
-            ss << L"\r\nMode Detail: " << certInfo.detail;
-        }
         SetWindowTextW(m_hostPreviewPlaceholder, ss.str().c_str());
         const auto layoutVisibility = lan::runtime::BuildDesktopPageVisibility(BuildDesktopLayoutStateInput());
         SetWindowVisible(m_hostPreviewPlaceholder, layoutVisibility.showHostPreviewPlaceholder);

@@ -43,7 +43,7 @@ int main(int argc, char** argv) {
 
   lan::platform::ServerEndpointRequest endpointRequest;
   endpointRequest.bindAddress = ArgValue(argc, argv, "--bind", "0.0.0.0");
-  endpointRequest.subjectAltNames = ArgValue(argc, argv, "--san-ip", lan::platform::kAutoAddressToken);
+  endpointRequest.advertiseAddress = ArgValue(argc, argv, "--host-ip", lan::platform::kAutoAddressToken);
 
   const int port = ArgInt(argc, argv, "--port", 9443);
   const std::string www = lan::platform::ResolveRuntimePath(baseDir, ArgValue(argc, argv, "--www", "www"));

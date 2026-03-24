@@ -35,12 +35,12 @@ struct EndpointProbeResult {
 
 struct EndpointSelectionRequest {
   std::string bindAddress = "0.0.0.0";
-  std::string subjectAltNames = kAutoAddressToken;
+  std::string advertiseAddress = kAutoAddressToken;
 };
 
 struct EndpointSelection {
   std::string bindAddress = "0.0.0.0";
-  std::string subjectAltNames = "127.0.0.1";
+  std::string advertiseAddress = "127.0.0.1";
   std::string preferredHost = "127.0.0.1";
   bool usedAutoDiscovery = false;
   bool networkInfoAvailable = false;

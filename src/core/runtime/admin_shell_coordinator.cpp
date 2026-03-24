@@ -77,9 +77,6 @@ void HandleAdminCommand(const ShellBridgeAdminCommand& command,
     case ShellBridgeAdminCommandKind::QuickFixNetwork:
       if (hooks.quickFixNetwork) hooks.quickFixNetwork();
       break;
-    case ShellBridgeAdminCommandKind::QuickFixCertificate:
-      if (hooks.quickFixCertificate) hooks.quickFixCertificate();
-      break;
     case ShellBridgeAdminCommandKind::QuickFixSharing:
       if (hooks.quickFixSharing) hooks.quickFixSharing();
       break;
@@ -115,9 +112,6 @@ void HandleAdminCommand(const ShellBridgeAdminCommand& command,
       break;
     case ShellBridgeAdminCommandKind::CheckWebViewRuntime:
       if (hooks.checkWebViewRuntime) hooks.checkWebViewRuntime();
-      break;
-    case ShellBridgeAdminCommandKind::TrustLocalCertificate:
-      if (hooks.trustLocalCertificate) hooks.trustLocalCertificate();
       break;
     case ShellBridgeAdminCommandKind::ExportRemoteProbeGuide:
       if (hooks.exportRemoteProbeGuide) hooks.exportRemoteProbeGuide();

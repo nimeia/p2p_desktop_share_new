@@ -78,7 +78,6 @@
     <Link>
       <SubSystem>Windows</SubSystem>
       <AdditionalLibraryDirectories>$(VcpkgLibDir);%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
-      <AdditionalDependencies>libssl.lib;libcrypto.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
   </ItemDefinitionGroup>
 
@@ -96,10 +95,6 @@
     <ClInclude Include="WebViewRuntimeDetector.h" />
     <ClInclude Include="WebViewShellAdapter.h" />
     <ClInclude Include="ShellEffectExecutor.h" />
-    <ClInclude Include="..\core\cert\cert_manager.h" />
-    <ClInclude Include="..\core\cert\cert_inspector.h" />
-    <ClInclude Include="..\core\cert\cert_san.h" />
-    <ClInclude Include="..\core\cert\cert_types.h" />
     <ClInclude Include="..\core\network\network_types.h" />
     <ClInclude Include="..\core\network\endpoint_selection.h" />
     <ClInclude Include="..\core\network\network_manager.h" />
@@ -111,7 +106,6 @@
     <ClInclude Include="..\core\runtime\host_session_coordinator.h" />
     <ClInclude Include="..\core\runtime\admin_view_model_assembler.h" />
     <ClInclude Include="..\core\runtime\diagnostics_view_model_assembler.h" />
-    <ClInclude Include="..\core\runtime\bootstrap_policy.h" />
     <ClInclude Include="..\core\runtime\desktop_shell_presenter.h" />
     <ClInclude Include="..\core\runtime\desktop_layout_presenter.h" />
     <ClInclude Include="..\core\runtime\desktop_edit_session_presenter.h" />
@@ -132,8 +126,6 @@
     <ClInclude Include="..\platform\windows\network_actions_win.h" />
     <ClInclude Include="..\platform\windows\network_service_win.h" />
     <ClInclude Include="..\platform\windows\system_actions_win.h" />
-    <ClInclude Include="..\platform\windows\cert_provider_win.h" />
-    <ClInclude Include="..\platform\common\self_signed_cert_generator.h" />
   </ItemGroup>
 
     <ItemGroup>
@@ -153,15 +145,6 @@
     <ClCompile Include="WebViewRuntimeDetector.cpp" />
     <ClCompile Include="WebViewShellAdapter.cpp" />
     <ClCompile Include="ShellEffectExecutor.cpp" />
-    <ClCompile Include="..\core\cert\cert_manager.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="..\core\cert\cert_inspector.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="..\core\cert\cert_san.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
     <ClCompile Include="..\core\network\endpoint_selection.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
@@ -196,9 +179,6 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="..\core\runtime\remote_probe_orchestrator.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="..\core\runtime\bootstrap_policy.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="..\core\runtime\desktop_shell_presenter.cpp">
@@ -253,12 +233,6 @@
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
     <ClCompile Include="..\platform\windows\system_actions_win.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="..\platform\windows\cert_provider_win.cpp">
-      <PrecompiledHeader>NotUsing</PrecompiledHeader>
-    </ClCompile>
-    <ClCompile Include="..\platform\common\self_signed_cert_generator.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
   </ItemGroup>

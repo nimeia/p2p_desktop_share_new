@@ -17,22 +17,7 @@ find_package(boost_thread CONFIG REQUIRED)
 find_package(boost_json CONFIG REQUIRED)
 find_package(boost_asio CONFIG REQUIRED)
 find_package(boost_beast CONFIG REQUIRED)
-find_package(OpenSSL REQUIRED)
 find_package(Threads REQUIRED)
-
-add_library(lan_screenshare_cert_shared
-  src/core/cert/cert_san.cpp
-  src/core/cert/cert_inspector.cpp
-  src/core/cert/cert_manager.cpp
-)
-
-target_include_directories(lan_screenshare_cert_shared PUBLIC src)
-target_link_libraries(lan_screenshare_cert_shared PUBLIC
-  OpenSSL::Crypto
-)
-if (WIN32)
-  target_link_libraries(lan_screenshare_cert_shared PUBLIC ws2_32)
-endif()
 
 add_library(lan_screenshare_network_shared
   src/core/network/endpoint_selection.cpp
@@ -62,7 +47,6 @@ add_library(lan_screenshare_shared
   src/core/runtime/diagnostics_view_model_assembler.cpp
   src/core/runtime/network_diagnostics_policy.cpp
   src/core/runtime/remote_probe_orchestrator.cpp
-  src/core/runtime/bootstrap_policy.cpp
   src/core/server/service_host.cpp
   src/core/server/listener.cpp
   src/core/server/http_session.cpp
@@ -70,7 +54,6 @@ add_library(lan_screenshare_shared
   src/core/server/ws_session.cpp
   src/core/server/ws_session_handlers.cpp
   src/core/server/ws_hub.cpp
-  src/core/server/tls_context.cpp
   src/core/protocol/messages.cpp
   src/core/util/json_util.cpp
   src/core/util/fs_util.cpp
@@ -80,15 +63,12 @@ add_library(lan_screenshare_shared
 target_include_directories(lan_screenshare_shared PUBLIC src)
 
 target_link_libraries(lan_screenshare_shared PUBLIC
-  lan_screenshare_cert_shared
   lan_screenshare_network_shared
   Boost::system
   Boost::thread
   Boost::json
   Boost::asio
   Boost::beast
-  OpenSSL::SSL
-  OpenSSL::Crypto
   Threads::Threads
 )
 
@@ -113,8 +93,6 @@ target_link_libraries(lan_screenshare_platform_abstraction PUBLIC lan_screenshar
 if (WIN32)
   add_library(lan_screenshare_platform_default
     src/core/network/network_manager.cpp
-    src/platform/common/self_signed_cert_generator.cpp
-    src/platform/windows/cert_provider_win.cpp
     src/platform/windows/network_probe_win.cpp
     src/platform/windows/firewall_diagnostics_win.cpp
     src/platform/platform_service_facade.cpp
@@ -127,8 +105,6 @@ elseif(APPLE)
   enable_language(OBJCXX)
   add_library(lan_screenshare_platform_default
     src/core/network/network_manager.cpp
-    src/platform/common/self_signed_cert_generator.cpp
-    src/platform/posix/cert_provider_posix.cpp
     src/platform/posix/network_probe_posix.cpp
     src/platform/platform_service_facade.cpp
     src/platform/host_runtime_refresh_pipeline.cpp
@@ -139,8 +115,6 @@ elseif(APPLE)
 else()
   add_library(lan_screenshare_platform_default
     src/core/network/network_manager.cpp
-    src/platform/common/self_signed_cert_generator.cpp
-    src/platform/posix/cert_provider_posix.cpp
     src/platform/posix/network_probe_posix.cpp
     src/platform/platform_service_facade.cpp
     src/platform/host_runtime_refresh_pipeline.cpp
@@ -175,7 +149,6 @@ add_library(lan_screenshare_native_shell
   src/core/runtime/shell_chrome_presenter.cpp
   src/core/runtime/native_shell_alert_coordinator.cpp
   src/core/runtime/native_shell_status_tracker.cpp
-  src/core/runtime/bootstrap_policy.cpp
   src/platform/platform_service_facade.cpp
   src/host_shell/native_shell_live_poller.cpp
   src/host_shell/native_shell_runtime_loop.cpp
@@ -183,8 +156,6 @@ add_library(lan_screenshare_native_shell
 )
 target_include_directories(lan_screenshare_native_shell PUBLIC src)
 target_link_libraries(lan_screenshare_native_shell PUBLIC
-  OpenSSL::SSL
-  OpenSSL::Crypto
   Threads::Threads
 )
 if (UNIX AND NOT APPLE)
@@ -239,12 +210,6 @@ endif()
 
 include(CTest)
 if (BUILD_TESTING)
-  add_executable(lan_screenshare_cert_tests
-    tests/shared/cert_tests.cpp
-  )
-  target_link_libraries(lan_screenshare_cert_tests PRIVATE lan_screenshare_cert_shared)
-  add_test(NAME lan_screenshare_cert_tests COMMAND lan_screenshare_cert_tests)
-
   add_executable(lan_screenshare_network_tests
     tests/shared/network_tests.cpp
   )
@@ -359,12 +324,6 @@ if (BUILD_TESTING)
   )
   target_link_libraries(lan_screenshare_remote_probe_orchestrator_tests PRIVATE lan_screenshare_shared)
   add_test(NAME lan_screenshare_remote_probe_orchestrator_tests COMMAND lan_screenshare_remote_probe_orchestrator_tests)
-
-  add_executable(lan_screenshare_bootstrap_policy_tests
-    tests/shared/bootstrap_policy_tests.cpp
-  )
-  target_link_libraries(lan_screenshare_bootstrap_policy_tests PRIVATE lan_screenshare_shared)
-  add_test(NAME lan_screenshare_bootstrap_policy_tests COMMAND lan_screenshare_bootstrap_policy_tests)
 
   add_executable(lan_screenshare_browser_smoke_tests
     tests/shared/browser_smoke_tests.cpp

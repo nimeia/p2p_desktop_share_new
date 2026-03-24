@@ -24,9 +24,6 @@ ShellBridgeSnapshotState BuildAdminShellSnapshotState(const AdminViewModelInput&
   snapshot.serverRunning = viewModel.serverRunning;
   snapshot.healthReady = viewModel.healthReady;
   snapshot.hostReachable = viewModel.hostReachable;
-  snapshot.certReady = viewModel.certReady;
-  snapshot.certDetail = viewModel.certDetail;
-  snapshot.certExpectedSans = viewModel.certExpectedSans;
   snapshot.firewallReady = viewModel.firewallReady;
   snapshot.firewallDetail = viewModel.firewallDetail;
   snapshot.remoteViewerReady = viewModel.remoteViewerReady;
@@ -60,7 +57,7 @@ ShellBridgeSnapshotState BuildAdminShellSnapshotState(const AdminViewModelInput&
   snapshot.outputDir = viewModel.outputDir;
   snapshot.bundleDir = viewModel.bundleDir;
   snapshot.serverExePath = viewModel.serverExePath;
-  snapshot.certDir = viewModel.certDir;
+  snapshot.adminDir = viewModel.adminDir;
   snapshot.timelineText = viewModel.timelineText;
   snapshot.logTail = viewModel.logTail;
   snapshot.viewerUrlCopied = viewModel.viewerUrlCopied;
@@ -82,7 +79,6 @@ ShellBridgeSnapshotState BuildAdminShellSnapshotState(const AdminViewModelInput&
   snapshot.autoGenerateQr = viewModel.autoGenerateQr;
   snapshot.autoExportBundle = viewModel.autoExportBundle;
   snapshot.saveStdStreams = viewModel.saveStdStreams;
-  snapshot.certBypassPolicy = viewModel.certBypassPolicy;
   snapshot.webViewBehavior = viewModel.webViewBehavior;
   snapshot.startupHook = viewModel.startupHook;
 

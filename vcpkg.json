@@ -6,7 +6,6 @@
     "boost-beast",
     "boost-system",
     "boost-thread",
-    "boost-json",
-    "openssl"
+    "boost-json"
   ]
 }

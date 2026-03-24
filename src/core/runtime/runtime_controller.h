@@ -36,9 +36,6 @@ struct RuntimeSessionState {
 
 struct RuntimeHealthState {
   bool serverProcessRunning = false;
-  bool certReady = false;
-  std::wstring certDetail;
-  std::wstring expectedSans;
   bool portReady = false;
   std::wstring portDetail;
   bool localHealthReady = false;
@@ -58,7 +55,6 @@ struct RuntimeHealthState {
 
 struct RuntimeSelfCheckSummary {
   int p0 = 0;
-  int certificateCount = 0;
   int networkCount = 0;
   int sharingCount = 0;
   std::wstring summaryLine;

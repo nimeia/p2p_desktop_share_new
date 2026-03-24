@@ -293,7 +293,7 @@ static std::string BuildShareCardHtml(std::wstring_view networkMode,
           <ol>
             <li id="connectLine1"></li>
             <li>Scan the QR, or open a browser and enter the Viewer URL exactly as shown.</li>
-            <li>No certificate trust step is required in plain HTTP mode. Focus on LAN reachability instead.</li>
+            <li>No extra browser trust step is required in plain HTTP mode. Focus on LAN reachability instead.</li>
             <li>If hosted-network control is unavailable on this device, use Windows Mobile Hotspot settings as the fallback path.</li>
           </ol>
         </div>
@@ -499,7 +499,6 @@ static std::string NormalizeSelfCheckSeverity(std::string_view severity) {
 
 static std::string NormalizeSelfCheckCategory(std::string_view category) {
     const std::string cat(category);
-    if (cat == "certificate") return "certificate";
     if (cat == "network") return "network";
     return "sharing";
 }
@@ -520,8 +519,7 @@ static void TouchSelfCheckCounters(SelfCheckReport& report,
     else if (sev == "P1") ++report.p1;
     else ++report.p2;
 
-    if (cat == "certificate") ++report.certificateCount;
-    else if (cat == "network") ++report.networkCount;
+    if (cat == "network") ++report.networkCount;
     else ++report.sharingCount;
 }
 
@@ -570,8 +568,6 @@ SelfCheckReport BuildSelfCheckReport(std::wstring_view hostState,
                                             std::wstring_view viewerUrl,
                                             std::size_t viewers,
                                             bool serverProcessRunning,
-                                            bool certReady,
-                                            std::wstring_view certDetail,
                                             bool portReady,
                                             std::wstring_view portDetail,
                                             bool localHealthReady,
@@ -606,7 +602,6 @@ SelfCheckReport BuildSelfCheckReport(std::wstring_view hostState,
     const std::string lanBindDetailUtf8 = WideToUtf8(std::wstring(lanBindDetail));
     const std::string adapterHintUtf8 = WideToUtf8(std::wstring(adapterHint));
     const std::string embeddedHostStatusUtf8 = WideToUtf8(std::wstring(embeddedHostStatus));
-    const std::string certDetailUtf8 = WideToUtf8(std::wstring(certDetail));
     const std::string firewallDetailUtf8 = WideToUtf8(std::wstring(firewallDetail));
 
     RuntimeSessionState sessionState;
@@ -619,8 +614,6 @@ SelfCheckReport BuildSelfCheckReport(std::wstring_view hostState,
 
     RuntimeHealthState healthState;
     healthState.serverProcessRunning = serverProcessRunning;
-    healthState.certReady = certReady;
-    healthState.certDetail = std::wstring(certDetail);
     healthState.portReady = portReady;
     healthState.portDetail = std::wstring(portDetail);
     healthState.localHealthReady = localHealthReady;
@@ -757,18 +750,6 @@ SelfCheckReport BuildSelfCheckReport(std::wstring_view hostState,
                      "P1",
                      "sharing");
     AddSelfCheckItem(report,
-                     "transport-mode",
-                     "Transport mode",
-                     certReady,
-                     certDetailUtf8.empty()
-                         ? "Plain HTTP mode is active for the local admin and sharing flow."
-                         : certDetailUtf8,
-                     certDetailUtf8.empty()
-                         ? "The local transport mode is not ready yet."
-                         : certDetailUtf8,
-                     "P0",
-                     "certificate");
-    AddSelfCheckItem(report,
                      "wifi-adapter",
                      "Wi-Fi adapter",
                      wifiAdapterPresent,
@@ -821,7 +802,7 @@ SelfCheckReport BuildSelfCheckReport(std::wstring_view hostState,
             localHealthDetailUtf8.empty()
                 ? "The server process started, but the local /health endpoint did not return a healthy response."
                 : localHealthDetailUtf8,
-            "Restart the local server. If the problem persists, inspect the server log and cert/www output beside the executable.",
+            "Restart the local server. If the problem persists, inspect the server log and bundled www/webui output beside the executable.",
             "P0",
             "sharing");
     }
@@ -870,16 +851,6 @@ SelfCheckReport BuildSelfCheckReport(std::wstring_view hostState,
             WideToUtf8(networkDiagnostics.remoteViewerAction),
             hostIpReachable ? "P1" : "P0",
             "network");
-    }
-    if (!certReady) {
-        AddFailureHint(report,
-            "Transport mode is not ready",
-            certDetailUtf8.empty()
-                ? "The local transport mode is not fully initialized for this session."
-                : certDetailUtf8,
-            "Restart the local server and confirm the local admin shell loads before exporting or sharing again.",
-            "P0",
-            "certificate");
     }
     if (serverReady && !hostSharing && embeddedHostReady) {
         AddFailureHint(report,
@@ -964,7 +935,7 @@ static std::wstring BuildMainDiagnosticSummaryText(const SelfCheckReport& report
     std::wstringstream ss;
     ss << L"Overall: " << report.passed << L" / " << report.total << L" checks passed\r\n";
     ss << L"Severity: P0 " << report.p0 << L" / P1 " << report.p1 << L" / P2 " << report.p2 << L"\r\n";
-    ss << L"Categories: transport " << report.certificateCount << L" / net " << report.networkCount << L" / sharing " << report.sharingCount << L"\r\n";
+    ss << L"Categories: net " << report.networkCount << L" / sharing " << report.sharingCount << L"\r\n";
     if (!report.failures.empty()) {
         const auto& top = report.failures.front();
         ss << L"Top issue: [" << Utf8ToWide(top.severity) << L"][" << Utf8ToWide(top.category)
@@ -1010,8 +981,6 @@ SelfCheckReport BuildSelfCheckReport(const RuntimeSessionState& session,
                                 BuildViewerUrl(session),
                                 session.lastViewers,
                                 health.serverProcessRunning,
-                                health.certReady,
-                                health.certDetail,
                                 health.portReady,
                                 health.portDetail,
                                 health.localHealthReady,
@@ -1057,7 +1026,6 @@ static std::string BuildSelfCheckJson(const SelfCheckReport& report) {
     json << "      \"P2\": " << report.p2 << "\n";
     json << "    },\n";
     json << "    \"categoryCounts\": {\n";
-    json << "      \"certificate\": " << report.certificateCount << ",\n";
     json << "      \"network\": " << report.networkCount << ",\n";
     json << "      \"sharing\": " << report.sharingCount << "\n";
     json << "    },\n";
@@ -1112,7 +1080,6 @@ static std::string BuildDesktopSelfCheckHtml(std::string_view bundleJson) {
     .pill.p0 { background:#35121a; border-color:#9f1239; color:#fecdd3; }
     .pill.p1 { background:#312113; border-color:#b45309; color:#fde68a; }
     .pill.p2 { background:#15253c; border-color:#2563eb; color:#bfdbfe; }
-    .pill.certificate { background:#1f1835; border-color:#7c3aed; color:#ddd6fe; }
     .pill.network { background:#0f2530; border-color:#0891b2; color:#bae6fd; }
     .pill.sharing { background:#172436; border-color:#4f46e5; color:#c7d2fe; }
     .sub { color:#9fb0c8; line-height:1.6; }
@@ -1148,20 +1115,18 @@ static std::string BuildDesktopSelfCheckHtml(std::string_view bundleJson) {
           <span class="sub">Last sync: <span id="lastSyncText">embedded snapshot</span></span>
         </div>
         <h1 style="margin:12px 0;">Desktop self-check report</h1>
-        <div class="sub">This page uses the same exported bundle data as Share Wizard, but focuses on host-side troubleshooting from the desktop operator view. The checks below now carry a P0 / P1 / P2 severity and a transport / network / sharing category.</div>
+        <div class="sub">This page uses the same exported bundle data as Share Wizard, but focuses on host-side troubleshooting from the desktop operator view. The checks below now carry a P0 / P1 / P2 severity and a network / sharing category.</div>
         <div class="kv">
           <div>Host state</div><div id="hostStateText"></div>
           <div>Host IPv4</div><div id="hostIpText"></div>
           <div>Room / viewers</div><div><span id="roomText"></span> / <span id="viewersText"></span></div>
           <div>Viewer URL</div><div id="viewerUrlText" class="mono"></div>
           <div>Hotspot</div><div id="hotspotText"></div>
-          <div>Transport</div><div id="certText"></div>
         </div>
         <div class="summary-row">
           <span class="pill p0" id="p0Pill">P0: 0</span>
           <span class="pill p1" id="p1Pill">P1: 0</span>
           <span class="pill p2" id="p2Pill">P2: 0</span>
-          <span class="pill certificate" id="certPill">Transport: 0</span>
           <span class="pill network" id="networkPill">Network: 0</span>
           <span class="pill sharing" id="sharingPill">Sharing: 0</span>
         </div>
@@ -1189,7 +1154,6 @@ static std::string BuildDesktopSelfCheckHtml(std::string_view bundleJson) {
       <div class="filter-row">
         <strong>Category</strong>
         <button class="filter active" type="button" data-filter-kind="category" data-filter-value="all">All</button>
-        <button class="filter" type="button" data-filter-kind="category" data-filter-value="certificate">Transport</button>
         <button class="filter" type="button" data-filter-kind="category" data-filter-value="network">Network</button>
         <button class="filter" type="button" data-filter-kind="category" data-filter-value="sharing">Sharing</button>
       </div>
@@ -1234,7 +1198,7 @@ static std::string BuildDesktopSelfCheckHtml(std::string_view bundleJson) {
     }
 
     function normalizeCategory(v) {
-      return v === 'certificate' || v === 'network' ? v : 'sharing';
+      return v === 'network' ? v : 'sharing';
     }
 
     function severityClass(v) {
@@ -1265,7 +1229,6 @@ static std::string BuildDesktopSelfCheckHtml(std::string_view bundleJson) {
       setText('p0Pill', 'P0: ' + (sev.P0 || 0));
       setText('p1Pill', 'P1: ' + (sev.P1 || 0));
       setText('p2Pill', 'P2: ' + (sev.P2 || 0));
-      setText('certPill', 'Transport: ' + (cat.certificate || 0));
       setText('networkPill', 'Network: ' + (cat.network || 0));
       setText('sharingPill', 'Sharing: ' + (cat.sharing || 0));
     }
@@ -1388,14 +1351,12 @@ static std::string BuildDesktopSelfCheckHtml(std::string_view bundleJson) {
       bundle = data;
       const selfCheck = data.selfCheck || {};
       const hotspot = data.hotspot || {};
-      const cert = data.cert || {};
       setText('hostStateText', data.hostState || 'unknown');
       setText('hostIpText', data.hostIp || '(not found)');
       setText('roomText', data.room || '');
       setText('viewersText', data.viewers || 0);
       setText('viewerUrlText', (data.links && data.links.viewerUrl) || '');
       setText('hotspotText', (hotspot.running ? 'running' : 'stopped') + (hotspot.ssid ? ' · ' + hotspot.ssid : ''));
-      setText('certText', cert.ready ? 'ready' : (cert.detail || 'not ready'));
       setText('summaryText', (selfCheck.passed || 0) + ' / ' + (selfCheck.total || 0));
       const pill = document.getElementById('summaryPill');
       if (pill) {
@@ -1453,7 +1414,7 @@ static std::string BuildDesktopSelfCheckText(std::wstring_view generatedAt,
     out << "Viewer URL: " << WideToUtf8(std::wstring(viewerUrl)) << "\r\n\r\n";
     out << "Summary: " << report.passed << " / " << report.total << " checks passed\r\n";
     out << "Severity: P0=" << report.p0 << ", P1=" << report.p1 << ", P2=" << report.p2 << "\r\n";
-    out << "Categories: transport=" << report.certificateCount << ", network=" << report.networkCount << ", sharing=" << report.sharingCount << "\r\n\r\n";
+    out << "Categories: network=" << report.networkCount << ", sharing=" << report.sharingCount << "\r\n\r\n";
     out << "Checks\r\n";
     out << "------\r\n";
     for (const auto& item : report.items) {
@@ -1521,15 +1482,7 @@ static std::string BuildShareBundleJson(std::wstring_view networkMode,
                                         bool embeddedHostReady,
                                         std::wstring_view embeddedHostStatus,
                                         bool firewallReady,
-                                        std::wstring_view firewallDetail,
-                                        std::wstring_view certDir,
-                                        std::wstring_view certFile,
-                                        std::wstring_view certKeyFile,
-                                        bool certFileExists,
-                                        bool certKeyExists,
-                                        bool certReady,
-                                        std::wstring_view certDetail,
-                                        std::wstring_view certExpectedSans) {
+                                        std::wstring_view firewallDetail) {
     auto q = [](std::wstring_view value) {
         return std::string(1, '"') + JsonEscapeUtf8(WideToUtf8(std::wstring(value))) + std::string(1, '"');
     };
@@ -1540,8 +1493,8 @@ static std::string BuildShareBundleJson(std::wstring_view networkMode,
     const bool networkReady = !hostIp.empty() && hostIp != L"(not found)" && hostIp != L"0.0.0.0";
     const bool viewerReady = !viewerUrl.empty();
     const auto report = BuildSelfCheckReport(hostState, hostIp, viewerUrl, viewers, serverProcessRunning,
-                                             certReady, certDetail, portReady, portDetail,
-                                             localHealthReady, localHealthDetail, hostIpReachable, hostIpReachableDetail,
+                                             portReady, portDetail, localHealthReady, localHealthDetail,
+                                             hostIpReachable, hostIpReachableDetail,
                                              lanBindReady, lanBindDetail, activeIpv4Candidates, selectedIpRecommended, adapterHint,
                                              embeddedHostReady, embeddedHostStatus, firewallReady, firewallDetail,
                                              wifiAdapterPresent, hotspotSupported, wifiDirectApiAvailable, hotspotRunning, true);
@@ -1577,17 +1530,6 @@ static std::string BuildShareBundleJson(std::wstring_view networkMode,
     json << R"JSON(    "pairingEntry": "ms-settings:connecteddevices",
     "fallbackEntry": "control.exe /name Microsoft.DevicesAndPrinters"
   },
-  "cert": {
-    "dir": )JSON" << q(certDir) << ",\n";
-    json << R"JSON(    "certFile": )JSON" << q(certFile) << ",\n";
-    json << R"JSON(    "keyFile": )JSON" << q(certKeyFile) << ",\n";
-    json << R"JSON(    "certExists": )JSON" << (certFileExists ? "true" : "false") << ",\n";
-    json << R"JSON(    "keyExists": )JSON" << (certKeyExists ? "true" : "false") << ",\n";
-    json << R"JSON(    "ready": )JSON" << (certReady ? "true" : "false") << ",\n";
-    json << R"JSON(    "detail": )JSON" << q(certDetail) << ",\n";
-    json << R"JSON(    "expectedSans": )JSON" << q(certExpectedSans) << ",\n";
-    json << R"JSON(    "trustHint": "Plain HTTP mode is active. No browser certificate trust step is required."
-  },
   "checks": {
     "serverReady": )JSON" << (serverRunning ? "true" : "false") << ",\n";
     json << R"JSON(    "hostReady": )JSON" << (hostReady ? "true" : "false") << ",\n";
@@ -1600,7 +1542,6 @@ static std::string BuildShareBundleJson(std::wstring_view networkMode,
     json << R"JSON(    "embeddedHostReady": )JSON" << (embeddedHostReady ? "true" : "false") << ",\n";
     json << R"JSON(    "networkReady": )JSON" << (networkReady ? "true" : "false") << ",\n";
     json << R"JSON(    "viewerReady": )JSON" << (viewerReady ? "true" : "false") << ",\n";
-    json << R"JSON(    "certificateReady": )JSON" << (certReady ? "true" : "false") << ",\n";
     json << R"JSON(    "bundleLiveReady": true
   },
   "runtime": {
@@ -1708,7 +1649,6 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
     .pill.p0 { background:rgba(53,18,26,.78); border-color:rgba(255,154,154,.24); color:#fecdd3; }
     .pill.p1 { background:rgba(49,33,19,.78); border-color:rgba(255,225,140,.2); color:#fde68a; }
     .pill.p2 { background:rgba(21,37,60,.78); border-color:rgba(125,211,252,.22); color:#bfdbfe; }
-    .pill.certificate { background:rgba(31,24,53,.78); border-color:rgba(167,139,250,.24); color:#ddd6fe; }
     .pill.network { background:rgba(15,37,48,.78); border-color:rgba(34,211,238,.2); color:#bae6fd; }
     .pill.sharing { background:rgba(23,36,54,.78); border-color:rgba(129,140,248,.22); color:#c7d2fe; }
     .grid2 { display:grid; grid-template-columns:1fr 1fr; gap:18px; }
@@ -1870,14 +1810,12 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
           <span class="pill p0" id="wizP0Pill">P0: 0</span>
           <span class="pill p1" id="wizP1Pill">P1: 0</span>
           <span class="pill p2" id="wizP2Pill">P2: 0</span>
-          <span class="pill certificate" id="wizCertPill">Transport: 0</span>
           <span class="pill network" id="wizNetworkPill">Network: 0</span>
           <span class="pill sharing" id="wizSharingPill">Sharing: 0</span>
         </div>
         <div class="filter-row">
           <strong>Category</strong>
           <button class="filter active" type="button" data-filter-kind="category" data-filter-value="all">All</button>
-          <button class="filter" type="button" data-filter-kind="category" data-filter-value="certificate">Transport</button>
           <button class="filter" type="button" data-filter-kind="category" data-filter-value="network">Network</button>
           <button class="filter" type="button" data-filter-kind="category" data-filter-value="sharing">Sharing</button>
         </div>
@@ -1909,7 +1847,7 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
           <ol class="small">
             <li>Join the same router or Wi-Fi as the host.</li>
             <li>Open the Viewer URL or scan the QR.</li>
-            <li>No certificate trust step is required in plain HTTP mode.</li>
+            <li>No extra browser trust step is required in plain HTTP mode.</li>
           </ol>
         </div>
         <div class="box" style="margin-bottom:14px;">
@@ -1942,12 +1880,11 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
         <h2>Local access & bundle support</h2>
         <div class="box" style="margin-bottom:14px;">
           <div class="kv" style="margin-top:0;">
-            <div>Support dir</div><div id="certDirText" class="mono"></div>
-            <div>Legacy cert file</div><div id="certFileText" class="mono"></div>
-            <div>Legacy key file</div><div id="certKeyText" class="mono"></div>
-            <div>Transport</div><div id="certStateText"></div>
+            <div>Support dir</div><div id="bundleDirText" class="mono"></div>
+            <div>Live refresh</div><div id="bundleLiveText"></div>
+            <div>Transport</div><div>Plain HTTP / WS</div>
           </div>
-          <div class="small" id="certHintText" style="margin-top:10px;"></div>
+          <div class="small" style="margin-top:10px;">This bundle only needs LAN reachability. No browser trust helper or PEM files are required.</div>
         </div>
         <div class="box">
           <h3 style="margin-bottom:8px;">Bundle files</h3>
@@ -2013,7 +1950,7 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
     }
 
     function normalizeCategory(v) {
-      return v === 'certificate' || v === 'network' ? v : 'sharing';
+      return v === 'network' ? v : 'sharing';
     }
 
     function pillClassForSeverity(v) {
@@ -2038,7 +1975,6 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
       setText('wizP0Pill', 'P0: ' + (sev.P0 || 0));
       setText('wizP1Pill', 'P1: ' + (sev.P1 || 0));
       setText('wizP2Pill', 'P2: ' + (sev.P2 || 0));
-      setText('wizCertPill', 'Transport: ' + (cat.certificate || 0));
       setText('wizNetworkPill', 'Network: ' + (cat.network || 0));
       setText('wizSharingPill', 'Sharing: ' + (cat.sharing || 0));
     }
@@ -2248,7 +2184,6 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
     html << R"HTML(
 
     function renderChecks(data) {
-      const cert = data.cert || {};
       const report = data.selfCheck || {};
       const map = indexSelfCheckItems(report);
       const serverItem = getSelfCheckItem(map, 'server-reachability', 'Server reachability', !!(data.checks && data.checks.serverReady), 'The desktop host reports the HTTP/WS service as running.', 'The desktop host is not reporting a running service. Press Start and wait for the host page to load.', 'P0', 'sharing');
@@ -2266,7 +2201,7 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
         setCardState('stepViewer', 'viewerBadge', viewerItem.ok ? 'warn' : 'warn', viewerItem.ok ? 'Viewer URL is ready. Scan the QR or open the URL manually on the other device.' : viewerItem.detail);
       }
 
-      const preferredOrder = ['server-reachability', 'listen-port', 'server-health-endpoint', 'lan-bind-address', 'lan-entry-endpoint', 'adapter-selection', 'embedded-host-runtime', 'host-sharing-state', 'host-network', 'viewer-entry-url', 'transport-mode', 'wifi-adapter', 'hotspot-control', 'live-bundle-refresh'];
+      const preferredOrder = ['server-reachability', 'listen-port', 'server-health-endpoint', 'lan-bind-address', 'lan-entry-endpoint', 'adapter-selection', 'embedded-host-runtime', 'host-sharing-state', 'host-network', 'viewer-entry-url', 'wifi-adapter', 'hotspot-control', 'live-bundle-refresh'];
       const ordered = [];
       preferredOrder.forEach(id => { if (map[id]) ordered.push(map[id]); });
       ((report.items) || []).forEach(item => { if (item && !ordered.some(x => x.id === item.id)) ordered.push(item); });
@@ -2290,7 +2225,6 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
       bundle = data;
       const hotspot = data.hotspot || {};
       const wifiDirect = data.wifiDirect || {};
-      const cert = data.cert || {};
       setText('modeText', data.networkMode || 'unknown');
       setText('hostIpText', data.hostIp || '(not found)');
       setText('portText', data.port || '');
@@ -2305,11 +2239,8 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
       setText('hotspotStatusText', hotspot.running ? 'running' : 'stopped');
       setText('wifiDirectApiText', wifiDirect.apiAvailable ? 'available' : 'not detected');
       setText('wifiDirectAliasText', wifiDirect.sessionAlias || '(not set)');
-      setText('certDirText', cert.dir || '(cert dir unknown)');
-      setText('certFileText', cert.certFile || '(missing)');
-      setText('certKeyText', cert.keyFile || '(missing)');
-      setText('certStateText', cert.ready ? 'plain HTTP mode active' : 'mode detail unavailable');
-      setText('certHintText', cert.trustHint || 'Plain HTTP mode is active. No browser trust step is required.');
+      setText('bundleDirText', 'current bundle folder');
+      setText('bundleLiveText', (data.bundle && data.bundle.statusScript) ? 'enabled' : 'disabled');
       setText('liveStatusText', (data.bundle && data.bundle.statusScript) ? 'enabled' : 'disabled');
       updateSyncLabel(source || 'embedded snapshot');
       renderQr((data.links && data.links.viewerUrl) || '');
@@ -2395,18 +2326,10 @@ static std::string BuildShareDiagnosticsText(std::wstring_view generatedAt,
                                              bool embeddedHostReady,
                                              std::wstring_view embeddedHostStatus,
                                              bool firewallReady,
-                                             std::wstring_view firewallDetail,
-                                             std::wstring_view certDir,
-                                             std::wstring_view certFile,
-                                             std::wstring_view certKeyFile,
-                                             bool certFileExists,
-                                             bool certKeyExists,
-                                             bool certReady,
-                                             std::wstring_view certDetail,
-                                             std::wstring_view certExpectedSans) {
+                                             std::wstring_view firewallDetail) {
     const auto report = BuildSelfCheckReport(hostState, hostIp, viewerUrl, viewers, serverProcessRunning,
-                                             certReady, certDetail, portReady, portDetail,
-                                             localHealthReady, localHealthDetail, hostIpReachable, hostIpReachableDetail,
+                                             portReady, portDetail, localHealthReady, localHealthDetail,
+                                             hostIpReachable, hostIpReachableDetail,
                                              lanBindReady, lanBindDetail, activeIpv4Candidates, selectedIpRecommended, adapterHint,
                                              embeddedHostReady, embeddedHostStatus, firewallReady, firewallDetail,
                                              wifiAdapterPresent, hotspotSupported, wifiDirectApiAvailable,
@@ -2427,15 +2350,9 @@ static std::string BuildShareDiagnosticsText(std::wstring_view generatedAt,
     out << "Wi-Fi adapter present: " << (wifiAdapterPresent ? "yes" : "no") << "\r\n";
     out << "Hotspot supported: " << (hotspotSupported ? "yes" : "no") << "\r\n";
     out << "Wi-Fi Direct API: " << (wifiDirectApiAvailable ? "available" : "not detected") << "\r\n\r\n";
-    out << "Certificate files\r\n";
-    out << "-----------------\r\n";
-    out << "Cert dir: " << WideToUtf8(std::wstring(certDir)) << "\r\n";
-    out << "Cert file: " << WideToUtf8(std::wstring(certFile)) << " (" << (certFileExists ? "present" : "missing") << ")\r\n";
-    out << "Key file: " << WideToUtf8(std::wstring(certKeyFile)) << " (" << (certKeyExists ? "present" : "missing") << ")\r\n";
-    out << "Certificate ready: " << (certReady ? "yes" : "no") << "\r\n";
-    out << "Certificate detail: " << WideToUtf8(std::wstring(certDetail)) << "\r\n";
-    out << "Expected SANs: " << WideToUtf8(std::wstring(certExpectedSans)) << "\r\n";
-    out << "Transport note: Plain HTTP mode is active. No browser certificate trust step is required.\r\n\r\n";
+    out << "Transport\r\n";
+    out << "---------\r\n";
+    out << "Plain HTTP / WS mode is active. No extra browser trust step is required.\r\n\r\n";
     out << "Host URL: " << WideToUtf8(std::wstring(hostUrl)) << "\r\n";
     out << "Viewer URL: " << WideToUtf8(std::wstring(viewerUrl)) << "\r\n\r\n";
     out << "Runtime checks\r\n";
@@ -2460,7 +2377,7 @@ static std::string BuildShareDiagnosticsText(std::wstring_view generatedAt,
     out << "-------------------\r\n";
     out << "Passed: " << report.passed << " / " << report.total << "\r\n";
     out << "Severity: P0=" << report.p0 << ", P1=" << report.p1 << ", P2=" << report.p2 << "\r\n";
-    out << "Categories: transport=" << report.certificateCount << ", network=" << report.networkCount << ", sharing=" << report.sharingCount << "\r\n";
+    out << "Categories: network=" << report.networkCount << ", sharing=" << report.sharingCount << "\r\n";
     for (const auto& item : report.items) {
         out << "- [" << item.severity << "][" << item.category << "] " << item.title << ": " << item.status << "\r\n";
         out << "  " << item.detail << "\r\n";
@@ -2514,7 +2431,7 @@ static std::string BuildShareReadmeText(std::wstring_view hostUrl,
     out << "2. Hotspot: start the local hotspot first, join the hotspot from the other device, then open the Viewer URL.\r\n";
     out << "3. Wi-Fi Direct: complete Windows pairing first, use the alias above to identify the target session, then keep the Viewer URL as the media entry.\r\n\r\n";
     out << "Transport note:\r\n";
-    out << "- Plain HTTP mode is active. No browser certificate trust step is required.\r\n\r\n";
+    out << "- Plain HTTP mode is active. No extra browser trust step is required.\r\n\r\n";
     out << "Live bundle behavior:\r\n";
     out << "- share_card.html, share_wizard.html, and desktop_self_check.html auto-refresh from share_status.js while they stay open.\r\n";
     out << "- share_diagnostics.txt records the latest exported state snapshot for support.\r\n";
@@ -2548,8 +2465,6 @@ bool ExportShareArtifacts(const ShareArtifactWriteRequest& request,
                                            viewerUrl,
                                            request.session.lastViewers,
                                            request.health.serverProcessRunning,
-                                           request.cert.ready,
-                                           request.cert.detail,
                                            request.health.portReady,
                                            request.health.portDetail,
                                            request.health.localHealthReady,
@@ -2605,15 +2520,7 @@ bool ExportShareArtifacts(const ShareArtifactWriteRequest& request,
       request.health.embeddedHostReady,
       request.health.embeddedHostStatus,
       request.health.firewallReady,
-      request.health.firewallDetail,
-      request.cert.certDir.wstring(),
-      request.cert.certFile.wstring(),
-      request.cert.keyFile.wstring(),
-      request.cert.certExists,
-      request.cert.keyExists,
-      request.cert.ready,
-      request.cert.detail,
-      request.cert.expectedSans);
+      request.health.firewallDetail);
 
   const fs::path shareCard = request.outputDir / L"share_card.html";
   const fs::path shareWizard = request.outputDir / L"share_wizard.html";
@@ -2684,15 +2591,7 @@ bool ExportShareArtifacts(const ShareArtifactWriteRequest& request,
                                                            request.health.embeddedHostReady,
                                                            request.health.embeddedHostStatus,
                                                            request.health.firewallReady,
-                                                           request.health.firewallDetail,
-                                                           request.cert.certDir.wstring(),
-                                                           request.cert.certFile.wstring(),
-                                                           request.cert.keyFile.wstring(),
-                                                           request.cert.certExists,
-                                                           request.cert.keyExists,
-                                                           request.cert.ready,
-                                                           request.cert.detail,
-                                                           request.cert.expectedSans));
+                                                           request.health.firewallDetail));
   WriteUtf8File(desktopSelfCheckHtmlFile, BuildDesktopSelfCheckHtml(bundleJson));
   WriteUtf8File(desktopSelfCheckTxtFile, BuildDesktopSelfCheckText(request.generatedAt, hostUrl, viewerUrl, report));
   WriteUtf8File(viewerUrlFile, WideToUtf8(viewerUrl) + "\r\n");

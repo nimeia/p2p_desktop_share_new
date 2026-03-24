@@ -30,7 +30,6 @@ struct AdminShellCoordinatorHooks {
   std::function<void()> copyHostUrl;
   std::function<void()> copyViewerUrl;
   std::function<void()> quickFixNetwork;
-  std::function<void()> quickFixCertificate;
   std::function<void()> quickFixSharing;
   std::function<void()> quickFixHandoff;
   std::function<void()> quickFixHotspot;
@@ -42,7 +41,6 @@ struct AdminShellCoordinatorHooks {
   std::function<void()> openFirewallSettings;
   std::function<void()> runNetworkDiagnostics;
   std::function<void()> checkWebViewRuntime;
-  std::function<void()> trustLocalCertificate;
   std::function<void()> exportRemoteProbeGuide;
   std::function<void()> openConnectedDevices;
   std::function<void(std::wstring page)> navigatePage;

@@ -124,7 +124,6 @@ private:
     void OpenFirewallSettings();
     void RunNetworkDiagnostics();
     void CheckWebViewRuntime();
-    void TrustLocalCertificate();
     void ExportRemoteProbeGuide();
 
     void OpenHostPage();
@@ -137,7 +136,6 @@ private:
     void ShowShareWizard();
     void ExportShareBundle();
     void QuickFixNetwork();
-    void QuickFixCertificate();
     void QuickFixSharing();
     void QuickFixHandoff();
     void QuickFixHotspot();
@@ -460,7 +458,7 @@ private:
     std::wstring m_tokenRule = L"random-16";
     std::wstring m_defaultServerExePath = L"";
     std::wstring m_defaultWwwPath = L"";
-    std::wstring m_defaultCertDir = L"";
+    std::wstring m_defaultAdminDir = L"";
     std::wstring m_defaultLaunchArgs = L"--bind {bind} --port {port} --www www --admin-www webui";
     std::wstring m_defaultIpStrategy = L"prefer-private-wifi";
     int m_autoDetectFrequencySec = 15;
@@ -473,7 +471,6 @@ private:
     std::wstring m_outputDir = L"";
     int m_diagnosticsRetentionDays = 7;
     bool m_saveStdStreams = true;
-    std::wstring m_certBypassPolicy = L"plain-http-first";
     std::wstring m_webViewBehavior = L"embedded-when-available";
     std::wstring m_startupHook = L"(not configured)";
     std::wstring m_localeCode = L"en";

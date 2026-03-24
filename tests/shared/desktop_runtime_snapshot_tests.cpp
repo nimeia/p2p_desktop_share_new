@@ -41,9 +41,6 @@ void RunDesktopRuntimeSnapshotTests() {
   input.lastViewers = 0;
 
   input.serverProcessRunning = true;
-  input.certReady = true;
-  input.certDetail = L"ready";
-  input.expectedSans = L"192.168.1.20, localhost";
   input.portReady = true;
   input.portDetail = L"listening";
   input.localHealthReady = true;
@@ -63,9 +60,9 @@ void RunDesktopRuntimeSnapshotTests() {
 
   const auto snapshot = BuildDesktopRuntimeSnapshot(input);
   Expect(snapshot.session.room == L"roomA", "session state should be populated");
-  Expect(snapshot.health.certReady, "health state should be populated");
-  Expect(snapshot.hostUrl == L"https://192.168.1.20:9443/host?room=roomA&token=tokenA", "host url should be derived from session");
-  Expect(snapshot.viewerUrl == L"https://192.168.1.20:9443/view?room=roomA&token=tokenA", "viewer url should be derived from session");
+  Expect(snapshot.health.portReady, "health state should be populated");
+  Expect(snapshot.hostUrl == L"http://127.0.0.1:9443/host?room=roomA&token=tokenA&lang=en", "host url should be derived from session");
+  Expect(snapshot.viewerUrl == L"http://192.168.1.20:9443/view?room=roomA&token=tokenA&lang=en", "viewer url should be derived from session");
   Expect(snapshot.dashboardOverall == L"Ready", "healthy ready state should compute Ready dashboard state");
   Expect(snapshot.handoff.state == L"ready-for-handoff", "healthy started handoff should be ready-for-handoff");
   Expect(snapshot.selfCheckSummary.p0 == 0, "healthy snapshot should have no p0 failures");

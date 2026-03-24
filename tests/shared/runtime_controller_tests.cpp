@@ -33,14 +33,13 @@ int main() {
   session.lastRooms = 1;
   session.lastViewers = 0;
 
-  Expect(BuildHostUrl(session) == L"https://127.0.0.1:9443/host?room=abc123&token=token123",
+  Expect(BuildHostUrl(session) == L"http://127.0.0.1:9443/host?room=abc123&token=token123&lang=en",
          "host url should fall back to loopback");
-  Expect(BuildViewerUrl(session) == L"https://127.0.0.1:9443/view?room=abc123&token=token123",
+  Expect(BuildViewerUrl(session) == L"http://127.0.0.1:9443/view?room=abc123&token=token123&lang=en",
          "viewer url should fall back to loopback");
 
   RuntimeHealthState health;
   health.serverProcessRunning = true;
-  health.certReady = true;
   health.portReady = true;
   health.localHealthReady = true;
   health.hostIpReachable = true;
@@ -71,7 +70,6 @@ int main() {
   health.hostIpReachable = true;
   RuntimeSelfCheckSummary selfCheck;
   selfCheck.summaryLine = L"2 checks need attention";
-  selfCheck.certificateCount = 1;
   selfCheck.networkCount = 2;
   selfCheck.sharingCount = 3;
 

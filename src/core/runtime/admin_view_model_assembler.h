@@ -18,7 +18,6 @@ enum class AdminDashboardSuggestionKind {
   StartHotspot,
   OpenHotspotSettings,
   RefreshIp,
-  NoteSelfSignedCert,
   PortReady,
 };
 
@@ -43,14 +42,14 @@ struct AdminViewModelInput {
   std::wstring outputDir;
   std::wstring bundleDir;
   std::wstring serverExePath;
-  std::wstring certDir;
+  std::wstring adminDir;
   std::wstring timelineText;
   std::wstring logTail;
   std::vector<AdminViewNetworkCandidate> networkCandidates;
 
   std::wstring defaultServerExePath;
   std::wstring defaultWwwPath;
-  std::wstring defaultCertDir;
+  std::wstring defaultAdminDir;
   std::wstring defaultLaunchArgs;
   std::wstring defaultIpStrategy;
   int autoDetectFrequencySec = 15;
@@ -59,7 +58,6 @@ struct AdminViewModelInput {
   std::wstring configuredDefaultViewerOpenMode;
   std::wstring outputDirSetting;
   int diagnosticsRetentionDays = 7;
-  std::wstring certBypassPolicy;
   std::wstring snapshotWebViewBehavior;
   std::wstring configuredWebViewBehavior;
   std::wstring snapshotStartupHook;
@@ -72,7 +70,7 @@ struct AdminViewModelInput {
 
   bool serverExeExists = false;
   bool wwwDirExists = false;
-  bool certDirExists = false;
+  bool adminDirExists = false;
   bool bundleDirExists = false;
 };
 
@@ -88,9 +86,6 @@ struct AdminSnapshotViewModel {
   bool serverRunning = false;
   bool healthReady = false;
   bool hostReachable = false;
-  bool certReady = false;
-  std::wstring certDetail;
-  std::wstring certExpectedSans;
   bool firewallReady = false;
   std::wstring firewallDetail;
   bool remoteViewerReady = false;
@@ -124,7 +119,7 @@ struct AdminSnapshotViewModel {
   std::wstring outputDir;
   std::wstring bundleDir;
   std::wstring serverExePath;
-  std::wstring certDir;
+  std::wstring adminDir;
   std::wstring timelineText;
   std::wstring logTail;
   bool viewerUrlCopied = false;
@@ -148,7 +143,6 @@ struct AdminSnapshotViewModel {
   bool autoGenerateQr = false;
   bool autoExportBundle = false;
   bool saveStdStreams = false;
-  std::wstring certBypassPolicy;
   std::wstring webViewBehavior;
   std::wstring startupHook;
 };

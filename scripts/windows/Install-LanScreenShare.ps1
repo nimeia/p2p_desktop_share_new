@@ -25,22 +25,10 @@ Write-Host "InstallDir:  $installDir"
 Write-Host "Scope:       $Scope"
 
 New-Item -ItemType Directory -Force -Path $installDir | Out-Null
-$tempCert = Join-Path $env:TEMP ("LanScreenShare_existing_cert_{0}" -f ([guid]::NewGuid().ToString("N")))
-$existingCertDir = Join-Path $installDir "cert"
-if (Test-Path -LiteralPath $existingCertDir) {
-  Copy-Item -LiteralPath $existingCertDir -Destination $tempCert -Recurse -Force
-}
 
 Get-ChildItem -LiteralPath $PackageRoot -Force | ForEach-Object {
   if ($_.Name -eq ".git") { return }
   Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $installDir $_.Name) -Recurse -Force
-}
-
-if (Test-Path -LiteralPath $tempCert) {
-  $destCertDir = Join-Path $installDir "cert"
-  if (Test-Path -LiteralPath $destCertDir) { Remove-Item -LiteralPath $destCertDir -Recurse -Force }
-  Copy-Item -LiteralPath $tempCert -Destination $destCertDir -Recurse -Force
-  Remove-Item -LiteralPath $tempCert -Recurse -Force -ErrorAction SilentlyContinue
 }
 
 $exe = Join-Path $installDir "LanScreenShareHostApp.exe"

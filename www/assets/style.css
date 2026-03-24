@@ -47,8 +47,10 @@ body.viewer-page button {
   position: absolute;
   inset: 0;
   background:
-    linear-gradient(180deg, rgba(2, 4, 10, 0.78) 0%, rgba(2, 4, 10, 0.08) 24%, rgba(2, 4, 10, 0) 45%, rgba(2, 4, 10, 0.22) 72%, rgba(2, 4, 10, 0.74) 100%);
+    linear-gradient(180deg, rgba(2, 4, 10, 0.42) 0%, rgba(2, 4, 10, 0.18) 48%, rgba(2, 4, 10, 0) 100%) top / 100% clamp(120px, 18vh, 200px) no-repeat,
+    linear-gradient(0deg, rgba(2, 4, 10, 0.58) 0%, rgba(2, 4, 10, 0.2) 42%, rgba(2, 4, 10, 0) 100%) bottom / 100% clamp(96px, 16vh, 160px) no-repeat;
   pointer-events: none;
+  transition: opacity 180ms ease;
 }
 
 .viewer-overlay {
@@ -197,6 +199,10 @@ body.viewer-page button {
 .chrome-hidden .viewer-center {
   opacity: 0;
   pointer-events: none;
+}
+
+.chrome-hidden .viewer-backdrop {
+  opacity: 0;
 }
 
 .standalone-mode .viewer-card {

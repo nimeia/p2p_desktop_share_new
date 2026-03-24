@@ -59,11 +59,11 @@ int main() {
   Expect(info.mode == "wifi", "selected mode should propagate");
 
   EndpointSelection explicitSelection = ResolveEndpointSelection(
-      EndpointSelectionRequest{.bindAddress = "0.0.0.0", .subjectAltNames = "example.local,10.0.0.5"},
+      EndpointSelectionRequest{.bindAddress = "0.0.0.0", .advertiseAddress = "example.local,10.0.0.5"},
       &probe);
-  Expect(explicitSelection.subjectAltNames == "example.local,10.0.0.5", "explicit SAN should be preserved");
+  Expect(explicitSelection.advertiseAddress == "example.local,10.0.0.5", "explicit advertise address should be preserved");
   Expect(explicitSelection.preferredHost == "example.local", "preferred host should use first explicit entry");
-  Expect(!explicitSelection.usedAutoDiscovery, "explicit SAN should bypass auto discovery");
+  Expect(!explicitSelection.usedAutoDiscovery, "explicit advertise address should bypass auto discovery");
 
   EndpointSelection autoSelection = ResolveEndpointSelection(EndpointSelectionRequest{}, &probe);
   Expect(autoSelection.usedAutoDiscovery, "auto selection should use probe results");

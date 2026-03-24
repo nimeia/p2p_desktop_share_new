@@ -22,13 +22,12 @@ lan::runtime::AdminViewModelInput BuildInput() {
   input.runtimeSnapshot.session.hostIp = L"192.168.1.5";
   input.runtimeSnapshot.session.room = L"room-a";
   input.runtimeSnapshot.session.token = L"token-a";
-  input.runtimeSnapshot.hostUrl = L"https://192.168.1.5:9443/host";
-  input.runtimeSnapshot.viewerUrl = L"https://192.168.1.5:9443/viewer";
+  input.runtimeSnapshot.hostUrl = L"http://192.168.1.5:9443/host";
+  input.runtimeSnapshot.viewerUrl = L"http://192.168.1.5:9443/viewer";
   input.runtimeSnapshot.session.lastRooms = 1;
   input.runtimeSnapshot.session.lastViewers = 2;
   input.runtimeSnapshot.health.serverProcessRunning = true;
   input.runtimeSnapshot.health.hostIpReachable = true;
-  input.runtimeSnapshot.health.certReady = true;
   input.runtimeSnapshot.handoff.state = L"ready";
   input.runtimeSnapshot.handoff.label = L"Ready";
   input.runtimeSnapshot.handoff.detail = L"Viewer link can be shared.";
@@ -37,7 +36,7 @@ lan::runtime::AdminViewModelInput BuildInput() {
   input.outputDir = L"C:/out";
   input.bundleDir = L"C:/out/share_bundle";
   input.serverExePath = L"C:/app/lan_screenshare_server.exe";
-  input.certDir = L"C:/app/cert";
+  input.adminDir = L"C:/app/webui";
   input.logTail = L"tail";
   input.timelineText = L"timeline";
   input.networkCandidates.push_back({L"Wi-Fi", L"192.168.1.5", L"wireless", true, true, true, L"LAN /health ok", L"Selected adapter answered"});

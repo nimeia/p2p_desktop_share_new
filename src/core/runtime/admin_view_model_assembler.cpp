@@ -96,9 +96,6 @@ AdminSnapshotViewModel BuildAdminSnapshotViewModel(const AdminViewModelInput& in
   model.serverRunning = health.serverProcessRunning;
   model.healthReady = health.localHealthReady;
   model.hostReachable = health.hostIpReachable;
-  model.certReady = health.certReady;
-  model.certDetail = health.certDetail;
-  model.certExpectedSans = health.expectedSans;
   model.firewallReady = networkDiagnostics.firewallReady;
   model.firewallDetail = networkDiagnostics.firewallDetail;
   model.remoteViewerReady = networkDiagnostics.remoteViewerReady;
@@ -132,7 +129,7 @@ AdminSnapshotViewModel BuildAdminSnapshotViewModel(const AdminViewModelInput& in
   model.outputDir = input.outputDir;
   model.bundleDir = input.bundleDir;
   model.serverExePath = input.serverExePath;
-  model.certDir = input.certDir;
+  model.adminDir = input.adminDir;
   model.timelineText = input.timelineText.empty() ? L"No timeline events yet." : input.timelineText;
   model.logTail = input.logTail;
   model.viewerUrlCopied = sessionModel.viewerUrlCopied;
@@ -150,7 +147,6 @@ AdminSnapshotViewModel BuildAdminSnapshotViewModel(const AdminViewModelInput& in
   model.autoGenerateQr = input.autoGenerateQr;
   model.autoExportBundle = input.autoExportBundle;
   model.saveStdStreams = input.saveStdStreams;
-  model.certBypassPolicy = input.certBypassPolicy;
   model.webViewBehavior = input.snapshotWebViewBehavior;
   model.startupHook = input.snapshotStartupHook;
   return model;
@@ -191,9 +187,6 @@ DashboardViewModel BuildDashboardViewModel(const AdminViewModelInput& input) {
   serviceCard << L"Server Exe: " << input.serverExePath << L"\r\n";
   serviceCard << L"Bind + Port: " << session.bindAddress << L":" << session.port << L"\r\n";
   serviceCard << L"Transport: plain HTTP / WS";
-  if (!health.certDetail.empty()) {
-    serviceCard << L"\r\nMode Detail: " << health.certDetail;
-  }
   model.serviceCard = serviceCard.str();
 
   std::wstringstream shareCard;
@@ -305,7 +298,7 @@ SettingsViewModel BuildSettingsViewModel(const AdminViewModelInput& input) {
   service << L"Service\r\n\r\n";
   service << L"Server EXE\r\n" << input.defaultServerExePath << L"\r\n\r\n";
   service << L"WWW Dir\r\n" << input.defaultWwwPath << L"\r\n\r\n";
-  service << L"Admin Dir\r\n" << input.defaultCertDir << L"\r\n\r\n";
+  service << L"Admin Dir\r\n" << input.defaultAdminDir << L"\r\n\r\n";
   service << L"Args Template\r\n" << input.defaultLaunchArgs;
   model.serviceCard = service.str();
 
@@ -346,9 +339,6 @@ SettingsViewModel BuildSettingsViewModel(const AdminViewModelInput& input) {
   advanced << L"Runtime Flags\r\n";
   advanced << L"WebView Ready: " << (health.embeddedHostReady ? L"yes" : L"no") << L"\r\n";
   advanced << L"HTTP Mode: enabled";
-  if (!health.certDetail.empty()) {
-    advanced << L"\r\nMode Detail: " << health.certDetail;
-  }
   model.advancedCard = advanced.str();
 
   std::wstringstream current;
@@ -357,7 +347,7 @@ SettingsViewModel BuildSettingsViewModel(const AdminViewModelInput& input) {
   current << L"Default Bind -> current bind: " << sessionModel.defaultBindAddress << L" -> " << session.bindAddress << L"\r\n";
   current << L"Server Path Exists: " << (input.serverExeExists ? L"yes" : L"no") << L"\r\n";
   current << L"WWW Path Exists: " << (input.wwwDirExists ? L"yes" : L"no") << L"\r\n";
-  current << L"Admin Dir Exists: " << (input.certDirExists ? L"yes" : L"no") << L"\r\n";
+  current << L"Admin Dir Exists: " << (input.adminDirExists ? L"yes" : L"no") << L"\r\n";
   current << L"Bundle Dir Exists: " << (input.bundleDirExists ? L"yes" : L"no") << L"\r\n";
   current << L"Health Ready: " << (health.localHealthReady ? L"green / normal" : L"yellow / attention") << L"\r\n";
   current << L"Host Reachable: " << (health.hostIpReachable ? L"green / normal" : L"red / abnormal") << L"\r\n";

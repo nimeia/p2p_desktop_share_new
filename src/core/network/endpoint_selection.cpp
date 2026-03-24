@@ -192,17 +192,17 @@ EndpointSelection ResolveEndpointSelection(const EndpointSelectionRequest& reque
   EndpointSelection resolution;
   resolution.bindAddress = IsAutoEndpointValue(request.bindAddress) ? "0.0.0.0" : TrimNetworkText(request.bindAddress);
 
-  if (!IsAutoEndpointValue(request.subjectAltNames)) {
-    resolution.subjectAltNames = TrimNetworkText(request.subjectAltNames);
-    resolution.preferredHost = FirstEndpointEntryOr(request.subjectAltNames, resolution.bindAddress);
-    resolution.detail = "Using explicit SAN/advertise value from CLI arguments.";
+  if (!IsAutoEndpointValue(request.advertiseAddress)) {
+    resolution.advertiseAddress = TrimNetworkText(request.advertiseAddress);
+    resolution.preferredHost = FirstEndpointEntryOr(request.advertiseAddress, resolution.bindAddress);
+    resolution.detail = "Using explicit advertise address from CLI arguments.";
     return resolution;
   }
 
   NetworkInfo info;
   std::string detail;
   if (probe && SelectPreferredNetworkInfo(*probe, info, detail) && !info.hostIp.empty()) {
-    resolution.subjectAltNames = info.hostIp;
+    resolution.advertiseAddress = info.hostIp;
     resolution.preferredHost = info.hostIp;
     resolution.usedAutoDiscovery = true;
     resolution.networkInfoAvailable = true;
@@ -211,11 +211,11 @@ EndpointSelection ResolveEndpointSelection(const EndpointSelectionRequest& reque
     return resolution;
   }
 
-  resolution.subjectAltNames = "127.0.0.1";
+  resolution.advertiseAddress = "127.0.0.1";
   resolution.preferredHost = "127.0.0.1";
   resolution.detail = (probe && !probe->detail.empty())
-      ? probe->detail + " Falling back to loopback SAN."
-      : "Falling back to loopback SAN because network discovery is unavailable.";
+      ? probe->detail + " Falling back to loopback advertise address."
+      : "Falling back to loopback advertise address because network discovery is unavailable.";
   return resolution;
 }
 

@@ -37,9 +37,6 @@ RuntimeSessionState BuildSessionState(const DesktopRuntimeSnapshotInput& input) 
 RuntimeHealthState BuildHealthState(const DesktopRuntimeSnapshotInput& input) {
   RuntimeHealthState health;
   health.serverProcessRunning = input.serverProcessRunning;
-  health.certReady = input.certReady;
-  health.certDetail = input.certDetail;
-  health.expectedSans = input.expectedSans;
   health.portReady = input.portReady;
   health.portDetail = input.portDetail;
   health.localHealthReady = input.localHealthReady;
@@ -61,7 +58,6 @@ RuntimeHealthState BuildHealthState(const DesktopRuntimeSnapshotInput& input) {
 RuntimeSelfCheckSummary BuildSummary(const SelfCheckReport& report) {
   RuntimeSelfCheckSummary summary;
   summary.p0 = report.p0;
-  summary.certificateCount = report.certificateCount;
   summary.networkCount = report.networkCount;
   summary.sharingCount = report.sharingCount;
   summary.summaryLine = BuildSelfCheckSummaryLine(report);

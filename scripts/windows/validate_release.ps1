@@ -28,8 +28,6 @@ Write-Section "Validate desktop payload layout"
 Assert-PathExists $DesktopDir "desktop output directory"
 Assert-PathExists (Join-Path $DesktopDir "LanScreenShareHostApp.exe") "desktop host executable"
 Assert-PathExists (Join-Path $DesktopDir "lan_screenshare_server.exe") "bundled server executable"
-Assert-PathExists (Join-Path $DesktopDir "cert\server.crt") "bundled server certificate"
-Assert-PathExists (Join-Path $DesktopDir "cert\server.key") "bundled server key"
 Assert-PathExists (Join-Path $DesktopDir "www\host.html") "bundled host page"
 Assert-PathExists (Join-Path $DesktopDir "www\viewer.html") "bundled viewer page"
 Assert-PathExists (Join-Path $DesktopDir "www\assets\common.js") "bundled common.js"
@@ -42,7 +40,7 @@ if (-not $SkipServerSmoke) {
   & (Join-Path $root "scripts\windows\smoke_server.ps1") `
     -ServerExe (Join-Path $DesktopDir "lan_screenshare_server.exe") `
     -WwwRoot (Join-Path $DesktopDir "www") `
-    -CertDir (Join-Path $DesktopDir "cert") `
+    -AdminWww (Join-Path $DesktopDir "webui") `
     -BindHost "127.0.0.1" `
     -Port $Port `
     -RunFor 20

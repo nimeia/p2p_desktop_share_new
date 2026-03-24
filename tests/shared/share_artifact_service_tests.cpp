@@ -45,9 +45,6 @@ int main() {
 
   RuntimeHealthState health;
   health.serverProcessRunning = true;
-  health.certReady = true;
-  health.certDetail = L"ready";
-  health.expectedSans = L"192.168.1.20, 127.0.0.1, localhost";
   health.portReady = true;
   health.portDetail = L"listening";
   health.localHealthReady = true;
@@ -61,32 +58,10 @@ int main() {
   health.adapterHint = L"Wi-Fi";
   health.embeddedHostReady = true;
   health.embeddedHostStatus = L"ready";
+  health.firewallReady = true;
+  health.firewallDetail = L"allow rule detected";
 
-  const auto report = BuildSelfCheckReport(session.hostPageState,
-                                           session.hostIp,
-                                           BuildViewerUrl(session),
-                                           session.lastViewers,
-                                           health.serverProcessRunning,
-                                           health.certReady,
-                                           health.certDetail,
-                                           health.portReady,
-                                           health.portDetail,
-                                           health.localHealthReady,
-                                           health.localHealthDetail,
-                                           health.hostIpReachable,
-                                           health.hostIpReachableDetail,
-                                           health.lanBindReady,
-                                           health.lanBindDetail,
-                                           static_cast<int>(health.activeIpv4Candidates),
-                                           health.selectedIpRecommended,
-                                           health.adapterHint,
-                                           health.embeddedHostReady,
-                                           health.embeddedHostStatus,
-                                           session.wifiAdapterPresent,
-                                           session.hotspotSupported,
-                                           session.wifiDirectApiAvailable,
-                                           session.hotspotRunning,
-                                           true);
+  const auto report = BuildSelfCheckReport(session, health, true);
   Expect(report.total > 0, "self-check report should contain items");
   Expect(report.p0 == 0, "healthy runtime should not report P0 issues");
   Expect(BuildSelfCheckSummaryLine(report).find(L"ok") != std::wstring::npos,
@@ -110,14 +85,6 @@ int main() {
   request.session = session;
   request.health = health;
   request.generatedAt = L"2026-03-13 17:00:00";
-  request.cert.certDir = tempRoot / "cert";
-  request.cert.certFile = request.cert.certDir / "server.crt";
-  request.cert.keyFile = request.cert.certDir / "server.key";
-  request.cert.certExists = true;
-  request.cert.keyExists = true;
-  request.cert.ready = true;
-  request.cert.detail = L"ready";
-  request.cert.expectedSans = health.expectedSans;
 
   ShareArtifactWriteResult result;
   Expect(ExportShareArtifacts(request, &result), "artifact export should succeed");

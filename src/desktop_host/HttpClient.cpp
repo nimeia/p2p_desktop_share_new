@@ -1,8 +1,6 @@
 #include "pch.h"
 #include "HttpClient.h"
 
-#include "core/runtime/bootstrap_policy.h"
-
 #include <winhttp.h>
 #pragma comment(lib, "winhttp.lib")
 
@@ -34,8 +32,6 @@ HttpResponse HttpClient::Get(const std::wstring& url, DWORD timeoutMs) {
         return out;
     }
 
-    bool isHttps = (uc.nScheme == INTERNET_SCHEME_HTTPS);
-
     hSession = WinHttpOpen(L"LanScreenShareHost/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     if (!hSession) {
         out.error = L"WinHttpOpen failed: " + LastErrorText(GetLastError());
@@ -52,7 +48,7 @@ HttpResponse HttpClient::Get(const std::wstring& url, DWORD timeoutMs) {
     }
 
     DWORD flags = WINHTTP_FLAG_REFRESH;
-    if (isHttps) flags |= WINHTTP_FLAG_SECURE;
+    if (uc.nScheme == INTERNET_SCHEME_HTTPS) flags |= WINHTTP_FLAG_SECURE;
 
     hRequest = WinHttpOpenRequest(hConnect, L"GET", uc.lpszUrlPath, nullptr, WINHTTP_NO_REFERER, WINHTTP_DEFAULT_ACCEPT_TYPES, flags);
     if (!hRequest) {
@@ -60,14 +56,6 @@ HttpResponse HttpClient::Get(const std::wstring& url, DWORD timeoutMs) {
         WinHttpCloseHandle(hConnect);
         WinHttpCloseHandle(hSession);
         return out;
-    }
-
-    if (isHttps && lan::runtime::ShouldBypassLocalCertificateForUrl(url)) {
-        DWORD secFlags = SECURITY_FLAG_IGNORE_UNKNOWN_CA |
-                         SECURITY_FLAG_IGNORE_CERT_CN_INVALID |
-                         SECURITY_FLAG_IGNORE_CERT_DATE_INVALID |
-                         SECURITY_FLAG_IGNORE_CERT_WRONG_USAGE;
-        WinHttpSetOption(hRequest, WINHTTP_OPTION_SECURITY_FLAGS, &secFlags, sizeof(secFlags));
     }
 
     if (!WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0)) {

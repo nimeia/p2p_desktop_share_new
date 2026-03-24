@@ -77,13 +77,10 @@ function Copy-RequiredPayload([string]$DesktopDir, [string]$RepoRoot, [string]$S
   $required = @(
     (Join-Path $DesktopDir "LanScreenShareHostApp.exe"),
     (Join-Path $DesktopDir "lan_screenshare_server.exe"),
-    (Join-Path $DesktopDir "cert\server.crt"),
-    (Join-Path $DesktopDir "cert\server.key"),
     (Join-Path $DesktopDir "www"),
     (Join-Path $DesktopDir "webui"),
     (Join-Path $RepoRoot "scripts\windows\Run-NetworkDiagnostics.ps1"),
     (Join-Path $RepoRoot "scripts\windows\Check-WebView2Runtime.ps1"),
-    (Join-Path $RepoRoot "scripts\windows\Trust-LocalCertificate.ps1"),
     (Join-Path $RepoRoot "scripts\windows\common.ps1")
   )
   foreach ($item in $required) {
@@ -102,8 +99,7 @@ function Copy-RequiredPayload([string]$DesktopDir, [string]$RepoRoot, [string]$S
   @(
     "common.ps1",
     "Run-NetworkDiagnostics.ps1",
-    "Check-WebView2Runtime.ps1",
-    "Trust-LocalCertificate.ps1"
+    "Check-WebView2Runtime.ps1"
   ) | ForEach-Object {
     Copy-Item -LiteralPath (Join-Path $RepoRoot "scripts\windows\$_") -Destination (Join-Path $helperStageDir $_) -Force
   }

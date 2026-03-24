@@ -8,7 +8,6 @@ param(
   [switch]$Clean,
   [int]$Port = 9443,
   [int]$MaxViewers = 10,
-  [string]$SanIp = "",
   [switch]$SkipVcpkgInstall,
   [switch]$SkipServerSmoke,
   [switch]$SkipBrowserSmoke,
@@ -45,26 +44,6 @@ function Copy-VcpkgRuntimeDlls(
   Get-ChildItem -Path $runtimeDir -Filter "*.dll" -File -ErrorAction SilentlyContinue | ForEach-Object {
     Copy-Item -Force $_.FullName (Join-Path $DestinationDir $_.Name)
   }
-}
-
-function Copy-VcpkgOpenSslTool(
-  [string]$VcpkgRoot,
-  [string]$Triplet,
-  [string]$DestinationDir
-) {
-  if (-not $VcpkgRoot -or -not (Test-Path $VcpkgRoot)) { return }
-
-  $candidates = @(
-    (Join-Path $VcpkgRoot ("installed\" + $Triplet + "\tools\openssl\openssl.exe")),
-    (Join-Path $VcpkgRoot ("installed\" + $Triplet + "\tools\openssl\bin\openssl.exe"))
-  )
-
-  $tool = $candidates | Where-Object { Test-Path $_ } | Select-Object -First 1
-  if (-not $tool) { return }
-
-  $toolDir = Join-Path $DestinationDir "tools\openssl"
-  New-Item -ItemType Directory -Force -Path $toolDir | Out-Null
-  Copy-Item -Force $tool (Join-Path $toolDir "openssl.exe")
 }
 
 function Assert-PathExists(
@@ -174,10 +153,8 @@ if ($needServer) {
   }
 
   $legacyServerBinDir = Join-Path $outDir "bin"
-  $legacyServerCertDir = Join-Path $outDir "cert"
   $legacyServerWwwDir = Join-Path $outDir "www"
   if (Test-Path $legacyServerBinDir) { Remove-Item -Recurse -Force $legacyServerBinDir -ErrorAction SilentlyContinue }
-  if (Test-Path $legacyServerCertDir) { Remove-Item -Recurse -Force $legacyServerCertDir -ErrorAction SilentlyContinue }
   if (Test-Path $legacyServerWwwDir) { Remove-Item -Recurse -Force $legacyServerWwwDir -ErrorAction SilentlyContinue }
 
   Write-Section "Configure CMake"
@@ -261,7 +238,6 @@ $binDir = $serverOutDir
 New-Item -ItemType Directory -Force -Path $binDir | Out-Null
 Copy-Item -Force $serverExe (Join-Path $binDir "lan_screenshare_server.exe")
 Copy-VcpkgRuntimeDlls -RepoRoot $root -Triplet $Triplet -Config $Config -DestinationDir $binDir
-Copy-VcpkgOpenSslTool -VcpkgRoot $vcpkgRootResolved -Triplet $Triplet -DestinationDir $binDir
 
 # Copy PDB if present (useful for debugging)
 $pdbCandidate = [System.IO.Path]::ChangeExtension($serverExe, ".pdb")
@@ -298,17 +274,20 @@ if ($Target -eq "desktop_host" -or $Target -eq "all") {
   $sln = Join-Path $root "src\desktop_host\LanScreenShareHostApp.sln"
   if (-not (Test-Path $sln)) { Fail "Desktop host solution not found: $sln" }
 
-  # Clean build artifacts to avoid NuGet restore issues
-  Write-Host "Cleaning build artifacts..." -ForegroundColor Gray
   $projDir = Join-Path $root "src\desktop_host"
   $legacyObjDir = Join-Path $projDir "obj"
   $legacyBinDir = Join-Path (Split-Path $sln -Parent) "bin"
   $desktopObjDir = Join-Path $outDir "obj\desktop_host"
-  if (Test-Path $legacyObjDir) { Remove-Item -Path $legacyObjDir -Recurse -Force -ErrorAction SilentlyContinue }
-  if (Test-Path $legacyBinDir) { Remove-Item -Path $legacyBinDir -Recurse -Force -ErrorAction SilentlyContinue }
-  if (Test-Path $desktopObjDir) { Remove-Item -Path $desktopObjDir -Recurse -Force -ErrorAction SilentlyContinue }
-  if (Test-Path $desktopOutDir) { Remove-Item -Path $desktopOutDir -Recurse -Force -ErrorAction SilentlyContinue }
-  Write-Host "Clean completed." -ForegroundColor Gray
+  if ($Clean) {
+    Write-Host "Cleaning build artifacts..." -ForegroundColor Gray
+    if (Test-Path $legacyObjDir) { Remove-Item -Path $legacyObjDir -Recurse -Force -ErrorAction SilentlyContinue }
+    if (Test-Path $legacyBinDir) { Remove-Item -Path $legacyBinDir -Recurse -Force -ErrorAction SilentlyContinue }
+    if (Test-Path $desktopObjDir) { Remove-Item -Path $desktopObjDir -Recurse -Force -ErrorAction SilentlyContinue }
+    if (Test-Path $desktopOutDir) { Remove-Item -Path $desktopOutDir -Recurse -Force -ErrorAction SilentlyContinue }
+    Write-Host "Clean completed." -ForegroundColor Gray
+  } else {
+    Write-Host "Preserving desktop host intermediates for incremental build." -ForegroundColor Gray
+  }
 
   $msbuild = Find-MSBuild
   if (-not $msbuild) { Fail "MSBuild not found. Install Visual Studio 2022 (Desktop development with C++) or Build Tools." }
@@ -326,6 +305,11 @@ if ($Target -eq "desktop_host" -or $Target -eq "all") {
     "/p:Platform=$Arch"
   )
   if (-not $SkipDesktopHostRestore) { $msbArgs = @($sln, "/restore") + $msbArgs[1..($msbArgs.Count-1)] }
+  Write-Host ("NuGet package cache: " + (Join-Path $root "third_party\\nuget")) -ForegroundColor DarkGray
+  if (-not $SkipDesktopHostRestore) {
+    Write-Host "MSBuild restore is enabled; cached packages are reused unless they are missing." -ForegroundColor DarkGray
+  }
+  Write-Host "MSBuild output is captured and may appear only after the command exits." -ForegroundColor DarkGray
   Invoke-External $msbuild $msbArgs -Echo:$VerboseCommands -LogFile $logFile
 
   # Output dir is defined in the vcxproj as: out/desktop_host/<Platform>/<Config>/
@@ -335,7 +319,7 @@ if ($Target -eq "desktop_host" -or $Target -eq "all") {
   } else {
     Copy-VcpkgRuntimeDlls -RepoRoot $root -Triplet $Triplet -Config $Config -DestinationDir $winOut
 
-    # Copy server + cert + www next to the desktop host exe (best-effort)
+    # Copy server + www next to the desktop host exe (best-effort)
     $serverBuilt = Join-Path $serverOutDir "lan_screenshare_server.exe"
     if (Test-Path $serverBuilt) { Copy-Item -Force $serverBuilt (Join-Path $winOut "lan_screenshare_server.exe") }
 
@@ -344,13 +328,6 @@ if ($Target -eq "desktop_host" -or $Target -eq "all") {
       $toolsOut = Join-Path $winOut "tools"
       if (Test-Path $toolsOut) { Remove-Item -Recurse -Force $toolsOut }
       Copy-Item -Recurse -Force $serverToolsBuilt $toolsOut
-    }
-
-    $certBuilt = Join-Path $serverOutDir "cert"
-    if (Test-Path $certBuilt) {
-      $certOut = Join-Path $winOut "cert"
-      if (Test-Path $certOut) { Remove-Item -Recurse -Force $certOut }
-      Copy-Item -Recurse -Force $certBuilt $certOut
     }
 
     $wwwBuilt = Join-Path $serverOutDir "www"
