@@ -417,7 +417,7 @@ struct RuntimeDiagnosticsSnapshot {
     bool selectedIpRecommended = true;
     std::wstring adapterHint;
     std::vector<lan::runtime::RemoteProbeCandidateInput> remoteProbeCandidates;
-}
+};
 
 static bool IsHostStateServerRunning(std::wstring_view state) {
     return !state.empty() && state != L"stopped";
@@ -1046,9 +1046,6 @@ void MainWindow::ExecuteDashboardSuggestionFix(std::size_t index) {
         break;
     case DashboardSuggestionKind::RefreshIp:
         RefreshHostRuntime();
-        break;
-    case DashboardSuggestionKind::NoteSelfSignedCert:
-        OpenHostPage();
         break;
     case DashboardSuggestionKind::PortReady:
         RefreshDiagnosticsBundle();

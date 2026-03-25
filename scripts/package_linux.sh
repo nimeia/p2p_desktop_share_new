@@ -99,7 +99,7 @@ if [[ "$SKIP_BUILD" -eq 0 ]]; then
   if [[ "$BOOTSTRAP_VCPKG" -eq 1 ]]; then
     build_args+=(--bootstrap-vcpkg)
   fi
-  "$ROOT_DIR/scripts/build_linux.sh" "${build_args[@]}"
+  bash "$ROOT_DIR/scripts/build_linux.sh" "${build_args[@]}"
 fi
 
 require_path "$SERVER_DIR/lan_screenshare_server" "Linux server binary"
