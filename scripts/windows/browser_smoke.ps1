@@ -8,20 +8,10 @@ param(
 . (Join-Path $PSScriptRoot "common.ps1")
 
 $root = Get-RepoRoot
-
-if ($Generator -eq "auto") {
-  $msbuild = Find-MSBuild
-  if ($msbuild) {
-    $Generator = "vs"
-  } elseif (Get-Command ninja -ErrorAction SilentlyContinue) {
-    $Generator = "ninja"
-  } else {
-    $Generator = "vs"
-  }
-}
+$Generator = Resolve-CmakeGenerator $Generator
 
 if ($BuildDir -eq "auto") {
-  $BuildDir = Join-Path $root ("out\build\windows-" + $Generator + "-" + $Triplet + "-" + $Config)
+  $BuildDir = Get-DefaultWindowsBuildDir $root $Generator $Triplet $Config
 }
 
 if (-not (Test-Path $BuildDir)) {

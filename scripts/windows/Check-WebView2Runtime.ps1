@@ -2,8 +2,7 @@ param(
   [string]$OutputPath = ""
 )
 
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-. (Join-Path $scriptDir "common.ps1")
+. (Join-Path $PSScriptRoot "common.ps1")
 
 function Get-WebView2Version([Microsoft.Win32.RegistryHive]$Hive, [string]$SubKey) {
   try {

@@ -1,17 +1,18 @@
-# Test script for LanScreenShareHostApp
-$root = Split-Path -Parent (Split-Path -Parent $PSScriptRoot)
-$appPath = Join-Path $root "out\desktop_host\x64\Debug\LanScreenShareHostApp.exe"
+param(
+  [ValidateSet("Debug","Release")] [string]$Config = "Debug",
+  [ValidateSet("x64")] [string]$Arch = "x64"
+)
 
-if (-not (Test-Path $appPath)) {
-    Write-Error "Executable not found: $appPath"
-    exit 1
-}
+. (Join-Path $PSScriptRoot "common.ps1")
 
-Write-Host "Launching $appPath..."
-Write-Host "Window should appear shortly. Press Ctrl+C to exit."
-Write-Host ""
+$root = Get-RepoRoot
+$appPath = Get-DesktopHostExePath $root $Arch $Config
+Assert-PathExists $appPath "desktop host executable"
 
-# Start the application and wait for it
+Write-Section "Launch desktop host app"
+Write-Host "Executable: $appPath"
+Write-Host "Close the app window or press Ctrl+C in this console to stop."
+
 & $appPath
 
 Write-Host "Application closed."

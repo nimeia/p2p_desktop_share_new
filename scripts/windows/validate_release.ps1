@@ -10,18 +10,9 @@ param(
 
 . (Join-Path $PSScriptRoot "common.ps1")
 
-function Assert-PathExists(
-  [string]$Path,
-  [string]$Description
-) {
-  if (-not (Test-Path $Path)) {
-    Fail "$Description missing: $Path"
-  }
-}
-
 $root = Get-RepoRoot
 if (-not $DesktopDir) {
-  $DesktopDir = Join-Path $root ("out\desktop_host\" + $Arch + "\" + $Config)
+  $DesktopDir = Get-DesktopHostOutputDir $root $Arch $Config
 }
 
 Write-Section "Validate desktop payload layout"

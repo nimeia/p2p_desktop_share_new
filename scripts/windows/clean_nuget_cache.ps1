@@ -2,24 +2,16 @@ param(
   [switch]$IncludeGlobalCache
 )
 
-Set-StrictMode -Version Latest
-$ErrorActionPreference = "Stop"
-
-function Write-Section([string]$Title) {
-  Write-Host ""
-  Write-Host "==== $Title ====" -ForegroundColor Cyan
-}
+. (Join-Path $PSScriptRoot "common.ps1")
 
 Write-Section "Clean NuGet Cache and Restore Files"
 
-# Get repo root
-$scriptRoot = Split-Path -Parent $PSScriptRoot
-$root = Split-Path -Parent $scriptRoot
+$root = Get-RepoRoot
 
 # Paths to clean
 $projectDir = Join-Path $root "src\desktop_host"
 $objDir = Join-Path $root "out\obj\desktop_host"
-$binDir = Join-Path $root "out\desktop_host"
+$binDir = Join-Path (Get-OutDir $root) "desktop_host"
 
 Write-Host "Cleaning project build artifacts..." -ForegroundColor Yellow
 if (Test-Path $objDir) {

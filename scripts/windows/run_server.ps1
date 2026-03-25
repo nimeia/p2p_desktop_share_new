@@ -7,13 +7,12 @@ param(
 . (Join-Path $PSScriptRoot "common.ps1")
 
 $root = Get-RepoRoot
-$outDir = Join-Path $root "out"
-$exe = Join-Path $outDir "server\$Config\lan_screenshare_server.exe"
+$serverDir = Get-ServerOutputDir $root $Config
+$exe = Get-ServerExePath $root $Config
 if (-not (Test-Path $exe)) { Fail "Server exe not found. Build first: scripts\windows\build.ps1 -Target server" }
 
 $viewerHost = Get-DefaultIPv4
 if (-not $viewerHost) { $viewerHost = "127.0.0.1" }
-$serverDir = Split-Path -Parent $exe
 $wwwDir = Join-Path $serverDir "www"
 $adminDir = Join-Path $serverDir "webui"
 

@@ -11,19 +11,13 @@ param(
 . (Join-Path $PSScriptRoot "common.ps1")
 
 $root = Get-RepoRoot
-$exe = if ($ServerExe) { $ServerExe } else { Join-Path $root "out\server\$Config\lan_screenshare_server.exe" }
-if (-not (Test-Path $exe)) {
-  Fail "Server exe not found: $exe"
-}
+$exe = if ($ServerExe) { $ServerExe } else { Get-ServerExePath $root $Config }
+Assert-PathExists $exe "server executable"
 
 $resolvedWwwRoot = if ($WwwRoot) { $WwwRoot } else { Join-Path (Split-Path -Parent $exe) "www" }
 $resolvedAdminWww = if ($AdminWww) { $AdminWww } else { Join-Path (Split-Path -Parent $exe) "webui" }
-if (-not (Test-Path $resolvedWwwRoot)) {
-  Fail "www root not found: $resolvedWwwRoot"
-}
-if (-not (Test-Path $resolvedAdminWww)) {
-  Fail "admin webui root not found: $resolvedAdminWww"
-}
+Assert-PathExists $resolvedWwwRoot "www root"
+Assert-PathExists $resolvedAdminWww "admin webui root"
 
 $curl = Get-Command curl.exe -ErrorAction SilentlyContinue
 if (-not $curl) {

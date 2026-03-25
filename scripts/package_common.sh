@@ -8,6 +8,31 @@ package_repo_root() {
   cd "$script_dir/.." && pwd
 }
 
+package_fail() {
+  local scope="$1"
+  shift
+  printf '[%s][error] %s\n' "$scope" "$*" >&2
+  exit 1
+}
+
+require_option_value() {
+  local scope="$1"
+  local flag="$2"
+  local value="${3-}"
+  [[ -n "$value" ]] || package_fail "$scope" "$flag requires a value"
+}
+
+validate_package_config() {
+  local scope="$1"
+  local config="$2"
+  case "$config" in
+    Debug|Release) ;;
+    *)
+      package_fail "$scope" "Unsupported config: $config"
+      ;;
+  esac
+}
+
 resolve_package_version() {
   local repo_root="$1"
   local requested="${2:-}"
@@ -52,4 +77,48 @@ write_json_string() {
   value="${value//\"/\\\"}"
   value="${value//$'\n'/\\n}"
   printf '%s' "$value"
+}
+
+resolve_vcpkg_executable() {
+  local root="$1"
+  local candidate
+  for candidate in "$root/vcpkg" "$root/vcpkg.exe"; do
+    if [[ -x "$candidate" ]]; then
+      printf '%s\n' "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+require_vcpkg_root() {
+  local scope="$1"
+  local root="${2:-}"
+  [[ -n "$root" ]] || package_fail "$scope" "--vcpkg-root (or VCPKG_ROOT) is required when building."
+  [[ -d "$root" ]] || package_fail "$scope" "vcpkg root not found: $root"
+  [[ -f "$root/scripts/buildsystems/vcpkg.cmake" ]] || \
+    package_fail "$scope" "vcpkg toolchain not found under $root"
+}
+
+ensure_vcpkg_executable() {
+  local scope="$1"
+  local root="$2"
+  local bootstrap="${3:-0}"
+  local exe=""
+
+  exe="$(resolve_vcpkg_executable "$root" || true)"
+  if [[ -z "$exe" && "$bootstrap" -eq 1 ]]; then
+    [[ -x "$root/bootstrap-vcpkg.sh" ]] || package_fail "$scope" "bootstrap-vcpkg.sh not found under $root"
+    (cd "$root" && ./bootstrap-vcpkg.sh -disableMetrics)
+    exe="$(resolve_vcpkg_executable "$root" || true)"
+  fi
+
+  [[ -n "$exe" ]] || package_fail "$scope" "vcpkg executable not found under $root"
+  printf '%s\n' "$exe"
+}
+
+print_package_result() {
+  local label="$1"
+  local path="$2"
+  printf '%-9s %s\n' "${label}:" "$path"
 }

@@ -8,14 +8,13 @@ param(
   [string]$OutputRoot = ""
 )
 
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-. (Join-Path $scriptDir "common.ps1")
-. (Join-Path $scriptDir "package_common.ps1")
+. (Join-Path $PSScriptRoot "common.ps1")
+. (Join-Path $PSScriptRoot "package_common.ps1")
 
 $repoRoot = Get-RepoRoot
 if (-not $OutputRoot) { $OutputRoot = Join-Path $repoRoot "out\package\windows" }
-$desktopDir = Join-Path $repoRoot ("out\desktop_host\{0}\{1}" -f $Arch, $Config)
-$serverDir = Join-Path $repoRoot ("out\server\{0}" -f $Config)
+$desktopDir = Get-DesktopHostOutputDir $repoRoot $Arch $Config
+$serverDir = Get-ServerOutputDir $repoRoot $Config
 $versionResolved = Get-PackageVersion -RepoRoot $repoRoot -Version $Version
 $packageName = "LanScreenShareHost_{0}_win-{1}" -f $versionResolved, $Arch
 $stageDir = Join-Path $OutputRoot $packageName
@@ -60,10 +59,10 @@ New-Item -ItemType Directory -Force -Path $stageScriptsDir | Out-Null
   "validate_release.ps1",
   "smoke_server.ps1"
 ) | ForEach-Object {
-  Copy-Item -LiteralPath (Join-Path $scriptDir $_) -Destination (Join-Path $stageScriptsDir $_) -Force
+  Copy-Item -LiteralPath (Join-Path $PSScriptRoot $_) -Destination (Join-Path $stageScriptsDir $_) -Force
 }
-Copy-Item -LiteralPath (Join-Path $scriptDir "Install-LanScreenShare.ps1") -Destination (Join-Path $stageDir "Install-LanScreenShare.ps1") -Force
-Copy-Item -LiteralPath (Join-Path $scriptDir "Uninstall-LanScreenShare.ps1") -Destination (Join-Path $stageDir "Uninstall-LanScreenShare.ps1") -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot "Install-LanScreenShare.ps1") -Destination (Join-Path $stageDir "Install-LanScreenShare.ps1") -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot "Uninstall-LanScreenShare.ps1") -Destination (Join-Path $stageDir "Uninstall-LanScreenShare.ps1") -Force
 
 $docSource = Join-Path $repoRoot "docs\WINDOWS_BOOTSTRAP_GUIDE.md"
 if (Test-Path -LiteralPath $docSource) {

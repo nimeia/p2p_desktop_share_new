@@ -25,9 +25,8 @@ param(
   [switch]$SkipUploadBundle
 )
 
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-. (Join-Path $scriptDir "common.ps1")
-. (Join-Path $scriptDir "package_common.ps1")
+. (Join-Path $PSScriptRoot "common.ps1")
+. (Join-Path $PSScriptRoot "package_common.ps1")
 
 function Find-WindowsSdkToolSet([string]$ArchName) {
   $kitsRoot = Join-Path ${env:ProgramFiles(x86)} "Windows Kits\10\bin"
@@ -382,7 +381,7 @@ function New-UploadBundle([string]$MsixPath, [string]$SymbolsPath, [string]$Dest
 $repoRoot = Get-RepoRoot
 if (-not $OutputRoot) { $OutputRoot = Join-Path $repoRoot "out\package\windows-store" }
 
-$desktopDir = Join-Path $repoRoot ("out\desktop_host\{0}\{1}" -f $Arch, $Config)
+$desktopDir = Get-DesktopHostOutputDir $repoRoot $Arch $Config
 $rawVersion = Get-PackageVersion -RepoRoot $repoRoot -Version $Version
 $appxVersion = ConvertTo-AppxVersion $rawVersion
 $publisherDisplay = if ($PublisherDisplayName) { $PublisherDisplayName } else { $global:LanPublisher }

@@ -46,15 +46,6 @@ function Copy-VcpkgRuntimeDlls(
   }
 }
 
-function Assert-PathExists(
-  [string]$Path,
-  [string]$Description
-) {
-  if (-not (Test-Path $Path)) {
-    Fail "$Description missing: $Path"
-  }
-}
-
 function Validate-ServerOutputLayout(
   [string]$ServerBinDir
 ) {
@@ -67,25 +58,14 @@ function Validate-ServerOutputLayout(
 }
 
 $root = Get-RepoRoot
-$outDir = Join-Path $root "out"
-$serverOutDir = Join-Path $outDir "server\$Config"
-$desktopOutDir = Join-Path $outDir "desktop_host\$Arch\$Config"
+$outDir = Get-OutDir $root
+$serverOutDir = Get-ServerOutputDir $root $Config
+$desktopOutDir = Get-DesktopHostOutputDir $root $Arch $Config
 
 $needServer = ($Target -eq "server" -or $Target -eq "all")
 $needDesktopHost = ($Target -eq "desktop_host" -or $Target -eq "all")
 
-# Resolve generator early (auto -> vs/ninja)
-if ($Generator -eq "auto") {
-  # Prefer Visual Studio generator on Windows for the most reliable MSVC toolchain
-  $msbuild = Find-MSBuild
-  if ($msbuild) {
-    $Generator = "vs"
-  } elseif (Get-Command ninja -ErrorAction SilentlyContinue) {
-    $Generator = "ninja"
-  } else {
-    $Generator = "vs"
-  }
-}
+$Generator = Resolve-CmakeGenerator $Generator
 
 
 # Compute build directory.
@@ -94,7 +74,7 @@ if ($Generator -eq "auto") {
 # into a different folder and re-run the build script without cleaning, CMake will refuse to reuse the
 # existing cache with an error like:
 #   "The source ... does not match the source ... used to generate cache"
-$defaultBuildDir = Join-Path $outDir ("build\windows-" + $Generator + "-" + $Triplet + "-" + $Config)
+$defaultBuildDir = Get-DefaultWindowsBuildDir $root $Generator $Triplet $Config
 if ($BuildRoot -eq "auto") {
   if ($defaultBuildDir.Length -gt 200 -or $root.Length -gt 80) {
     # Use LocalAppData rather than TEMP to avoid MSBuild warnings about Temp output directories.

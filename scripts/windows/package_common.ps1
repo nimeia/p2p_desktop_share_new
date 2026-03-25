@@ -1,7 +1,6 @@
 param()
 
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
-. (Join-Path $scriptDir "common.ps1")
+. (Join-Path $PSScriptRoot "common.ps1")
 
 $global:LanProductName = "LanScreenShareHost"
 $global:LanPublisher = "LAN Screen Share"

@@ -8,7 +8,6 @@ param(
 . (Join-Path $PSScriptRoot "common.ps1")
 
 $root = Get-RepoRoot
-$outDir = Join-Path $root "out"
 
 Write-Section "Environment"
 Write-Host "PowerShell: $($PSVersionTable.PSVersion)"
@@ -30,10 +29,8 @@ Write-Host "vcpkg.exe:  " (Join-Path $vcpkgRootResolved "vcpkg.exe")
 Write-Host "toolchain:  " (Join-Path $vcpkgRootResolved "scripts\buildsystems\vcpkg.cmake")
 
 Write-Section "Build directory"
-if ($Generator -eq "auto") {
-  if (Get-Command ninja -ErrorAction SilentlyContinue) { $Generator = "ninja" } else { $Generator = "vs" }
-}
-$buildDir = Join-Path $outDir ("build\windows-" + $Generator + "-" + $Triplet + "-" + $Config)
+$Generator = Resolve-CmakeGenerator $Generator
+$buildDir = Get-DefaultWindowsBuildDir $root $Generator $Triplet $Config
 Write-Host "Expected build dir: $buildDir"
 Write-Host "Exists: " (Test-Path $buildDir)
 if (Test-Path $buildDir) {

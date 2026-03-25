@@ -5,7 +5,7 @@ param(
   [switch]$CreateDesktopShortcut
 )
 
-$scriptDir = Split-Path -Parent $MyInvocation.MyCommand.Path
+$scriptDir = $PSScriptRoot
 $helperDir = Join-Path $scriptDir "scripts\windows"
 . (Join-Path $helperDir "package_common.ps1")
 

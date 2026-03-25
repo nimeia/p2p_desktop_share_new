@@ -34,6 +34,67 @@ function Get-RepoRoot {
   return (Resolve-Path (Join-Path $here "..")).Path
 }
 
+function Resolve-CmakeGenerator([string]$Generator = "auto") {
+  if ($Generator -and $Generator -ne "auto") { return $Generator }
+
+  $msbuild = Find-MSBuild
+  if ($msbuild) { return "vs" }
+  if (Get-Command ninja -ErrorAction SilentlyContinue) { return "ninja" }
+  return "vs"
+}
+
+function Get-OutDir([string]$RepoRoot) {
+  return (Join-Path $RepoRoot "out")
+}
+
+function Get-DefaultWindowsBuildDir(
+  [string]$RepoRoot,
+  [string]$Generator,
+  [string]$Triplet,
+  [string]$Config
+) {
+  return (Join-Path (Get-OutDir $RepoRoot) ("build\windows-" + $Generator + "-" + $Triplet + "-" + $Config))
+}
+
+function Get-ServerOutputDir(
+  [string]$RepoRoot,
+  [string]$Config
+) {
+  return (Join-Path (Get-OutDir $RepoRoot) ("server\" + $Config))
+}
+
+function Get-ServerExePath(
+  [string]$RepoRoot,
+  [string]$Config
+) {
+  return (Join-Path (Get-ServerOutputDir $RepoRoot $Config) "lan_screenshare_server.exe")
+}
+
+function Get-DesktopHostOutputDir(
+  [string]$RepoRoot,
+  [string]$Arch,
+  [string]$Config
+) {
+  return (Join-Path (Get-OutDir $RepoRoot) ("desktop_host\" + $Arch + "\" + $Config))
+}
+
+function Get-DesktopHostExePath(
+  [string]$RepoRoot,
+  [string]$Arch,
+  [string]$Config
+) {
+  return (Join-Path (Get-DesktopHostOutputDir $RepoRoot $Arch $Config) "LanScreenShareHostApp.exe")
+}
+
+function Assert-PathExists(
+  [string]$Path,
+  [string]$Description
+) {
+  if (-not (Test-Path -LiteralPath $Path)) {
+    Fail "$Description missing: $Path"
+  }
+}
+
 function Find-Vcpkg([string]$VcpkgRoot) {
   $candidates = @()
   if ($VcpkgRoot -and $VcpkgRoot -ne "auto") { $candidates += $VcpkgRoot }

@@ -3,8 +3,9 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-ROOT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 source "$SCRIPT_DIR/package_common.sh"
+ROOT_DIR="$(package_repo_root)"
+SCOPE="package_linux"
 
 CONFIG="Release"
 VERSION=""
@@ -33,22 +34,27 @@ EOF
 while [[ $# -gt 0 ]]; do
   case "$1" in
     --config)
+      require_option_value "$SCOPE" "$1" "${2-}"
       CONFIG="$2"
       shift 2
       ;;
     --version)
+      require_option_value "$SCOPE" "$1" "${2-}"
       VERSION="$2"
       shift 2
       ;;
     --output-root)
+      require_option_value "$SCOPE" "$1" "${2-}"
       OUTPUT_ROOT="$2"
       shift 2
       ;;
     --vcpkg-root)
+      require_option_value "$SCOPE" "$1" "${2-}"
       VCPKG_ROOT_INPUT="$2"
       shift 2
       ;;
     --build-root)
+      require_option_value "$SCOPE" "$1" "${2-}"
       BUILD_ROOT="$2"
       shift 2
       ;;
@@ -65,19 +71,12 @@ while [[ $# -gt 0 ]]; do
       exit 0
       ;;
     *)
-      printf '[package_linux][error] Unknown argument: %s\n' "$1" >&2
-      exit 1
+      package_fail "$SCOPE" "Unknown argument: $1"
       ;;
   esac
 done
 
-case "$CONFIG" in
-  Debug|Release) ;;
-  *)
-    printf '[package_linux][error] Unsupported config: %s\n' "$CONFIG" >&2
-    exit 1
-    ;;
-esac
+validate_package_config "$SCOPE" "$CONFIG"
 
 VERSION_RESOLVED="$(resolve_package_version "$ROOT_DIR" "$VERSION")"
 ARCH="$(map_machine_arch "$(uname -m)")"
@@ -145,5 +144,5 @@ EOF
 mkdir -p "$OUTPUT_ROOT"
 tar -czf "$ARCHIVE_PATH" -C "$OUTPUT_ROOT" "$PACKAGE_NAME"
 
-printf 'StageDir: %s\n' "$STAGE_DIR"
-printf 'Archive:  %s\n' "$ARCHIVE_PATH"
+print_package_result "StageDir" "$STAGE_DIR"
+print_package_result "Archive" "$ARCHIVE_PATH"
