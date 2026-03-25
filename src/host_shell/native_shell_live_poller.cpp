@@ -26,6 +26,15 @@ std::string ToUtf8(std::wstring_view value) {
   return out;
 }
 
+std::wstring ToWide(std::string_view value) {
+  std::wstring out;
+  out.reserve(value.size());
+  for (char ch : value) {
+    out.push_back(static_cast<unsigned char>(ch));
+  }
+  return out;
+}
+
 bool ExtractBool(std::string_view json, std::string_view key, bool fallback) {
   const std::string needle = std::string{"\""} + std::string(key) + "\":";
   const auto pos = json.find(needle);

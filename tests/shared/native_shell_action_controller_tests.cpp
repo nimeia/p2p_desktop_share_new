@@ -91,8 +91,10 @@ int main() {
     auto facade = std::make_unique<lan::platform::PlatformServiceFacade>(std::move(fake));
     lan::host_shell::NativeShellActionController controller(std::move(config), std::move(facade));
 
-    assert(controller.BuildDashboardUrl() == "http://10.0.0.12:9443/host?room=roomA&token=tokA");
-    assert(controller.BuildViewerUrl() == "http://10.0.0.12:9443/view?room=roomA&token=tokA");
+    const auto dashboardUrl = controller.BuildDashboardUrl();
+    const auto viewerUrl = controller.BuildViewerUrl();
+    assert(dashboardUrl == "http://127.0.0.1:9443/host?room=roomA&token=tokA&lang=en");
+    assert(viewerUrl == "http://10.0.0.12:9443/view?room=roomA&token=tokA&lang=en");
 
     std::string err;
     assert(controller.OpenDashboard(err));

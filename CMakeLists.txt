@@ -145,19 +145,20 @@ target_link_libraries(lan_screenshare_server PRIVATE
 )
 
 add_library(lan_screenshare_native_shell
-  src/core/runtime/runtime_controller.cpp
-  src/core/runtime/shell_chrome_presenter.cpp
-  src/core/runtime/native_shell_alert_coordinator.cpp
-  src/core/runtime/native_shell_status_tracker.cpp
-  src/platform/platform_service_facade.cpp
   src/host_shell/native_shell_live_poller.cpp
   src/host_shell/native_shell_runtime_loop.cpp
   src/host_shell/native_shell_action_controller.cpp
 )
 target_include_directories(lan_screenshare_native_shell PUBLIC src)
 target_link_libraries(lan_screenshare_native_shell PUBLIC
+  lan_screenshare_shared
+  lan_screenshare_platform_abstraction
+  lan_screenshare_platform_default
   Threads::Threads
 )
+if (MSVC)
+  target_compile_definitions(lan_screenshare_native_shell PRIVATE _WIN32_WINNT=0x0A00 WINVER=0x0A00)
+endif()
 if (UNIX AND NOT APPLE)
   target_link_libraries(lan_screenshare_native_shell PUBLIC dl)
 endif()
