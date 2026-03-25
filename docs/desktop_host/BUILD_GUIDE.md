@@ -1,43 +1,73 @@
-# Desktop Host (WIP) - Build Guide
+# Desktop Host Build Guide
 
-This is a **work-in-progress** wizard project.
+This guide reflects the current Windows desktop-host workflow.
 
-## 1) Build the C++ server
-From repo root:
+## Build
 
-- Configure and build:
-  - `cmake -S . -B out/build -DCMAKE_TOOLCHAIN_FILE=<vcpkg>/scripts/buildsystems/vcpkg.cmake`
-  - `cmake --build out/build --config Release`
+Common build entry point:
 
-Targets:
-- `lan_screenshare_server` (from `apps/server_cli`)
-- `lan_demo` (if existing)
+```powershell
+.\scripts\build.ps1 -Target desktop_host -Config Debug
+```
 
-## 2) Generate certificate
-- `scripts/gen_self_signed_cert.ps1 -OutDir .\cert -SanIp <host-ip>`
+Build desktop host plus local server:
 
-Notes:
-- The server-side certificate path now uses in-process OpenSSL generation; desktop trust/bootstrap UX still needs follow-up polish.
-- Recommended: set `VCPKG_ROOT` (or use `scripts\windows\build.ps1`, which passes it automatically).
+```powershell
+.\scripts\build.ps1 -Target all -Config Debug
+```
 
-## 3) Run server (manual, WIP)
-- `out\server\Release\lan_screenshare_server.exe --bind 0.0.0.0 --port 9443 --www out\server\Release\www --certdir out\server\Release\cert --san-ip <host-ip>`
+Advanced Windows-only build entry point:
 
+```powershell
+.\scripts\windows\build.ps1 -Target desktop_host -Config Debug -SkipDesktopValidation
+```
 
+You can also open and build `src/desktop_host/LanScreenShareHostApp.sln` directly in Visual Studio, but the scripts are the authoritative path because they also copy the bundled runtime layout.
 
-## 4) Build/run desktop host
-Open:
-- `src/desktop_host/LanScreenShareHostApp.sln`
+## Run
 
-Build and run project `LanScreenShareHostApp`.
+Run the desktop host:
 
-Or use scripts:
-- Build: `scripts\windows\build.ps1 -Target desktop_host -Config Debug`
-- Run: `scripts\windows\run_desktop_host.ps1 -Config Debug`
+```powershell
+.\scripts\windows\run_desktop_host.ps1 -Config Debug
+```
 
-Runtime output directories:
+Run the local server directly:
+
+```powershell
+.\scripts\windows\run_server.ps1 -Config Debug -Port 9443
+```
+
+Manual server run:
+
+```powershell
+.\out\server\Debug\lan_screenshare_server.exe --bind 0.0.0.0 --host-ip auto --port 9443 --www .\out\server\Debug\www --admin-www .\out\server\Debug\webui
+```
+
+## Outputs
+
 - server: `out\server\<Config>\`
 - desktop host: `out\desktop_host\<Arch>\<Config>\`
+- share bundle: `out\share_bundle\`
 
+The desktop output bundles:
 
-`--san-ip auto` is now supported on the CLI. On Windows it resolves via the Windows network provider; on Linux/macOS it resolves via the POSIX provider and falls back to loopback when discovery is unavailable.
+- `LanScreenShareHostApp.exe`
+- `lan_screenshare_server.exe`
+- `www\`
+- `webui\`
+
+## Runtime notes
+
+- transport is plain HTTP / WS only
+- the old local certificate/bootstrap flow is no longer part of the desktop runtime
+- WebView2 is optional; if it is unavailable, the desktop host can still open the host page in an external browser
+
+## Validation helpers
+
+```powershell
+.\scripts\windows\smoke_server.ps1 -Config Debug
+.\scripts\windows\browser_smoke.ps1 -Config Debug
+.\scripts\windows\validate_release.ps1 -Config Release
+.\scripts\windows\Check-WebView2Runtime.ps1
+```

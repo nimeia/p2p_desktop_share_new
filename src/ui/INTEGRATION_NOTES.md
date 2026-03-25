@@ -1,12 +1,17 @@
-# Desktop Host 集成说明（占位）
+# Desktop Host Integration Notes
 
-本包只提供后端服务与网页骨架。桌面宿主项目建议做：
-- Network Wizard（热点/Wi‑Fi Direct 选择与引导）
-- Start Service（启动 ServiceHost）
-- Open WebView2 to host URL
-- Share Card（SSID/密码/URL/二维码）
-- Viewer list/status（观众数、状态）
+This file is only a lightweight integration placeholder for UI-side wiring.
 
-WebView2 导航示例：
-- Host: https://{hostIp}:{port}/host?room={roomId}&token={hostToken}
-- Viewer: https://{hostIp}:{port}/view?room={roomId}
+The desktop shell is expected to drive:
+
+- network wizard / hotspot / Wi-Fi Direct guidance
+- start/stop of the local `ServiceHost`
+- opening the embedded WebView2 surface when available
+- share-card rendering for URL / QR / handoff data
+- viewer/status summaries
+
+Current URL examples:
+
+- host: `http://{hostIp}:{port}/host?room={roomId}&token={hostToken}`
+- viewer: `http://{hostIp}:{port}/view?room={roomId}`
+- admin: `http://127.0.0.1:{port}/admin/`

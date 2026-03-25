@@ -1,21 +1,20 @@
 # Signaling Protocol
 
-Transport:
+## Transport
 
-- WebSocket over `wss://<host>:<port>/ws`
-
-Encoding:
-
+- WebSocket over `ws://<host>:<port>/ws`
 - UTF-8 JSON objects
+
+The host and viewer pages themselves are served over plain HTTP on the same local service.
 
 ## Model
 
 - one room has exactly one host
 - a room can have multiple viewers
 - host peer id is fixed as `"host"`
-- viewer peer ids are assigned by the server as `v-<n>`
+- viewer peer ids are assigned by the server as `v-<n>` or another `v-...` identifier
 
-## Implemented Message Types
+## Implemented message types
 
 ### Host registration
 
@@ -113,7 +112,7 @@ The server injects:
 - `from`
 - canonical `room`
 
-## Error Messages
+## Error messages
 
 Server -> client:
 
@@ -130,6 +129,6 @@ Codes currently observed in implementation:
 
 ## Notes
 
-- Host-authenticated messages require the `token` field.
-- Viewer messages currently do not require a token.
-- The protocol is intentionally small and only covers session/signaling needs for the local MVP.
+- host-authenticated messages require the `token` field
+- viewer messages currently do not require a token
+- the protocol is intentionally small and only covers local session/signaling needs

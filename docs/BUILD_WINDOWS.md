@@ -1,15 +1,18 @@
-# Build guide (Windows)
+# Windows Build Guide
 
-This repo provides PowerShell scripts under `scripts/` to build the C++ server and the desktop host app.
+This repository has two Windows build entry points:
+
+- `scripts/build.ps1`: thin wrapper for common day-to-day builds
+- `scripts/windows/build.ps1`: full Windows build script with validation and advanced switches
 
 ## Prerequisites
 
-- Visual Studio 2022 (Desktop development with C++) or Build Tools
-- CMake (>= 3.24)
-- vcpkg (manifest mode) with `VCPKG_ROOT` set
-- (Optional) Ninja (faster builds)
+- Visual Studio 2022 with the C++ desktop workload
+- CMake 3.24+
+- vcpkg in manifest mode
+- optional: Ninja
 
-## Build
+## Common builds
 
 Build everything:
 
@@ -17,63 +20,113 @@ Build everything:
 .\scripts\build.ps1 -Target all -Config Debug
 ```
 
-Build only server:
+Build only the local server:
 
 ```powershell
 .\scripts\build.ps1 -Target server -Config Debug
 ```
 
-The server target now builds the cross-platform CLI entry at `apps/server_cli/main.cpp` and composes platform providers from `src/platform/*`.
-
-Build only desktop host:
+Build only the desktop host:
 
 ```powershell
 .\scripts\build.ps1 -Target desktop_host -Config Debug
 ```
 
-Artifacts:
+The local server is built from `apps/server_cli/main.cpp` and now serves plain HTTP / WS. The old local certificate bootstrap flow is no longer part of the build/runtime path.
 
-- Server exe: `out/server/<Config>/lan_screenshare_server.exe`
-- Cert: `out/server/<Config>/cert/server.key|server.crt`
-- Web root: `out/server/<Config>/www/*`
-- Desktop host exe: `out/desktop_host/<Arch>/<Config>/LanScreenShareHostApp.exe`
-- Windows package stage/zip: `out/package/windows/` via `scripts/windows/package.ps1`
+## Advanced Windows-only options
+
+Use the full script when you need switches that the thin wrapper does not expose:
+
+```powershell
+.\scripts\windows\build.ps1 -Config Debug -Target all -SkipBrowserSmoke
+.\scripts\windows\build.ps1 -Config Debug -Target desktop_host -SkipDesktopValidation
+.\scripts\windows\build.ps1 -Config Debug -Target desktop_host -SkipDesktopHostRestore
+```
+
+Useful options on `scripts/windows/build.ps1`:
+
+- `-Generator auto|vs|ninja`
+- `-Triplet x64-windows|x64-windows-static`
+- `-VcpkgRoot <path>`
+- `-BuildRoot <path>|auto`
+- `-SkipServerSmoke`
+- `-SkipBrowserSmoke`
+- `-SkipDesktopValidation`
+- `-SkipDesktopHostRestore`
+
+Windows builds are incremental by default. Use `-Clean` only when you need a fresh configure/build.
+
+## Outputs
+
+- server exe: `out/server/<Config>/lan_screenshare_server.exe`
+- server web assets: `out/server/<Config>/www/` and `out/server/<Config>/webui/`
+- desktop host exe: `out/desktop_host/<Arch>/<Config>/LanScreenShareHostApp.exe`
+- desktop bundled runtime: `out/desktop_host/<Arch>/<Config>/lan_screenshare_server.exe`, `www/`, `webui/`
+- build logs: `out/logs/build_*.log`
 
 ## Run
+
+Run the local server:
 
 ```powershell
 .\scripts\windows\run_server.ps1 -Config Debug -Port 9443
 ```
 
-Then open:
-
-- Host: `https://<ip>:9443/host?room=test&token=test`
-- Viewer: `https://<ip>:9443/view?room=test`
-
-## Path length on Windows
-
-If CMake fails during TryCompile (MSB6003/DirectoryNotFoundException under CMakeScratch), use a short build root:
+Run the desktop host:
 
 ```powershell
-.\scripts\build.ps1 -Target server -Config Debug -Clean -BuildRoot C:\b -VcpkgRoot "D:\dev\vcpkg"
+.\scripts\windows\run_desktop_host.ps1 -Config Debug
 ```
 
-By default the scripts automatically switch to a short build root under LocalAppData when the repo path is long.
-The build root is made unique per source directory (based on the repo folder name) to avoid CMake cache mismatch errors
-when you unzip multiple "fix" packages side by side.
+Manual server run:
 
+```powershell
+.\out\server\Release\lan_screenshare_server.exe --bind 0.0.0.0 --host-ip auto --port 9443 --www .\out\server\Release\www --admin-www .\out\server\Release\webui
+```
 
-You can now omit `-SanIp` in the scripts or pass `--san-ip auto` directly to the executable; the CLI will resolve an advertised host IP through the current platform provider and fall back to loopback when discovery is unavailable.
+Client URLs:
 
-## Package
+- host: `http://<host-ip>:9443/host?room=test&token=test`
+- viewer: `http://<host-ip>:9443/view?room=test`
+- admin: `http://127.0.0.1:9443/admin/`
+
+## Validation helpers
+
+```powershell
+.\scripts\windows\smoke_server.ps1 -Config Debug
+.\scripts\windows\browser_smoke.ps1 -Config Debug
+.\scripts\windows\validate_release.ps1 -Config Release
+.\scripts\windows\doctor.ps1
+```
+
+## Path-length fallback
+
+If CMake/MSBuild hits long-path issues during `TryCompile`, force a short build root:
+
+```powershell
+.\scripts\windows\build.ps1 -Target server -Config Debug -BuildRoot C:\b -Clean
+```
+
+When the repo path is long, the build script can also auto-switch to a short cache root under LocalAppData.
+
+## Packaging
+
+Zip package:
 
 ```powershell
 .\scripts\windows\package.ps1 -Config Release
 ```
 
-## Bootstrap helpers
+Store/MSIX package:
+
+```powershell
+.\scripts\windows\package_store.ps1 -Config Release -IdentityName "YourPartnerCenterIdentity" -Publisher "CN=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+```
+
+## Operator helpers
 
 ```powershell
 .\scripts\windows\Check-WebView2Runtime.ps1
-.\scripts\windows\Trust-LocalCertificate.ps1 -CertPath .\out\desktop_host\x64\Release\cert\server.crt
+.\scripts\windows\Run-NetworkDiagnostics.ps1
 ```

@@ -1,46 +1,53 @@
 # Windows Bootstrap Guide
 
-This guide covers the two user-visible bootstrap requirements for the current Windows-first product baseline:
+This guide covers the operator-visible checks that still matter on the current Windows baseline:
 
-1. WebView2 Runtime availability
-2. Local HTTPS certificate trust for the desktop-host preview/browser flow
+1. WebView2 runtime availability for the embedded admin/host preview
+2. local network reachability and firewall diagnostics
 
-## WebView2 Runtime
+The old local TLS/certificate trust step is no longer part of the runtime. The desktop host and exported share bundle now run over plain HTTP / WS only.
 
-The desktop host now treats the Evergreen WebView2 Runtime as the supported runtime model.
+## WebView2 runtime
 
-Use the built-in helper to inspect the standard runtime registry locations and save a report:
+The desktop host expects Evergreen WebView2 Runtime when it embeds the HTML admin or host preview.
+
+Run the helper:
 
 ```powershell
 .\scripts\windows\Check-WebView2Runtime.ps1
 ```
 
-From the packaged app, the same helper is shipped under `scripts/windows/Check-WebView2Runtime.ps1`.
+Packaged builds include the same helper under `scripts/windows/Check-WebView2Runtime.ps1`.
 
 Expected outcomes:
 
-- **Runtime detected**: the embedded HTML admin / host preview can initialize when the rest of the environment is healthy.
-- **Runtime missing**: install or repair Evergreen WebView2 Runtime, then relaunch the desktop host.
+- runtime detected: embedded admin/host preview can initialize when the rest of the environment is healthy
+- runtime missing: install or repair Evergreen WebView2 Runtime, then relaunch the desktop host
 
-## Local certificate trust
+If WebView2 is unavailable, the product can still fall back to opening the host page in an external browser.
 
-The desktop host still uses a locally generated certificate for the HTTPS/WSS loopback/LAN flow.
+## Network diagnostics
 
-The trust helper imports the generated certificate into `Cert:\CurrentUser\Root`:
+Run the local diagnostics helper when the server starts but other devices cannot reach it, or when Windows Firewall / port conflicts are suspected:
 
 ```powershell
-.\scripts\windows\Trust-LocalCertificate.ps1 -CertPath .\out\desktop_host\x64\Release\cert\server.crt
+.\scripts\windows\Run-NetworkDiagnostics.ps1 -HostIp 192.168.1.20 -Port 9443
 ```
 
-From the packaged app, the same helper is shipped under `scripts/windows/Trust-LocalCertificate.ps1`.
+The helper collects:
 
-## Certificate bypass policy
+- Windows Firewall profile and rule state
+- current TCP listeners
+- quick reachability probes
+- a text report saved under `out\diagnostics\`
 
-The embedded WebView2 preview and the Windows-side local probes no longer bypass certificate validation for arbitrary HTTPS targets.
+Packaged builds include the same helper under `scripts/windows/Run-NetworkDiagnostics.ps1`.
 
-Current policy:
+## Operator checklist
 
-- allow local self-signed certificate bypass only for **loopback** and **private-LAN** URLs
-- do **not** bypass certificate validation for public hostnames or public IP targets
+- confirm the desktop host or local server is running
+- confirm the viewer is using the LAN Viewer URL shown by the desktop host
+- if embedded preview is blank, run `Check-WebView2Runtime.ps1`
+- if remote devices cannot connect, run `Run-NetworkDiagnostics.ps1`
 
-This keeps the first-run local preview workable without turning the app into a general-purpose TLS bypass client.
+No local certificate import, trust helper, or transport bypass step is required on the current plain HTTP / WS baseline.

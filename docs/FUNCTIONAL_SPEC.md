@@ -2,13 +2,13 @@
 
 ## Scope
 
-This document describes the current MVP behavior implemented in the repository as of 2026-03-10.
+This document describes the current MVP behavior implemented in the repository as of 2026-03-25.
 
 Product scope:
 
 - Windows desktop host
 - browser-based viewers on the same local network
-- local HTTPS/WSS signaling and static hosting
+- local HTTP / WS signaling and static hosting
 - screen viewing only
 - no remote control
 - no public internet traversal
@@ -23,24 +23,24 @@ Important implementation note:
 - Host: the desktop operator who starts the local service and begins screen sharing
 - Viewer: any browser client that opens the viewer URL and watches the shared screen
 
-## Implemented Host Features
+## Implemented host features
 
-### Desktop Startup And Main Window
+### Desktop startup and main window
 
-The desktop host currently provides a single operator window with:
+The desktop host currently provides:
 
 - current host IPv4 display
 - bind address, port, room, and token fields
 - server start/stop controls
-- hotspot controls
-- WebView2 host-area status
+- hotspot controls and fallback actions
+- WebView2 status
 - room/viewer counters
 - share info summary
-- diagnostic summary
+- diagnostics summary
 - suggested next actions
 - log output
 
-### Network And Hotspot
+### Network and hotspot
 
 Implemented now:
 
@@ -51,19 +51,15 @@ Implemented now:
 - best-effort hotspot start/stop/query on supported Windows setups
 - fallback launch into Windows Mobile Hotspot settings
 - fallback launch into Windows connected-devices pairing UI for Wi-Fi Direct
+- local diagnostics helpers for firewall/readiness investigation
 
-Partially implemented:
-
-- multiple active adapter detection and recommendation
-- LAN endpoint self-checks
-
-Not implemented yet:
+Still incomplete:
 
 - full end-to-end Wi-Fi Direct session automation
-- firewall diagnostics
-- remote-device reachability diagnostics
+- longer-lived multi-adapter preference handling
+- broader cross-platform parity for diagnostics flows
 
-### Local Service Lifecycle
+### Local service lifecycle
 
 Implemented now:
 
@@ -73,21 +69,20 @@ Implemented now:
 - desktop host reports running/stopped state
 - desktop host surfaces room/viewer counters
 
-### Embedded Host Page
+### Embedded host/admin pages
 
 Implemented now:
 
-- desktop host navigates the host page into embedded WebView2 when available
+- desktop host navigates the host/admin pages into embedded WebView2 when available
 - host page can also be opened in an external browser
 - WebView2 status is surfaced in desktop UI and diagnostics
-- self-signed local certificate errors are allowed inside WebView2 for the MVP flow
 - host-page status messages are sent back into the desktop shell
 
 Known limitation:
 
-- WebView2 dependency handling is still not productized
+- WebView2 dependency handling is still not fully productized
 
-### Share Handoff And Export
+### Share handoff and export
 
 Implemented now:
 
@@ -110,7 +105,7 @@ Generated files currently include:
 - `hotspot_credentials.txt`
 - `share_readme.txt`
 
-### Desktop Self-Check And Diagnostics
+### Desktop self-check and diagnostics
 
 Implemented now:
 
@@ -119,15 +114,15 @@ Implemented now:
 - open diagnostics text report
 - exported issue list with severity/category metadata
 - exported issue list with suggested action text
-- main-window diagnostic summary
+- main-window diagnostics summary
 - main-window operator-first-actions summary
 
-## Implemented Viewer Features
+## Implemented viewer features
 
 Implemented now:
 
 - open viewer URL in a browser
-- connect to local WSS signaling
+- connect to local WS signaling
 - join room
 - receive host offer/ICE messages
 - return answer/ICE messages
@@ -141,11 +136,11 @@ Current viewer scope:
 - no remote control
 - no viewer auth/password flow
 
-## Implemented Service Features
+## Implemented service features
 
 Implemented now:
 
-- HTTPS static file serving for `/host`, `/view`, and `/assets/*`
+- HTTP static file serving for `/host`, `/view`, `/admin/`, and `/assets/*`
 - health endpoint at `/health`
 - status endpoint at `/api/status`
 - WebSocket signaling at `/ws`
@@ -155,7 +150,7 @@ Implemented now:
 - serialized WebSocket send path
 - explicit `session.end` to `session.ended` flow
 
-## Acceptance Snapshot
+## Acceptance snapshot
 
 The following behavior is implemented in code today:
 
@@ -169,15 +164,14 @@ The following behavior is implemented in code today:
 
 The following target behavior is still incomplete:
 
-- robust first-run packaging
-- automatic certificate/bootstrap flow without external tool assumptions
+- robust packaged install validation
 - release-safe WebView2 dependency story
 - fully guided Wi-Fi Direct workflow
 - reconnect/recovery hardening
 - multi-viewer validation at scale
-- automated tests and CI
+- broader browser and desktop automation
 
-## Non-Goals In Current MVP
+## Non-goals in the current MVP
 
 - internet sharing
 - TURN/STUN traversal
@@ -186,11 +180,11 @@ The following target behavior is still incomplete:
 - viewer-side media capture
 - advanced access control
 
-## Source Of Truth
+## Source of truth
 
 When this file and the code diverge, treat the implementation-truth set below as authoritative:
 
 - `README.md`
 - `docs/DEVELOPMENT.md`
 - `docs/UNFINISHED_FEATURES.md`
-- `docs/PROGRESS_WIP.md`
+- `docs/RELEASE_VALIDATION.md`

@@ -1,138 +1,129 @@
-# Windows build scripts
+# Windows Script Reference
 
-## One-command build
+This folder contains the Windows-specific build, run, validation, diagnostics, and packaging scripts.
 
-Build both C++ server and desktop host app:
+## Build
+
+Common wrapper:
 
 ```powershell
 .\scripts\build.ps1 -Config Debug -Target all
 ```
 
-Build only server:
+Full Windows build entry point:
 
 ```powershell
-.\scripts\build.ps1 -Target server
+.\scripts\windows\build.ps1 -Config Debug -Target all
 ```
 
-Build only desktop host:
+Use `scripts/windows/build.ps1` when you need Windows-only switches such as:
 
-```powershell
-.\scripts\build.ps1 -Target desktop_host
-```
+- `-SkipServerSmoke`
+- `-SkipBrowserSmoke`
+- `-SkipDesktopValidation`
+- `-SkipDesktopHostRestore`
+- `-BuildRoot`
 
-## Common options
+Notes:
 
-- `-VcpkgRoot <path>`: path to vcpkg (or set `VCPKG_ROOT`)
-- `-Generator auto|ninja|vs`
-- `-Triplet x64-windows|x64-windows-static`
-- `-Clean`: remove CMake build dir before configuring
-- `-SkipBrowserSmoke`: skip the C++ HTTP/WS browser smoke test target
-- `-SkipDesktopValidation`: skip desktop payload/startup validation after desktop builds
+- `-Generator auto` now resolves through the shared helper logic and prefers Visual Studio when MSBuild is available
+- builds are incremental by default
+- use `-Clean` only when you need a fresh configure/build
 
-## Packaging
+## Run
 
-Create a redistributable Windows package (stage + zip):
-
-```powershell
-.\scripts\windows\package.ps1 -Config Release
-```
-
-The package includes `Install-LanScreenShare.ps1`, `Uninstall-LanScreenShare.ps1`, the desktop payload, and helper scripts under `scripts/windows/`.
-
-Create a Windows Store / MSIX package:
-
-```powershell
-.\scripts\windows\package_store.ps1 -Config Release -IdentityName "YourPartnerCenterIdentity" -Publisher "CN=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
-```
-
-See `docs/WINDOWS_STORE_PACKAGING.md` for the full MSIX/MSIXUPLOAD flow and the current writable-path blocker that still needs to be fixed before Store submission.
-
-## Run helpers
-
-Run the server after building:
+Run the local server:
 
 ```powershell
 .\scripts\windows\run_server.ps1 -Config Debug -Port 9443
 ```
 
-Run the desktop host app after building:
+Run the desktop host:
 
 ```powershell
 .\scripts\windows\run_desktop_host.ps1 -Config Debug
 ```
 
+Legacy convenience wrapper:
 
-## Debug
+- `run_desktop_host.bat`
 
-Print executed commands:
+## Validation
 
-```powershell
-.\scripts\build.ps1 -Target server -VerboseCommands
-```
-
-
-## Doctor
-
-Collect environment and build-dir diagnostics:
+Smoke-test the bundled server:
 
 ```powershell
-.\scripts\windows\doctor.ps1
+.\scripts\windows\smoke_server.ps1 -Config Debug
 ```
 
-
-## Logs
-
-Each build writes a log file under `out\logs\build_*.log`.
-
-
-> Note: On Windows, `-Generator auto` now prefers Visual Studio (msbuild) for reliability. Use `-Generator ninja` if you explicitly want Ninja.
-
-
-## BuildRoot (avoid long paths)
-
-When the repo path is long, MSBuild TryCompile may fail. You can force a short build directory:
-
-```powershell
-.\scripts\build.ps1 -Target server -BuildRoot C:\b -Clean
-```
-
-By default, the build script automatically switches to a short build root under LocalAppData when it detects a long path.
-This default build root is made unique per source folder name to avoid CMake cache mismatch errors when you unzip multiple
-source trees and build them without cleaning.
-
-
-## Diagnostics helper
-
-Run local network diagnostics helper:
-
-```powershell
-.\scripts\windows\Run-NetworkDiagnostics.ps1 -HostIp 192.168.1.20 -Port 9443 -ServerExe .\out\build\windows\Release\lan_screenshare_server.exe -OutputPath .\out\diagnostics\network.txt
-```
-
-This collects Windows Firewall profile/rule state, current TCP listeners, and quick reachability probes, then writes a text report and opens it in Notepad.
-
-
-## Browser smoke
-
-Run the C++ HTTP/WS browser smoke target against the configured build tree:
+Run the C++ browser smoke target:
 
 ```powershell
 .\scripts\windows\browser_smoke.ps1 -Config Debug
 ```
 
-## Desktop release validation
-
-Validate the built desktop payload and startup behavior:
+Validate the desktop payload and launch behavior:
 
 ```powershell
 .\scripts\windows\validate_release.ps1 -Config Release
 ```
 
-This validates the copied runtime bundle, smoke-tests the bundled server, and verifies that the desktop process does not exit immediately after launch.
+Quick desktop launch helper:
 
+```powershell
+.\scripts\windows\test_desktop_host.ps1 -Config Debug
+```
 
-## WebView2 helper
+## Diagnostics
+
+Environment/build-dir diagnostics:
+
+```powershell
+.\scripts\windows\doctor.ps1
+```
+
+WebView2 runtime check:
 
 ```powershell
 .\scripts\windows\Check-WebView2Runtime.ps1
 ```
+
+Local network diagnostics:
+
+```powershell
+.\scripts\windows\Run-NetworkDiagnostics.ps1 -HostIp 192.168.1.20 -Port 9443
+```
+
+Clean desktop-host build outputs and selected NuGet state:
+
+```powershell
+.\scripts\windows\clean_nuget_cache.ps1
+.\scripts\windows\clean_nuget_cache.ps1 -IncludeGlobalCache
+```
+
+## Packaging
+
+Zip package:
+
+```powershell
+.\scripts\windows\package.ps1 -Config Release
+```
+
+Store/MSIX package:
+
+```powershell
+.\scripts\windows\package_store.ps1 -Config Release -IdentityName "YourPartnerCenterIdentity" -Publisher "CN=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
+```
+
+Install/uninstall helpers are used from the staged package root:
+
+- `Install-LanScreenShare.ps1`
+- `Uninstall-LanScreenShare.ps1`
+
+## Output conventions
+
+- server output: `out\server\<Config>\`
+- desktop output: `out\desktop_host\<Arch>\<Config>\`
+- logs: `out\logs\`
+- packaged zip output: `out\package\windows\`
+- packaged MSIX output: `out\package\windows-store\`

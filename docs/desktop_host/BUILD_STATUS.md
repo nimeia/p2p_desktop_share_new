@@ -1,38 +1,33 @@
-# WinUI/Desktop Build Status
+# Desktop Host Build Status
 
-## Current State
+## Current baseline
 
-The desktop host app is buildable in Debug with the current repository layout.
+The current repository baseline provides:
 
-Verified recently:
+- a scriptable Windows desktop-host build under `out\desktop_host\<Arch>\<Config>\`
+- a scriptable local server build under `out\server\<Config>\`
+- bundled desktop runtime layout with `lan_screenshare_server.exe`, `www\`, and `webui\`
+- Windows validation helpers for server smoke, browser smoke, desktop payload validation, WebView2 runtime checks, and local network diagnostics
 
-- `.\scripts\build.ps1 -Config Debug -Target all -Clean`
-- `.\scripts\build.ps1 -Target server`
-- `.\scripts\windows\smoke_server.ps1 -Config Debug`
-- `.\scripts\windows\browser_smoke.ps1 -Config Debug`
-- `.\scripts\windows\validate_release.ps1 -Config Release`
-- desktop app build succeeds
-- C++ server build succeeds
-- runtime Boost/OpenSSL DLLs are copied into server output
-- server output layout is validated after build
-- server `/health` smoke check passes from built output
+## What works in the current build flow
 
-## What Works
+- `scripts/build.ps1` can build `server`, `desktop_host`, or `all`
+- `scripts/windows/build.ps1` adds validation and advanced switches
+- desktop output is assembled with the runtime files the host expects next to the app
+- packaged Windows zip output can be staged through `scripts/windows/package.ps1`
+- MSIX container generation exists through `scripts/windows/package_store.ps1`
 
-- desktop executable is produced under `out\desktop_host\<Arch>\<Config>\`
-- server executable is produced under `out\server\<Config>\`
-- server/cert/www assets are copied next to the desktop app
-- local share pages and diagnostics bundle generation are implemented
+## Known gaps
 
-## Known Gaps
+- clean-machine validation for packaged install/upgrade/uninstall is still pending
+- WebView2 runtime behavior still needs broader operator-environment validation
+- release validation is still lighter than true end-to-end UI coverage
+- the MSIX flow still has a writable-path blocker because runtime data is written under `AppDir()\out\...`
 
-- Windows packaging now has a repeatable stage/zip baseline through `scripts/windows/package.ps1` plus install/upgrade/uninstall scripts, but it still needs clean-machine field validation.
-- WebView2 Runtime detection now has a dedicated Windows helper (`Check-WebView2Runtime.ps1`) and the desktop host reports runtime-unavailable more explicitly, but real operator environments still need repeated validation.
-- first-run certificate trust/bootstrap now has a dedicated Windows helper (`Trust-LocalCertificate.ps1`) and certificate bypass is restricted to loopback/private-LAN flows, but certificate UX still needs field validation.
-- browser-level HTTPS/WSS smoke now exists through `tests/shared/browser_smoke_tests.cpp`, and Windows desktop release validation now exists through `scripts/windows/validate_release.ps1`, but both still need repeated field validation on real Windows hardware
+## Recommended checks
 
-## Recommended Near-Term Follow-Up
-
-1. run clean-machine install/upgrade/uninstall validation for the packaged Windows payload
-2. validate the WebView2 Runtime + certificate bootstrap helpers on real operator machines
-3. extend post-build validation beyond startup into bundle export, WebView2 runtime checks, and remote-device probe flows on field hardware
+1. build with `.\scripts\build.ps1 -Config Debug -Target all`
+2. run `.\scripts\windows\smoke_server.ps1 -Config Debug`
+3. run `.\scripts\windows\browser_smoke.ps1 -Config Debug`
+4. run `.\scripts\windows\validate_release.ps1 -Config Release`
+5. run `.\scripts\windows\Check-WebView2Runtime.ps1` on real operator machines when embedded preview issues are suspected

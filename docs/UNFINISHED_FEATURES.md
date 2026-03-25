@@ -1,69 +1,47 @@
 # Unfinished Features
 
-This list is based on the current codebase, not the original scaffold plan.
+This list tracks current open work rather than original scaffold ideas.
 
-## 1. Runtime Bootstrap And Packaging
+## 1. Packaging and install validation
 
-- Improve first-run certificate trust/bootstrap guidance across Windows, Linux, and macOS.
-  status: Windows baseline landed; helper scripts now cover WebView2 Runtime checks and local certificate import, but Linux/macOS parity and field validation remain open.
-- Replace ad hoc output copying with a stable packaging flow.
-  status: Windows baseline landed through `scripts/windows/package.ps1`, `Install-LanScreenShare.ps1`, and `Uninstall-LanScreenShare.ps1`.
-- Add release packaging for the desktop app and server dependencies.
-  status: Windows baseline landed; broader release automation and signing are still open.
-- Validate desktop output layout so the app can be moved to another machine without manual DLL hunting.
-  status: desktop release validation + package staging now validate the current payload layout, but clean-machine field validation is still required.
+- Run clean-machine validation for the Windows install/upgrade/uninstall flow.
+- Move writable runtime output away from `AppDir()\out\...` so MSIX installs can become submission-safe.
+- Decide how far Windows release packaging should go beyond the current zip/MSIX baselines.
 
-## 2. WebView2 Productization
+## 2. WebView2 productization
 
-- Replace the current compile-time fallback path with a clear supported dependency story.
-  status: Windows baseline now expects Evergreen WebView2 Runtime and ships a dedicated runtime-check helper, but final support policy and field validation are still open.
-- Ensure WebView2 runtime presence is detected and reported cleanly.
-  status: baseline done; runtime detection now checks the documented EdgeUpdate registry locations and surfaces helper-driven remediation in the Windows packaging flow.
-- Improve embedded host-page lifecycle and error recovery.
-- Verify certificate-error handling behavior in embedded WebView2 across target environments.
-  status: baseline tightened; certificate bypass is now restricted to loopback/private-LAN URLs, but repeated environment validation is still required.
+- Field-validate the WebView2 runtime helper flow on real operator machines.
+- Improve embedded admin/host recovery when runtime/controller creation fails.
+- Tighten the supported story for builds that compile without WebView2 SDK headers.
 
-## 3. Network And Sharing UX
+## 3. Network and sharing UX
 
-- Turn Wi-Fi Direct from capability reporting into an end-to-end guided flow.
-- Improve hotspot fallback guidance when hosted-network control is unavailable.
-- Add better LAN diagnostics for firewall, reachability, and port conflicts.
-  status: partially done; port conflict checks, local server reachability, Windows Firewall readiness, operator-triggered local network diagnostics, and remote-device probe orchestration are implemented, but they still need Windows field validation and cross-platform parity.
-- Clarify host IP selection when multiple active adapters exist.
-  status: partially done; the app now ranks active IPv4 candidates, records per-candidate probe results, and can export a remote probe guide, but automatic switching and longer-lived adapter preference are still open.
+- Turn Wi-Fi Direct from capability reporting into a real guided flow.
+- Improve hotspot fallback guidance when managed control is unavailable.
+- Improve multi-adapter host-IP selection and longer-lived preference handling.
+- Continue refining remote-device probe and LAN diagnostics guidance.
 
-## 4. WebRTC Session Reliability
+## 4. Session reliability
 
 - Add reconnect/retry behavior for signaling and viewer recovery.
-- Handle host restart / session recreation more explicitly.
-- Add better state transitions when share starts before/after viewers join.
-- Add more robust ICE failure handling and operator-visible diagnostics.
+- Clarify host restart / session recreation behavior.
+- Improve ICE failure handling and operator-visible diagnostics.
+- Harden state transitions around start/stop/share-ended timing.
 
-## 5. Media Features
+## 5. Native Linux/macOS shell maturity
 
-- Decide whether host audio sharing is in scope and implement it if needed.
-- Add configurable quality presets instead of relying on browser defaults.
-- Add explicit limits/telemetry for viewer count, bitrate, and degraded states.
-- Validate mesh behavior under real multi-viewer load.
+- Validate Linux tray and macOS menu-bar behavior on real packaged machines.
+- Harden managed server start/stop behavior and diagnostics export paths.
+- Improve platform-specific notifications and operator UX polish.
 
-## 6. Security And Access Control
+## 6. Tests and release validation
 
-- Strengthen host token handling and room lifecycle rules.
-- Decide whether viewers need optional join tokens or room passwords.
-- Review trust model for self-signed certificates and local export artifacts.
-- Add basic audit/logging around session creation and termination.
+- Add broader browser automation beyond the current C++ smoke target.
+- Add release checks for bundle export, diagnostics export, and WebView-specific behavior.
+- Expand cross-platform CI/runtime coverage for Linux and macOS native shells.
 
-## 7. Tests And Validation
+## 7. Documentation and operations
 
-- Unit tests for protocol/message helpers and network parsing.
-- Integration tests for `/health`, `/api/status`, static pages, and WSS signaling.
-- Browser-level smoke tests for host/viewer negotiation.
-  status: partially done; `tests/shared/browser_smoke_tests.cpp` now validates HTTPS page serving plus WSS host/viewer negotiation, but real browser UI automation is still open.
-- Desktop-side smoke tests for build, launch, bundle export, and hotspot state reads.
-  status: partially done; `scripts/windows/validate_release.ps1` now validates the desktop payload and startup survival, but bundle export, hotspot state reads, and WebView-specific release checks are still open.
-
-## 8. Documentation And Operations
-
-- Keep architecture and build docs in sync with the actual implementation.
-- Add operator-facing runbook for common failure cases.
-- Add release checklist and known environment matrix.
+- Keep architecture/build/package docs aligned with the actual implementation.
+- Add an operator runbook for common failure cases.
+- Publish a known-environment matrix for packaging and runtime validation.

@@ -1,6 +1,6 @@
-# Windows Packaging Baseline
+# Windows Packaging
 
-The repository now includes a repeatable Windows-first packaging baseline for the desktop host.
+The repository now includes a repeatable Windows zip-package flow for the desktop host.
 
 ## Scripts
 
@@ -9,48 +9,42 @@ The repository now includes a repeatable Windows-first packaging baseline for th
   - validates the desktop payload layout
   - stages a redistributable package under `out/package/windows/`
   - emits `package_manifest.json`
-  - produces a zip archive for handoff
-- `scripts/windows/package_store.ps1`
-  - builds or reuses the current desktop/server outputs
-  - writes a Store-ready `AppxManifest.xml`
-  - generates fallback PNG logo assets when you do not provide Store artwork
-  - produces `.msix`, `.msixupload`, and optional `.msixsym` artifacts under `out/package/windows-store/`
+  - creates a zip archive for handoff
 - `scripts/windows/Install-LanScreenShare.ps1`
-  - installs or upgrades the staged package
+  - installs or upgrades a staged package
   - supports `-Scope user` and `-Scope machine`
-  - writes a Windows uninstall registry entry
+  - writes an uninstall registry entry
   - creates a Start Menu shortcut
 - `scripts/windows/Uninstall-LanScreenShare.ps1`
   - removes the installed payload
   - optionally removes local user data
 
+Store/MSIX packaging is documented separately in [WINDOWS_STORE_PACKAGING.md](WINDOWS_STORE_PACKAGING.md).
+
 ## Typical flow
 
-Build + package from a clean Release output:
+Build and package from Release output:
 
 ```powershell
 .\scripts\windows\package.ps1 -Config Release
 ```
 
-Reuse an already validated Release build:
+Reuse an already-built Release payload:
 
 ```powershell
 .\scripts\windows\package.ps1 -Config Release -SkipBuild
-```
-
-Build a Windows Store package:
-
-```powershell
-.\scripts\windows\package_store.ps1 `
-  -Config Release `
-  -IdentityName "YourPartnerCenterIdentity" `
-  -Publisher "CN=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
 ```
 
 Install the staged package for the current user:
 
 ```powershell
 .\out\package\windows\LanScreenShareHost_<version>_win-x64\Install-LanScreenShare.ps1 -Scope user
+```
+
+Install for all users:
+
+```powershell
+.\out\package\windows\LanScreenShareHost_<version>_win-x64\Install-LanScreenShare.ps1 -Scope machine
 ```
 
 Uninstall later:
@@ -61,19 +55,29 @@ powershell.exe -ExecutionPolicy Bypass -File "<InstallDir>\Uninstall-LanScreenSh
 
 ## Package contents
 
-The staged package keeps the payload layout that the desktop app already expects:
+The staged package preserves the runtime layout the desktop host already expects:
 
 - `LanScreenShareHostApp.exe`
 - `lan_screenshare_server.exe`
-- `cert/`
 - `www/`
 - `webui/`
-- `scripts/windows/` helper scripts for runtime checks, certificate trust, and network diagnostics
+- `Install-LanScreenShare.ps1`
+- `Uninstall-LanScreenShare.ps1`
+- `WINDOWS_BOOTSTRAP_GUIDE.md`
+- `scripts/windows/`
 
-That keeps the desktop host portable across machines without asking the operator to manually rebuild a runtime tree.
+The helper folder currently includes:
 
-## Store packaging note
+- `Check-WebView2Runtime.ps1`
+- `Run-NetworkDiagnostics.ps1`
+- `smoke_server.ps1`
+- `validate_release.ps1`
+- shared PowerShell helper files
 
-The new MSIX script is suitable for generating the package container, but the current desktop host still writes diagnostics and share bundle output under `AppDir()\out\...`.
+No `cert/` directory or local trust-import helper is part of the current package baseline.
 
-An installed MSIX package lives in a read-only directory, so that runtime write path needs to move to a writable per-user location before the app is actually submitted to Partner Center.
+## Notes
+
+- The package format is a staged directory plus zip archive, not MSI.
+- The desktop output already bundles `lan_screenshare_server.exe`, `www/`, and `webui/`, so the packaged app can be moved to another machine without rebuilding the runtime tree.
+- Clean-machine install/upgrade/uninstall validation is still required before treating this as a release-hardened distribution flow.

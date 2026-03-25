@@ -1,18 +1,18 @@
 # Windows Store Packaging
 
-The repository now includes a Windows Store / MSIX packaging script for the desktop host:
+The repository includes an MSIX / Store packaging script:
 
 - `scripts/windows/package_store.ps1`
 
-It reuses the existing desktop payload layout, writes an `AppxManifest.xml`, generates placeholder Store logo assets when you do not provide PNGs, then produces:
+It reuses the desktop payload layout, writes an `AppxManifest.xml`, generates placeholder Store logo assets when needed, and then produces:
 
 - a `.msix` package
-- a `.msixupload` bundle for Partner Center upload
-- a `.msixsym` symbol archive when matching `.pdb` files are present
+- a `.msixupload` bundle for Partner Center upload unless `-SkipUploadBundle` is set
+- a `.msixsym` archive when matching `.pdb` files are present
 
 ## Typical usage
 
-Build, stage, and pack a Release MSIX:
+Build and pack a Release MSIX:
 
 ```powershell
 .\scripts\windows\package_store.ps1 `
@@ -21,7 +21,7 @@ Build, stage, and pack a Release MSIX:
   -Publisher "CN=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX"
 ```
 
-Reuse an already built Release payload and provide real Store assets plus signing:
+Reuse an existing Release payload, provide Store assets, and sign the package:
 
 ```powershell
 .\scripts\windows\package_store.ps1 `
@@ -30,7 +30,7 @@ Reuse an already built Release payload and provide real Store assets plus signin
   -IdentityName "YourPartnerCenterIdentity" `
   -Publisher "CN=XXXXXXXX-XXXX-XXXX-XXXX-XXXXXXXXXXXX" `
   -AssetsDir .\packaging\store-assets `
-  -SignPfx .\cert\store_test.pfx `
+  -SignPfx .\signing\store_test.pfx `
   -SignPassword "<pfx-password>"
 ```
 
@@ -41,18 +41,18 @@ Reuse an already built Release payload and provide real Store assets plus signin
   - must match the package identity reserved in Partner Center
 - `-Publisher`
   - required
-  - must match the Partner Center publisher subject used for the package identity
+  - must match the Partner Center publisher subject
 - `-AssetsDir`
   - optional
-  - when omitted, the script generates placeholder PNG assets so the package can still be built
+  - when omitted, the script generates placeholder PNG assets
 - `-SignPfx`
   - optional
-  - if supplied, the script signs the `.msix`; otherwise it leaves the package unsigned
+  - signs the `.msix` when provided
 - `-SkipUploadBundle`
   - optional
-  - when set, the script only emits `.msix` and skips `.msixupload`
+  - emits only `.msix` and skips `.msixupload`
 
-## Output
+## Output layout
 
 Generated files land under:
 
@@ -67,15 +67,22 @@ That directory contains:
 - `<name>.msixsym` when symbols are found
 - `store_package_manifest.json`
 
+The staged runtime includes:
+
+- `LanScreenShareHostApp.exe`
+- `lan_screenshare_server.exe`
+- `www/`
+- `webui/`
+- `scripts/windows/Check-WebView2Runtime.ps1`
+- `scripts/windows/Run-NetworkDiagnostics.ps1`
+
 ## Current blocker before Store submission
 
-The script can generate an MSIX package today, but the current desktop host still writes diagnostics and share bundle output under `AppDir()\out\...`.
+The script can build an MSIX container today, but the desktop host still writes diagnostics and share bundle output under `AppDir()\out\...`.
 
-That works for the unpackaged desktop build, but it is not valid inside an installed MSIX because the package install directory is read-only.
-
-Before a real Partner Center submission, move writable runtime data to a per-user writable location such as LocalAppData and verify:
+That works for unpackaged builds, but an installed MSIX lives in a read-only directory. Before a real Partner Center submission, writable runtime data needs to move to a per-user location such as LocalAppData and the following paths need to be verified again:
 
 - share bundle export
 - diagnostics export
 - helper-script output paths
-- any other runtime writes that currently target the executable directory
+- any other runtime writes that still target the executable directory

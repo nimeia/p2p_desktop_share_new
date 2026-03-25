@@ -1,176 +1,111 @@
 # LAN Screen Share Architecture
 
-## Current Shape
+## Current shape
 
-The repository currently implements a Windows-first local sharing MVP with four main parts:
+The repository currently has four main runtime pieces:
 
-1. Desktop host shell
-2. Local HTTPS/WSS service
-3. Browser host page
-4. Browser viewer page
+1. Windows desktop host shell
+2. local C++ HTTP / WS service
+3. browser host page
+4. browser viewer page
 
-The desktop layer is currently a Win32 application with an embedded WebView2 area. It is not yet a Windows App SDK / WinUI-style product shell.
+It also now has secondary native-shell entry points for Linux and macOS.
 
-## Runtime Topology
+## Runtime topology
 
 ```text
-Desktop Host Shell (Win32 + optional WebView2)
-  |- probes LAN / Wi-Fi / hotspot capability
-  |- starts/stops local server process
-  |- selects host IP / bind / room / token
-  |- opens host/viewer URLs
+Windows Desktop Host (Win32 + optional WebView2)
+  |- starts/stops the local service
+  |- inspects LAN / hotspot / local status
+  |- computes host/viewer URLs
   |- exports share bundle and diagnostics
-  |- renders operator status and first actions
+  |- renders operator guidance
 
-Local C++ Service (Boost.Asio/Beast + OpenSSL)
-  |- serves /host /view /assets/*
+Local C++ Service (Boost.Asio/Beast)
+  |- serves /host /view /admin /assets/*
   |- exposes /health and /api/status
-  |- accepts /ws WebSocket signaling
+  |- accepts /ws signaling
   |- tracks one host + multiple viewers per room
 
-Host Page (browser or WebView2)
+Host Page (browser or embedded WebView2)
   |- calls getDisplayMedia()
-  |- creates WebRTC offers
-  |- pushes status/log events back to desktop shell
+  |- publishes WebRTC offers/tracks
+  |- reports status/log signals back to the desktop shell
 
 Viewer Page (browser)
-  |- joins room
-  |- answers offers
-  |- receives recvonly media
+  |- joins a room
+  |- receives signaling
+  |- plays recvonly media
+
+Linux/macOS Native Shells
+  |- poll /health and /api/status
+  |- expose dashboard/viewer/diagnostics actions
+  |- optionally manage a local server process
 ```
 
-## Why This Split
+## Responsibility split
 
-The project intentionally keeps media capture and WebRTC inside the browser engine:
+### Desktop host shell
 
-- `getDisplayMedia()` is already available there
-- browser/WebView2 provides the WebRTC implementation
-- the C++ service stays focused on local signaling, static asset hosting, and TLS
+The Windows shell currently owns:
 
-This keeps the MVP small and lets the desktop app stay focused on operator workflow, diagnostics, and local environment handling.
-
-## Current Desktop Responsibilities
-
-The desktop shell currently owns:
-
-- local server process lifecycle
+- local service lifecycle
 - network capability probing
-- hotspot start/stop/query on supported systems
-- fallback launch into Windows Mobile Hotspot settings
-- fallback launch into Windows connected-devices pairing UI for Wi-Fi Direct
-- embedded host-page navigation when WebView2 is available
-- WebView2 runtime/controller status reporting
-- local share bundle export
-- desktop self-check generation
-- operator-facing diagnostics summary
+- hotspot and system-settings fallbacks
+- WebView2 embedding and runtime reporting
+- share bundle export
+- diagnostics export and operator-facing health summaries
 
-## Current Server Responsibilities
+### Local C++ service
 
-The C++ local service currently owns:
+The service currently owns:
 
-- HTTPS static file serving
+- static page and asset hosting
 - WebSocket signaling
 - room/session tracking
 - viewer limit enforcement
-- status endpoints for the desktop shell
-- TLS certificate loading
+- `/health` and `/api/status`
 
 It does not currently provide:
 
 - TURN/STUN traversal
 - internet transport
 - SFU media routing
-- advanced recovery orchestration
+- advanced reconnect orchestration
 
-## Current Browser Responsibilities
+### Browser host/viewer pages
 
-Host page:
+The browser layer intentionally owns media capture and WebRTC:
 
-- registers host identity
-- starts screen capture
-- creates and renegotiates offers
-- stops sharing and emits session end
-- reports status back to the desktop shell
+- `getDisplayMedia()` already exists there
+- browser/WebView2 already provides the WebRTC implementation
+- the service stays focused on local signaling and asset hosting
 
-Viewer page:
+### Shared runtime/platform layer
 
-- joins a room
-- receives offer/ICE messages
-- answers with recvonly playback
-- handles explicit session-ended state
+The repository now pushes more behavior through shared modules:
 
-## Shared Diagnostics Model
+- runtime/presenter/state-shaping code under `src/core/runtime/`
+- shared endpoint-selection rules under `src/core/network/`
+- platform services under `src/platform/windows/`, `src/platform/posix/`, and `src/platform/macos/`
 
-One important implementation detail in the current codebase is that diagnostics are exported once and consumed in multiple places.
+This keeps `MainWindow.cpp` and the native-shell entry apps from duplicating the same orchestration rules.
 
-The desktop app writes:
+## Current constraints
 
-- `share_bundle.json`
-- `share_status.js`
-- `share_card.html`
-- `share_wizard.html`
-- `desktop_self_check.html`
-- `desktop_self_check.txt`
-- `share_diagnostics.txt`
+- transport is plain HTTP / WS only
+- WebView2 remains optional and fallback-oriented
+- Wi-Fi Direct is still guided rather than fully automated
+- hotspot handling is best-effort and environment-dependent
+- multi-viewer scale is still mesh-based
+- packaged-app writable-path cleanup is still required before Store submission
 
-The generated pages and reports consume the same exported self-check issue/action model so the main window, wizard, desktop self-check view, and text diagnostics do not drift independently.
-Recent desktop refactors also moved dashboard/settings/monitor/diagnostics/shell-fallback read-only text assembly into shared runtime view-model modules, so Win32 pages and the HTML admin shell can converge on the same derived state instead of duplicating string composition in `MainWindow.cpp`.
+## Historical refactor notes
 
-## Current Constraints
+For iteration-by-iteration extraction history, see:
 
-The architecture is still MVP-grade. Known structural constraints:
+- `CROSS_PLATFORM_REFACTOR_PLAN.md`
+- `MAINWINDOW_REMAINING_RESPONSIBILITIES.md`
+- `PROGRESS_WIP.md`
 
-- self-signed certificate flow is still operational rather than productized
-- WebView2 dependency handling is still fallback-oriented
-- Wi-Fi Direct is guided via system UI, not end-to-end automated
-- hotspot control is best effort and depends on Windows behavior
-- reconnect/recovery behavior is still limited
-- multi-viewer scale is still mesh-based and needs more validation
-
-
-## Platform provider layer
-
-The standalone server CLI now composes runtime concerns through a thin provider layer:
-
-- `src/platform/abstraction/ICertProvider`
-- `src/platform/abstraction/INetworkService`
-- `src/platform/windows/*` for current Windows wrappers
-- `src/platform/posix/*` for Linux/macOS CLI bring-up
-
-This is still an interim step. Certificate inspection/types now live in shared cert files and self-signed generation is owned by the provider layer. Network endpoint selection is now also shared (`src/core/network/endpoint_selection.*`), while platform-specific probing and hotspot actions live under `src/platform/windows/*` and `src/platform/posix/*`.
-
-
-- Iter 9: extracted desktop host refresh probing into a host runtime coordinator + refresh pipeline.
-
-- Iter 11: extracted desktop host session/config editing and admin/backend synchronization into a shared host session coordinator.
-
-- Iter 15: extracted native setup-form synchronization, edit-dirty state, and pending-apply policy into a shared `desktop_edit_session_presenter`.
-- Iter 16: extracted tray/menu/balloon/status-tip shell chrome state into a shared `shell_chrome_presenter`, so tray routing and shell-chrome copy are no longer hard-coded in `MainWindow.cpp`.
-
-
-- Iter 18 added a shell bridge presenter / message adapter layer so admin-shell snapshot serialization and host/admin inbound message parsing no longer live directly inside MainWindow/AdminBackend.
-
-
-## Admin shell coordinator
-The admin shell bridge now routes parsed admin commands through a shared admin shell coordinator so AdminBackend no longer owns command-to-action mapping directly.
-
-
-## Iter 20 status
-
-- Completed: `src/core/runtime/admin_shell_runtime_publisher.*` now centralizes admin-shell snapshot-state mapping, snapshot publish trigger policy, and JSON event publishing hooks.
-- `AdminBackend` now only handles inbound shell messages, while `MainWindow.cpp` publishes runtime snapshots through the shared publisher instead of rebuilding/publishing them inline.
-- Shared smoke coverage now includes `tests/shared/admin_shell_runtime_publisher_tests.cpp`.
-
-
-## Iter 21 status
-
-- Completed: `src/core/runtime/host_observability_coordinator.*` now centralizes host-page status/log ingest, native log/timeline aggregation, poll result normalization, and diagnostics log filtering.
-- `MainWindow.cpp` now routes `AppendLog`, `AddTimelineEvent`, host-page status/log handling, and `/api/status` poll aggregation through the shared observability coordinator instead of mutating these states inline.
-- Shared smoke coverage now includes `tests/shared/host_observability_coordinator_tests.cpp`.
-
-
-## Iter 22 status
-
-- Completed: `src/core/runtime/host_runtime_scheduler.*` now centralizes runtime tick interval defaults plus the timer-tick policy for UI refresh and `/api/status` poll dispatch.
-- `MainWindow.cpp` now routes `WM_TIMER` through `HandleRuntimeTick()` and the shared scheduler instead of hard-wiring `UpdateUiState()` and `KickPoll()` directly in the window procedure.
-- Shared smoke coverage now includes `tests/shared/host_runtime_scheduler_tests.cpp`.
+Treat those as historical context. This file only describes the current runtime shape.

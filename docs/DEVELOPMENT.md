@@ -2,82 +2,77 @@
 
 ## Goal
 
-Build a Windows desktop host that can share a screen to browsers on the same local network, with minimal operator friction.
+Build a Windows-first desktop host that can share a screen to browsers on the same local network with low operator friction.
 
 Primary constraints:
 
-- local network only
-- browser-based viewer
-- host-driven sharing flow
+- local network first
+- browser-based host/viewer pages
 - Windows desktop as the main operator environment
+- Linux tray and macOS menu-bar support as secondary native-shell baselines
 
-## What Is Implemented
+## What is implemented
 
-### 1. C++ Local Service
+### 1. Local C++ service
 
-The C++ backend already provides:
+The current backend already provides:
 
-- HTTPS static file serving
-- WSS signaling
+- plain HTTP page serving
+- WS signaling
 - room/session tracking
-- host/viewer message forwarding
-- JSON-based status endpoint
-- certificate loading
+- JSON status output for the desktop host
+- host/viewer URL generation support through the shared runtime/platform layer
 
-Implemented routes:
+Implemented routes include:
 
 - `GET /host`
 - `GET /view`
+- `GET /admin/`
 - `GET /assets/*`
 - `GET /health`
 - `GET /api/status`
 - `GET /ws` via WebSocket upgrade
 
-### 2. Browser Sharing Flow
+### 2. Browser sharing flow
 
 The web client side already supports:
 
 - host registration
 - viewer room join
-- screen capture on host using `getDisplayMedia`
-- host-to-many viewer mesh signaling
+- screen capture on host via `getDisplayMedia`
+- host-to-many viewer signaling
 - viewer recvonly playback
 - renegotiation when viewers join after sharing starts
-- session end notification
+- explicit session-end propagation
 
-Current media scope:
-
-- video only
-- no viewer upstream media
-- no remote control
-
-### 3. Windows Desktop Host
+### 3. Windows desktop host
 
 The desktop app already includes:
 
 - server process start/stop
 - local status and log display
-- network mode and host IP inspection
-- hotspot capability probing
-- hotspot start/stop/query on supported Windows setups
-- fallback entry points into Windows Mobile Hotspot settings and Wi-Fi Direct pairing settings
+- network mode and host-IP inspection
+- hotspot capability probing and supported fallback actions
 - live room/viewer polling from `/api/status`
-- embedded host-page navigation through WebView2 when available
-- WebView2 status reporting in the main window and exported diagnostics
+- embedded admin/host navigation through WebView2 when available
+- WebView2 runtime status reporting
 - QR/share artifact generation
 - desktop self-check and diagnostics export
 - copy/open actions for host URL, viewer URL, and generated files
-- operator-facing diagnostic summary and suggested remediation actions in the main window
 
-Important implementation note:
+### 4. Native Linux/macOS shell baseline
 
-- the current desktop shell is a Win32 application with an embedded WebView2 host area
-- it is not yet a Windows App SDK / WinUI-style product shell
-- the current source tree lives under `src/desktop_host/`
+The repository also now includes:
 
-### 4. Share Artifact Export
+- a Linux tray entry point under `apps/linux_tray/`
+- a macOS menu-bar entry point under `apps/macos_menubar/`
+- shared native-shell polling/action logic under `src/host_shell/`
 
-The app generates a bundle of operator-facing files:
+These shells are still earlier-stage than the Windows desktop host, but they are real packaged/runtime entry points rather than stubs.
+
+### 5. Share artifact export
+
+The app exports operator-facing files such as:
 
 - `share_bundle.json`
 - `share_status.js`
@@ -86,67 +81,36 @@ The app generates a bundle of operator-facing files:
 - `desktop_self_check.html`
 - `desktop_self_check.txt`
 - `share_diagnostics.txt`
-- `viewer_url.txt`
-- `hotspot_credentials.txt`
-- `share_readme.txt`
 
-These files are designed to let the operator hand off the session even if the desktop app itself is not being watched.
+These outputs are kept in sync with the current desktop snapshot and are intended to let the operator hand off the session even when the desktop window is not being watched directly.
 
-The generated bundle is also used as a shared diagnostics model:
+## Current architectural notes
 
-- `share_bundle.json` carries current room/network/runtime state plus self-check results
-- `share_wizard.html` and `desktop_self_check.html` consume the same exported issue/action data
-- `share_status.js` lets already-open local pages refresh from the latest desktop snapshot
+- the current desktop shell is a Win32 application with optional embedded WebView2
+- transport is plain HTTP / WS only
+- the old local certificate/bootstrap flow is no longer part of the runtime
+- shared runtime/presenter modules now own more of the state shaping that used to live directly in `MainWindow.cpp`
+- platform-specific network and system actions are routed through `src/platform/*`
 
-## Architectural Snapshot
+## Current limitations
 
-```text
-Desktop App
-  |- starts/stops local C++ server
-  |- probes network and hotspot state
-  |- polls /api/status for room/viewer counters
-  |- exports a shared bundle/self-check snapshot
-  |- exports share bundle and diagnostics
-  |- optionally embeds host page through WebView2
-  |- falls back to external browser/system settings when WebView2 or managed hotspot paths are unavailable
+- Windows packaging/install/uninstall now exists, but still needs clean-machine field validation
+- WebView2 runtime handling has a baseline helper flow, but still needs broader operator-environment validation
+- Wi-Fi Direct is still primarily guided fallback behavior rather than a complete product flow
+- hotspot behavior is still dependent on Windows capability and environment
+- reconnect/recovery and broader session hardening are still limited
+- browser/desktop validation exists, but real hardware and UI coverage are still incomplete
 
-C++ Server
-  |- HTTPS static pages
-  |- WSS signaling
-  |- room/peer state
-  |- TLS/certificate loading
+## Current priorities
 
-Browser Pages
-  |- host page captures screen and publishes WebRTC tracks
-  |- viewer page receives WebRTC video
-```
+1. field-validate the packaged Windows install/upgrade/uninstall flow
+2. field-validate the WebView2 runtime helper flow on real operator machines
+3. harden reconnect/recovery plus hotspot/manual-network UX
+4. deepen browser automation and release validation on real hardware
 
-## Current Limitations
+## Related docs
 
-The project is still an MVP. Important missing or weak areas:
-
-- packaging and installer story is now present as a Windows-first baseline, but still needs true field validation and possible MSI/MSIX follow-up
-- certificate trust/bootstrap UX now has a Windows helper baseline, but field validation and non-Windows parity are still pending.
-- WebView2 productization now has a Windows Evergreen-runtime baseline plus runtime-check helper, but release validation is still incomplete.
-- Wi-Fi Direct is still pairing guidance plus capability reporting, not a full automated UX
-- hotspot support still depends on Windows hosted-network/manual fallback behavior
-- firewall readiness, operator-triggered local network diagnostics, and remote-device probe orchestration are implemented on Windows; follow-up is mostly around true field validation and broader platform parity
-- host IP selection is clearer than before because active IPv4 candidates are ranked and probe-scored, but the final UX for automatic switching still needs refinement
-- no TURN/STUN or non-LAN transport path
-- no reconnect/resume strategy
-- shared/unit test coverage exists, but browser/desktop/release validation is still incomplete
-- Shared/runtime validation now includes a real HTTPS/WSS browser smoke target and a Windows desktop release-validation script, but full browser UI automation and repeated field validation are still incomplete
-
-## Development Priorities
-
-Priority order should be:
-
-1. make local runtime reliable
-2. reduce operator setup friction
-3. harden media/session lifecycle
-4. add validation and release discipline
-
-Detailed open items and phase planning live in:
-
-- [Unfinished Features](UNFINISHED_FEATURES.md)
-- [Development Plan](DEVELOPMENT_PLAN.md)
+- [ARCHITECTURE.md](ARCHITECTURE.md)
+- [UNFINISHED_FEATURES.md](UNFINISHED_FEATURES.md)
+- [BUILD_WINDOWS.md](BUILD_WINDOWS.md)
+- [RELEASE_VALIDATION.md](RELEASE_VALIDATION.md)
