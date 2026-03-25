@@ -1,2 +1,0 @@
-Install the hicolor icons under ~/.local/share/icons/hicolor/ or /usr/share/icons/hicolor/.
-Use linux/tray/lanscreenshare-symbolic-*.png for a Linux panel indicator.

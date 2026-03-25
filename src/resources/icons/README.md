@@ -10,14 +10,13 @@ Platform-specific icon resources integrated from flat_icon_pack_v2_states.
   - `tray_icon_dark_v2.ico` - Dark theme tray icon
   - Tray state variants: `_alert_`, `_connected_`, `_sharing_`
   - `store/` - Windows Store / MSIX visual assets
-  - `png/`, `rc/`, `source/` - Source files and PNG variants
+  - `png/` - PNG variants regenerated from the checked-in master icon assets
 
 - **macos/** - macOS application and menu bar icons
   - `AppIcon.icns` - Main application icon
   - `AppIcon.iconset/` - Icon set resources
   - `statusbar/` - Menu bar template icons
   - `statusbar_states/` - State variants
-  - `source/` - Source files
 
 - **linux/** - Linux desktop and tray icons
   - `hicolor/` - Standard hicolor icon theme (16, 24, 32, 48, 64, 128, 256, 512)

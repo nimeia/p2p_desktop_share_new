@@ -44,10 +44,6 @@ Run the desktop host:
 .\scripts\windows\run_desktop_host.ps1 -Config Debug
 ```
 
-Legacy convenience wrapper:
-
-- `run_desktop_host.bat`
-
 ## Validation
 
 Smoke-test the bundled server:
@@ -66,12 +62,6 @@ Validate the desktop payload and launch behavior:
 
 ```powershell
 .\scripts\windows\validate_release.ps1 -Config Release
-```
-
-Quick desktop launch helper:
-
-```powershell
-.\scripts\windows\test_desktop_host.ps1 -Config Debug
 ```
 
 ## Diagnostics
