@@ -104,6 +104,23 @@ NSImage* LoadMenuBarImage(NSString* name) {
   return image;
 }
 
+NSStatusBarButton* StatusItemButton(NSStatusItem* statusItem) {
+  return statusItem ? [statusItem button] : nil;
+}
+
+struct LanMenuBarCppState {
+  std::unique_ptr<lan::host_shell::NativeShellActionController> controller;
+  std::unique_ptr<lan::host_shell::NativeShellRuntimeLoop> loop;
+  lan::host_shell::NativeShellRuntimeLoopResult lastTick;
+  bool hasLastTick = false;
+
+  LanMenuBarCppState(std::unique_ptr<lan::host_shell::NativeShellActionController> controllerIn,
+                     std::unique_ptr<lan::host_shell::NativeShellRuntimeLoop> loopIn)
+      : controller(std::move(controllerIn)), loop(std::move(loopIn)) {}
+};
+
+} // namespace
+
 @interface LanMenuBarController : NSObject {
  @private
   NSStatusItem* _statusItem;
@@ -117,13 +134,12 @@ NSImage* LoadMenuBarImage(NSString* name) {
   NSMenuItem* _openDiagnosticsItem;
   NSMenuItem* _exportDiagnosticsItem;
   NSTimer* _timer;
-  std::unique_ptr<lan::host_shell::NativeShellActionController> _controller;
-  std::unique_ptr<lan::host_shell::NativeShellRuntimeLoop> _loop;
-  lan::host_shell::NativeShellRuntimeLoopResult _lastTick;
-  BOOL _hasLastTick;
+  LanMenuBarCppState* _state;
 }
-- (instancetype)initWithController:(std::unique_ptr<lan::host_shell::NativeShellActionController>)controller
-                              loop:(std::unique_ptr<lan::host_shell::NativeShellRuntimeLoop>)loop;
+- (instancetype)init;
+- (void)bootstrapWithState:(void*)state;
+- (void)notifyTitleText:(NSString*)title bodyText:(NSString*)body;
+- (void)applyCurrentTick;
 - (void)refresh:(id)sender;
 - (void)openDashboard:(id)sender;
 - (void)refreshDashboard:(id)sender;
@@ -137,24 +153,25 @@ NSImage* LoadMenuBarImage(NSString* name) {
 
 @implementation LanMenuBarController
 
-- (instancetype)initWithController:(std::unique_ptr<lan::host_shell::NativeShellActionController>)controller
-                              loop:(std::unique_ptr<lan::host_shell::NativeShellRuntimeLoop>)loop {
+- (instancetype)init {
   self = [super init];
   if (!self) return nil;
 
-  _controller = std::move(controller);
-  _loop = std::move(loop);
-  _hasLastTick = NO;
+  _state = nullptr;
+  _timer = nil;
 
   _statusItem = [[NSStatusBar systemStatusBar] statusItemWithLength:NSVariableStatusItemLength];
-  _statusItem.button.imagePosition = NSImageOnly;
-  _statusItem.button.image = LoadMenuBarImage(MenuBarIconName(false, 0, false));
-  _statusItem.button.title = _statusItem.button.image ? @"" : @"LAN Share";
-  _statusItem.button.toolTip = LocalizedWide(L"LAN Screen Share Host");
+  NSStatusBarButton* button = StatusItemButton(_statusItem);
+  if (button != nil) {
+    [button setImagePosition:NSImageOnly];
+    [button setImage:LoadMenuBarImage(MenuBarIconName(false, 0, false))];
+    [button setTitle:(button.image ? @"" : @"LAN Share")];
+    [button setToolTip:LocalizedWide(L"LAN Screen Share Host")];
+  }
 
   NSMenu* menu = [[NSMenu alloc] initWithTitle:LocalizedWide(L"LAN Screen Share Host")];
-  _statusLineItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Status: starting") action:nil keyEquivalent:@""];
-  _detailLineItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Waiting for first refresh...") action:nil keyEquivalent:@""];
+  _statusLineItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Status: starting") action:NULL keyEquivalent:@""];
+  _detailLineItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Waiting for first refresh...") action:NULL keyEquivalent:@""];
   _statusLineItem.enabled = NO;
   _detailLineItem.enabled = NO;
   [menu addItem:_statusLineItem];
@@ -167,26 +184,32 @@ NSImage* LoadMenuBarImage(NSString* name) {
 
   _refreshDashboardItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Refresh Dashboard") action:@selector(refreshDashboard:) keyEquivalent:@""];
   _refreshDashboardItem.target = self;
+  _refreshDashboardItem.enabled = NO;
   [menu addItem:_refreshDashboardItem];
 
   _openViewerItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Open Viewer URL") action:@selector(openViewer:) keyEquivalent:@""];
   _openViewerItem.target = self;
+  _openViewerItem.enabled = NO;
   [menu addItem:_openViewerItem];
 
   _startServerItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Start Sharing Service") action:@selector(startServer:) keyEquivalent:@""];
   _startServerItem.target = self;
+  _startServerItem.enabled = NO;
   [menu addItem:_startServerItem];
 
   _stopServerItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Stop Sharing Service") action:@selector(stopServer:) keyEquivalent:@""];
   _stopServerItem.target = self;
+  _stopServerItem.enabled = NO;
   [menu addItem:_stopServerItem];
 
   _openDiagnosticsItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Open Diagnostics Folder") action:@selector(openDiagnostics:) keyEquivalent:@""];
   _openDiagnosticsItem.target = self;
+  _openDiagnosticsItem.enabled = NO;
   [menu addItem:_openDiagnosticsItem];
 
   _exportDiagnosticsItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Export Diagnostics Snapshot") action:@selector(exportDiagnostics:) keyEquivalent:@""];
   _exportDiagnosticsItem.target = self;
+  _exportDiagnosticsItem.enabled = NO;
   [menu addItem:_exportDiagnosticsItem];
 
   [menu addItem:[NSMenuItem separatorItem]];
@@ -195,19 +218,49 @@ NSImage* LoadMenuBarImage(NSString* name) {
   [menu addItem:quitItem];
 
   _statusItem.menu = menu;
-  [self refresh:nil];
-  _timer = [NSTimer scheduledTimerWithTimeInterval:2.0 target:self selector:@selector(refresh:) userInfo:nil repeats:YES];
   return self;
 }
 
-- (void)notifyTitle:(std::string_view)title body:(std::string_view)body {
+- (void)bootstrapWithState:(void*)state {
+  delete _state;
+  _state = static_cast<LanMenuBarCppState*>(state);
+  if (_timer != nil) {
+    [_timer invalidate];
+    _timer = nil;
+  }
+  [self refresh:nil];
+  _timer = [NSTimer scheduledTimerWithTimeInterval:2.0 target:self selector:@selector(refresh:) userInfo:nil repeats:YES];
+}
+
+- (void)dealloc {
+  if (_timer != nil) {
+    [_timer invalidate];
+    _timer = nil;
+  }
+  if (_statusItem != nil) {
+    [[NSStatusBar systemStatusBar] removeStatusItem:_statusItem];
+  }
+  delete _state;
+  _state = nullptr;
+#if !__has_feature(objc_arc)
+  [super dealloc];
+#endif
+}
+
+- (void)notifyTitleText:(NSString*)title bodyText:(NSString*)body {
+  if (_state == nullptr || !_state->controller) return;
   std::string err;
-  if (!_controller->Platform().ShowNotification(title, body, err) && !err.empty()) {
+  const std::string titleUtf8 = title ? std::string([title UTF8String]) : std::string();
+  const std::string bodyUtf8 = body ? std::string([body UTF8String]) : std::string();
+  if (!_state->controller->Platform().ShowNotification(titleUtf8, bodyUtf8, err) && !err.empty()) {
     NSLog(@"Notification error: %s", err.c_str());
   }
 }
 
-- (void)applyTick:(const lan::host_shell::NativeShellRuntimeLoopResult&)tick {
+- (void)applyCurrentTick {
+  if (_state == nullptr || !_state->hasLastTick) return;
+  const auto& tick = _state->lastTick;
+  auto* controller = (_state != nullptr && _state->controller) ? _state->controller.get() : nullptr;
   const auto status = LocalizedWide(tick.tracker.statusViewModel.statusText);
   const bool stableRunning = tick.tracker.memory.stableServerRunning;
   const bool stableHealthy = tick.tracker.memory.stableHealthReady;
@@ -217,7 +270,7 @@ NSImage* LoadMenuBarImage(NSString* name) {
   const bool canRefreshDashboard = stableRunning;
   const bool canOpenViewer = stableRunning && stableHealthy && tick.tracker.trayMenuViewModel.copyViewerUrlEnabled;
   const bool canStartServer = !stableRunning;
-  const bool canStopServer = stableRunning || _controller->IsServerRunning();
+  const bool canStopServer = stableRunning || (controller != nullptr && controller->IsServerRunning());
   const bool canOpenDiagnostics = stableRunning || attention;
   const bool canExportDiagnostics = canOpenDiagnostics || viewers > 0;
 
@@ -231,12 +284,15 @@ NSImage* LoadMenuBarImage(NSString* name) {
   NSString* detailText = ToNSString(detail);
   NSString* badge = LocalizedWide(tick.tracker.trayIconViewModel.statusBadge);
   NSImage* statusImage = LoadMenuBarImage(MenuBarIconName(attention, viewers, sharing));
+  NSStatusBarButton* button = StatusItemButton(_statusItem);
 
   _statusLineItem.title = status;
   _detailLineItem.title = detailText;
-  _statusItem.button.image = statusImage;
-  _statusItem.button.title = statusImage ? @"" : (badge.length > 0 ? badge : @"LAN Share");
-  _statusItem.button.toolTip = detailText.length > 0 ? detailText : LocalizedWide(L"LAN Screen Share Host");
+  if (button != nil) {
+    [button setImage:statusImage];
+    [button setTitle:(statusImage ? @"" : (badge.length > 0 ? badge : @"LAN Share"))];
+    [button setToolTip:(detailText.length > 0 ? detailText : LocalizedWide(L"LAN Screen Share Host"))];
+  }
   _openDashboardItem.enabled = stableRunning;
   _refreshDashboardItem.enabled = canRefreshDashboard;
   _refreshDashboardItem.title = canRefreshDashboard ? LocalizedWide(L"Refresh Dashboard") : LocalizedWide(L"Refresh Dashboard (service stopped)");
@@ -252,85 +308,107 @@ NSImage* LoadMenuBarImage(NSString* name) {
 
 - (void)refresh:(id)sender {
   (void)sender;
-  _lastTick = _loop->Tick();
-  _hasLastTick = YES;
-  [self applyTick:_lastTick];
-}
-
-- (void)runAction:(BOOL (^)(std::string& err))action
-      successTitle:(std::string_view)successTitle
-       successBody:(std::string)successBody
-   notifyOnSuccess:(BOOL)notifyOnSuccess {
-  std::string err;
-  if (!action(err)) {
-    if (err.empty()) err = lan::i18n::TranslateNativeTextUtf8(L"The requested action failed.", CurrentLocaleCode());
-    [self notifyTitle:lan::i18n::TranslateNativeTextUtf8(L"Action failed", CurrentLocaleCode()) body:err];
-  } else if (notifyOnSuccess && !successTitle.empty()) {
-    [self notifyTitle:lan::i18n::TranslateNativeTextUtf8(WideAscii(successTitle), CurrentLocaleCode())
-                body:successBody.empty() ? lan::i18n::TranslateNativeTextUtf8(L"The action completed successfully.", CurrentLocaleCode()) : successBody];
-  }
-  [self refresh:nil];
+  if (_state == nullptr || !_state->loop) return;
+  _state->lastTick = _state->loop->Tick();
+  _state->hasLastTick = true;
+  [self applyCurrentTick];
 }
 
 - (void)openDashboard:(id)sender {
   (void)sender;
-  [self runAction:^BOOL(std::string& err) {
-    return _controller->OpenDashboard(err);
-  } successTitle:std::string_view{} successBody:std::string{} notifyOnSuccess:NO];
+  if (_state == nullptr || !_state->controller) return;
+  std::string err;
+  if (!_state->controller->OpenDashboard(err)) {
+    if (err.empty()) err = lan::i18n::TranslateNativeTextUtf8(L"The requested action failed.", CurrentLocaleCode());
+    [self notifyTitleText:LocalizedWide(L"Action failed") bodyText:ToNSString(err)];
+  }
+  [self refresh:nil];
 }
 
 - (void)refreshDashboard:(id)sender {
   (void)sender;
-  [self runAction:^BOOL(std::string& err) {
-    lan::host_shell::NativeShellLiveSnapshot live;
-    return _controller->RefreshDashboard(err, &live);
-  } successTitle:"Dashboard refreshed" successBody:"The dashboard live probe completed successfully." notifyOnSuccess:YES];
+  if (_state == nullptr || !_state->controller) return;
+  std::string err;
+  lan::host_shell::NativeShellLiveSnapshot live;
+  if (!_state->controller->RefreshDashboard(err, &live)) {
+    if (err.empty()) err = lan::i18n::TranslateNativeTextUtf8(L"The requested action failed.", CurrentLocaleCode());
+    [self notifyTitleText:LocalizedWide(L"Action failed") bodyText:ToNSString(err)];
+  } else {
+    [self notifyTitleText:LocalizedWide(L"Dashboard refreshed")
+                 bodyText:LocalizedWide(L"The dashboard live probe completed successfully.")];
+  }
+  [self refresh:nil];
 }
 
 - (void)openViewer:(id)sender {
   (void)sender;
-  [self runAction:^BOOL(std::string& err) {
-    return _controller->OpenViewer(err);
-  } successTitle:std::string_view{} successBody:std::string{} notifyOnSuccess:NO];
+  if (_state == nullptr || !_state->controller) return;
+  std::string err;
+  if (!_state->controller->OpenViewer(err)) {
+    if (err.empty()) err = lan::i18n::TranslateNativeTextUtf8(L"The requested action failed.", CurrentLocaleCode());
+    [self notifyTitleText:LocalizedWide(L"Action failed") bodyText:ToNSString(err)];
+  }
+  [self refresh:nil];
 }
 
 - (void)startServer:(id)sender {
   (void)sender;
-  [self runAction:^BOOL(std::string& err) {
-    lan::host_shell::NativeShellLiveSnapshot live;
-    return _controller->StartServer(err, &live);
-  } successTitle:"Sharing service started" successBody:"The native sharing service is live and healthy." notifyOnSuccess:YES];
+  if (_state == nullptr || !_state->controller) return;
+  std::string err;
+  lan::host_shell::NativeShellLiveSnapshot live;
+  if (!_state->controller->StartServer(err, &live)) {
+    if (err.empty()) err = lan::i18n::TranslateNativeTextUtf8(L"The requested action failed.", CurrentLocaleCode());
+    [self notifyTitleText:LocalizedWide(L"Action failed") bodyText:ToNSString(err)];
+  } else {
+    [self notifyTitleText:LocalizedWide(L"Sharing service started")
+                 bodyText:LocalizedWide(L"The native sharing service is live and healthy.")];
+  }
+  [self refresh:nil];
 }
 
 - (void)stopServer:(id)sender {
   (void)sender;
-  [self runAction:^BOOL(std::string& err) {
-    lan::host_shell::NativeShellLiveSnapshot live;
-    return _controller->StopServer(err, &live);
-  } successTitle:"Sharing service stopped" successBody:"The native sharing service has stopped." notifyOnSuccess:YES];
+  if (_state == nullptr || !_state->controller) return;
+  std::string err;
+  lan::host_shell::NativeShellLiveSnapshot live;
+  if (!_state->controller->StopServer(err, &live)) {
+    if (err.empty()) err = lan::i18n::TranslateNativeTextUtf8(L"The requested action failed.", CurrentLocaleCode());
+    [self notifyTitleText:LocalizedWide(L"Action failed") bodyText:ToNSString(err)];
+  } else {
+    [self notifyTitleText:LocalizedWide(L"Sharing service stopped")
+                 bodyText:LocalizedWide(L"The native sharing service has stopped.")];
+  }
+  [self refresh:nil];
 }
 
 - (void)openDiagnostics:(id)sender {
   (void)sender;
-  [self runAction:^BOOL(std::string& err) {
-    return _controller->OpenDiagnosticsFolder(err);
-  } successTitle:std::string_view{} successBody:std::string{} notifyOnSuccess:NO];
+  if (_state == nullptr || !_state->controller) return;
+  std::string err;
+  if (!_state->controller->OpenDiagnosticsFolder(err)) {
+    if (err.empty()) err = lan::i18n::TranslateNativeTextUtf8(L"The requested action failed.", CurrentLocaleCode());
+    [self notifyTitleText:LocalizedWide(L"Action failed") bodyText:ToNSString(err)];
+  }
+  [self refresh:nil];
 }
 
 - (void)exportDiagnostics:(id)sender {
   (void)sender;
-  const auto tick = _hasLastTick ? _lastTick : _loop->Tick();
+  if (_state == nullptr || !_state->controller || !_state->loop) return;
+  const auto tick = _state->hasLastTick ? _state->lastTick : _state->loop->Tick();
   std::filesystem::path exported;
-  std::string successBody;
-  [self runAction:^BOOL(std::string& err) {
-    const bool ok = _controller->ExportDiagnostics(tick.tracker.statusViewModel.statusText,
-                                                   tick.tracker.statusViewModel.detailText,
-                                                   tick.tracker.trayIconViewModel.statusBadge,
-                                                   err,
-                                                   &exported);
-    if (ok) successBody = exported.string();
-    return ok;
-  } successTitle:"Diagnostics exported" successBody:successBody notifyOnSuccess:YES];
+  std::string err;
+  if (!_state->controller->ExportDiagnostics(tick.tracker.statusViewModel.statusText,
+                                             tick.tracker.statusViewModel.detailText,
+                                             tick.tracker.trayIconViewModel.statusBadge,
+                                             err,
+                                             &exported)) {
+    if (err.empty()) err = lan::i18n::TranslateNativeTextUtf8(L"The requested action failed.", CurrentLocaleCode());
+    [self notifyTitleText:LocalizedWide(L"Action failed") bodyText:ToNSString(err)];
+  } else {
+    [self notifyTitleText:LocalizedWide(L"Diagnostics exported") bodyText:ToNSString(exported.string())];
+  }
+  [self refresh:nil];
 }
 
 - (void)quit:(id)sender {
@@ -339,8 +417,6 @@ NSImage* LoadMenuBarImage(NSString* name) {
 }
 
 @end
-
-} // namespace
 
 int main(int argc, char** argv) {
   @autoreleasepool {
@@ -391,8 +467,9 @@ int main(int argc, char** argv) {
 
     [NSApplication sharedApplication];
     [NSApp setActivationPolicy:NSApplicationActivationPolicyAccessory];
-    __unused LanMenuBarController* shell = [[LanMenuBarController alloc] initWithController:std::move(controller)
-                                                                                       loop:std::move(loop)];
+    __unused LanMenuBarController* shell = [[LanMenuBarController alloc] init];
+    auto* state = new LanMenuBarCppState(std::move(controller), std::move(loop));
+    [shell bootstrapWithState:state];
     [NSApp run];
   }
   return 0;

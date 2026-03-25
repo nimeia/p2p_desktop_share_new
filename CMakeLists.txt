@@ -85,7 +85,6 @@ add_library(lan_screenshare_core ALIAS lan_screenshare_shared)
 
 add_library(lan_screenshare_platform_abstraction
   src/platform/abstraction/runtime_paths.cpp
-  src/platform/factory.cpp
 )
 target_include_directories(lan_screenshare_platform_abstraction PUBLIC src)
 target_link_libraries(lan_screenshare_platform_abstraction PUBLIC lan_screenshare_shared)
@@ -93,6 +92,7 @@ target_link_libraries(lan_screenshare_platform_abstraction PUBLIC lan_screenshar
 if (WIN32)
   add_library(lan_screenshare_platform_default
     src/core/network/network_manager.cpp
+    src/platform/factory.cpp
     src/platform/windows/network_probe_win.cpp
     src/platform/windows/firewall_diagnostics_win.cpp
     src/platform/platform_service_facade.cpp
@@ -105,6 +105,7 @@ elseif(APPLE)
   enable_language(OBJCXX)
   add_library(lan_screenshare_platform_default
     src/core/network/network_manager.cpp
+    src/platform/factory.cpp
     src/platform/posix/network_probe_posix.cpp
     src/platform/platform_service_facade.cpp
     src/platform/host_runtime_refresh_pipeline.cpp
@@ -115,6 +116,7 @@ elseif(APPLE)
 else()
   add_library(lan_screenshare_platform_default
     src/core/network/network_manager.cpp
+    src/platform/factory.cpp
     src/platform/posix/network_probe_posix.cpp
     src/platform/platform_service_facade.cpp
     src/platform/host_runtime_refresh_pipeline.cpp
