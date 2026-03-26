@@ -58,6 +58,12 @@ Run the C++ browser smoke target:
 .\scripts\windows\browser_smoke.ps1 -Config Debug
 ```
 
+Run the reusable HTTP + WebSocket stress script:
+
+```powershell
+.\scripts\windows\stress_server.ps1 -Config Debug
+```
+
 Validate the desktop payload and launch behavior:
 
 ```powershell
