@@ -310,7 +310,7 @@ lan::network::HotspotConfig MakeSuggestedHotspotConfig() {
   std::uniform_int_distribution<int> dist(0, static_cast<int>(sizeof(kAlphabet) - 2));
 
   lan::network::HotspotConfig cfg;
-  cfg.ssid = "LanShare-";
+  cfg.ssid = "ViewMesh-";
   for (int i = 0; i < 6; ++i) cfg.ssid.push_back(kAlphabet[dist(rng)]);
   for (int i = 0; i < 12; ++i) cfg.password.push_back(kAlphabet[dist(rng)]);
   return cfg;

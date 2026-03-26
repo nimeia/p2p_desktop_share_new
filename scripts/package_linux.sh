@@ -80,7 +80,7 @@ validate_package_config "$SCOPE" "$CONFIG"
 
 VERSION_RESOLVED="$(resolve_package_version "$ROOT_DIR" "$VERSION")"
 ARCH="$(map_machine_arch "$(uname -m)")"
-PACKAGE_NAME="LanScreenShareHost_${VERSION_RESOLVED}_linux-${ARCH}"
+PACKAGE_NAME="ViewMesh_${VERSION_RESOLVED}_linux-${ARCH}"
 STAGE_DIR="$OUTPUT_ROOT/$PACKAGE_NAME"
 ARCHIVE_PATH="$OUTPUT_ROOT/${PACKAGE_NAME}.tar.gz"
 SERVER_DIR="$ROOT_DIR/out/linux/$CONFIG/server"
@@ -101,43 +101,43 @@ if [[ "$SKIP_BUILD" -eq 0 ]]; then
   bash "$ROOT_DIR/scripts/build_linux.sh" "${build_args[@]}"
 fi
 
-require_path "$SERVER_DIR/lan_screenshare_server" "Linux server binary"
+require_path "$SERVER_DIR/ViewMeshServer" "Linux server binary"
 require_path "$SERVER_DIR/www" "Linux server web root"
 require_path "$SERVER_DIR/webui" "Linux admin webui"
 require_path "$TRAY_DIR/lan_screenshare_linux_tray" "Linux tray binary"
 require_path "$ICON_DIR" "Linux icon assets"
-require_path "$ROOT_DIR/scripts/linux/Install-LanScreenShare.sh" "Linux install script"
-require_path "$ROOT_DIR/scripts/linux/Uninstall-LanScreenShare.sh" "Linux uninstall script"
-require_path "$ROOT_DIR/scripts/linux/launch_lan_screenshare_linux_tray.sh" "Linux launcher script"
+require_path "$ROOT_DIR/scripts/linux/Install-ViewMesh.sh" "Linux install script"
+require_path "$ROOT_DIR/scripts/linux/Uninstall-ViewMesh.sh" "Linux uninstall script"
+require_path "$ROOT_DIR/scripts/linux/launch_viewmesh_linux_tray.sh" "Linux launcher script"
 
 rm -rf "$STAGE_DIR"
 rm -f "$ARCHIVE_PATH"
 mkdir -p "$STAGE_DIR/bin" "$STAGE_DIR/runtime" "$STAGE_DIR/icons"
 
 cp "$TRAY_DIR/lan_screenshare_linux_tray" "$STAGE_DIR/bin/"
-cp "$ROOT_DIR/scripts/linux/launch_lan_screenshare_linux_tray.sh" "$STAGE_DIR/bin/"
+cp "$ROOT_DIR/scripts/linux/launch_viewmesh_linux_tray.sh" "$STAGE_DIR/bin/"
 cp -R "$SERVER_DIR/." "$STAGE_DIR/runtime/"
 cp -R "$ICON_DIR" "$STAGE_DIR/icons/linux"
-cp "$ROOT_DIR/scripts/linux/Install-LanScreenShare.sh" "$STAGE_DIR/"
-cp "$ROOT_DIR/scripts/linux/Uninstall-LanScreenShare.sh" "$STAGE_DIR/"
+cp "$ROOT_DIR/scripts/linux/Install-ViewMesh.sh" "$STAGE_DIR/"
+cp "$ROOT_DIR/scripts/linux/Uninstall-ViewMesh.sh" "$STAGE_DIR/"
 
 chmod +x "$STAGE_DIR/bin/lan_screenshare_linux_tray"
-chmod +x "$STAGE_DIR/bin/launch_lan_screenshare_linux_tray.sh"
-chmod +x "$STAGE_DIR/Install-LanScreenShare.sh"
-chmod +x "$STAGE_DIR/Uninstall-LanScreenShare.sh"
-chmod +x "$STAGE_DIR/runtime/lan_screenshare_server"
+chmod +x "$STAGE_DIR/bin/launch_viewmesh_linux_tray.sh"
+chmod +x "$STAGE_DIR/Install-ViewMesh.sh"
+chmod +x "$STAGE_DIR/Uninstall-ViewMesh.sh"
+chmod +x "$STAGE_DIR/runtime/ViewMeshServer"
 
 GENERATED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 cat > "$STAGE_DIR/package_manifest.json" <<EOF
 {
-  "product": "LanScreenShareHost",
+  "product": "ViewMesh",
   "version": "$(write_json_string "$VERSION_RESOLVED")",
   "platform": "linux",
   "arch": "$(write_json_string "$ARCH")",
   "config": "$(write_json_string "$CONFIG")",
   "generated_at": "$GENERATED_AT",
   "package_type": "tar.gz",
-  "entrypoint": "bin/launch_lan_screenshare_linux_tray.sh"
+  "entrypoint": "bin/launch_viewmesh_linux_tray.sh"
 }
 EOF
 

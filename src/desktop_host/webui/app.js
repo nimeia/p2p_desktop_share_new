@@ -1775,7 +1775,7 @@
     return [
       ["Same LAN", "Keep the viewer device on the same router or switch as the host and open the Viewer URL."],
       ["Hotspot mode", payload.hotspotRunning ? "Host hotspot is active. Join the SSID shown in Network, then open the Viewer URL." : "If no shared LAN is available, start hotspot in the Network tab first."],
-      ["Local access", "The local admin and host pages now run over plain HTTP on this machine. The viewer only needs the LAN Viewer URL."],
+      ["Local access", "The local admin and host pages now run over plain HTTP on this machine. The viewer only needs the ViewMesh Viewer URL."],
       ["Firewall", payload.firewallReady ? "Firewall looks compatible with inbound viewer traffic on this machine." : (payload.firewallDetail || "Open Windows Firewall settings and confirm there is an inbound allow rule for the current server path or port.")],
       ["Common failure", payload.remoteViewerReady ? "If a viewer still fails, test the Viewer URL directly in a browser." : (payload.remoteViewerDetail || "If viewers fail, re-check adapter selection, firewall policy, and same-LAN reachability first.")]
     ];
@@ -3045,7 +3045,7 @@
     setPairs("wifiDirectCard", [
       ["Wi-Fi Direct", state.wifiDirectAvailable],
       ["Recommendation", state.wifiDirectAvailable ? "Use Connected Devices pairing in Windows." : "Use LAN or hotspot path."],
-      ["Current Session Alias", state.room ? "LanShare-" + state.room : "LanShare-session"]
+      ["Current Session Alias", state.room ? "ViewMesh-" + state.room : "ViewMesh-session"]
     ]);
 
     setPairs("hotspotCard", [

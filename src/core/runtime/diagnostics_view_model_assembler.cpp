@@ -133,7 +133,7 @@ ShellFallbackViewModel BuildShellFallbackViewModel(const ShellStateInput& input)
     body << L"- The local admin server failed before the HTML shell could finish loading.\r\n";
     body << L"- Detail: " << input.shellStartupError << L"\r\n\r\n";
     body << L"Next step\r\n";
-    body << L"- Confirm lan_screenshare_server.exe, www, and webui are present beside this build, then click Retry Loading UI.\r\n";
+    body << L"- Confirm ViewMeshServer.exe, www, and webui are present beside this build, then click Retry Loading UI.\r\n";
     body << L"- If the detail mentions a bind or port failure, free the port or change the configured bind/port before retrying.\r\n";
     body << L"- You can still use Start Service / Start + Open Host below.";
   } else if (input.webviewStatus == L"sdk-unavailable") {
@@ -148,7 +148,7 @@ ShellFallbackViewModel BuildShellFallbackViewModel(const ShellStateInput& input)
     body << L"- WebView2 Runtime is installed, but controller creation returned INVALID_STATE (0x8007139F).\r\n";
     body << L"- This usually means the embedded browser was started in a bad runtime state or from an older build.\r\n\r\n";
     body << L"Next step\r\n";
-    body << L"- Close all LanScreenShareHostApp processes and relaunch the newest Debug build.\r\n";
+    body << L"- Close all ViewMeshApp processes and relaunch the newest Debug build.\r\n";
     body << L"- Click Retry Loading UI once after relaunch.\r\n";
     body << L"- If it still fails, keep the detail line and check the latest desktop log.\r\n";
     body << L"- You can still use Start Service / Start + Open Host below.";

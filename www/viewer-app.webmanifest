@@ -1,8 +1,8 @@
 {
   "id": "/view",
-  "name": "LAN Screen Share Viewer",
-  "short_name": "LAN Viewer",
-  "description": "A fullscreen local network receiver for LAN Screen Share.",
+  "name": "ViewMesh Viewer",
+  "short_name": "ViewMesh Viewer",
+  "description": "A fullscreen local network receiver for ViewMesh.",
   "lang": "en",
   "start_url": "/view",
   "scope": "/view",

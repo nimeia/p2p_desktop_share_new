@@ -1,4 +1,4 @@
-# LAN Screen Share Architecture
+# ViewMesh Architecture
 
 ## Current shape
 

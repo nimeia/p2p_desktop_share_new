@@ -128,11 +128,11 @@ int main() {
   Expect(selectedIndex == 3, "selected adapter index should be preserved");
 
   auto applyHotspot = BuildAdminCommand(ShellBridgeAdminCommandKind::ApplyHotspot);
-  applyHotspot.adminCommand.ssid = L"LanScreenShare";
+  applyHotspot.adminCommand.ssid = L"ViewMesh";
   applyHotspot.adminCommand.password = L"12345678";
   HandleAdminShellMessage(applyHotspot, hooks);
   Expect(applyHotspotCalls == 1, "apply hotspot hook should run");
-  Expect(hotspotRequest.ssid == L"LanScreenShare", "hotspot ssid should be preserved");
+  Expect(hotspotRequest.ssid == L"ViewMesh", "hotspot ssid should be preserved");
   Expect(hotspotRequest.password == L"12345678", "hotspot password should be preserved");
 
   HandleAdminShellMessage(BuildAdminCommand(ShellBridgeAdminCommandKind::StartHotspot), hooks);

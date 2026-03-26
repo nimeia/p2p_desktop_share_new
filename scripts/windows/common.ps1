@@ -67,7 +67,7 @@ function Get-ServerExePath(
   [string]$RepoRoot,
   [string]$Config
 ) {
-  return (Join-Path (Get-ServerOutputDir $RepoRoot $Config) "lan_screenshare_server.exe")
+  return (Join-Path (Get-ServerOutputDir $RepoRoot $Config) "ViewMeshServer.exe")
 }
 
 function Get-DesktopHostOutputDir(
@@ -83,7 +83,7 @@ function Get-DesktopHostExePath(
   [string]$Arch,
   [string]$Config
 ) {
-  return (Join-Path (Get-DesktopHostOutputDir $RepoRoot $Arch $Config) "LanScreenShareHostApp.exe")
+  return (Join-Path (Get-DesktopHostOutputDir $RepoRoot $Arch $Config) "ViewMesh.exe")
 }
 
 function Assert-PathExists(

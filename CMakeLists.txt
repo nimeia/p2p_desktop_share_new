@@ -145,6 +145,7 @@ target_link_libraries(lan_screenshare_server PRIVATE
   lan_screenshare_platform_abstraction
   lan_screenshare_platform_default
 )
+set_target_properties(lan_screenshare_server PROPERTIES OUTPUT_NAME "ViewMeshServer")
 
 add_library(lan_screenshare_native_shell
   src/host_shell/native_shell_live_poller.cpp
@@ -188,9 +189,10 @@ if (APPLE)
   
   # Set macOS bundle properties
   set_target_properties(lan_screenshare_macos_menubar PROPERTIES
+    OUTPUT_NAME "ViewMesh"
     MACOSX_BUNDLE TRUE
     MACOSX_BUNDLE_INFO_PLIST "${CMAKE_CURRENT_SOURCE_DIR}/apps/macos_menubar/Info.plist"
-    MACOSX_BUNDLE_BUNDLE_NAME "LAN Screen Share"
+    MACOSX_BUNDLE_BUNDLE_NAME "ViewMesh"
     MACOSX_BUNDLE_BUNDLE_VERSION "1.0"
     MACOSX_BUNDLE_SHORT_VERSION_STRING "1.0"
     MACOSX_BUNDLE_ICON_FILE "AppIcon"
@@ -389,8 +391,8 @@ if (UNIX AND NOT APPLE)
   install(DIRECTORY
     "src/resources/icons/linux/tray"
     "src/resources/icons/linux/tray_states"
-    DESTINATION "share/lan_screenshare/icons/linux"
+    DESTINATION "share/viewmesh/icons/linux"
   )
 
-  install(FILES "src/resources/icons/linux/desktop/lanscreenshare.desktop" DESTINATION "share/applications")
+  install(FILES "src/resources/icons/linux/desktop/viewmesh.desktop" DESTINATION "share/applications")
 endif()

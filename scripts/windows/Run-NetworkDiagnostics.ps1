@@ -104,7 +104,7 @@ function Get-FirewallRuleSummary {
 }
 
 $lines = New-Object 'System.Collections.Generic.List[string]'
-Add-Line $lines 'LAN Screen Share - Network Diagnostics'
+Add-Line $lines 'ViewMesh - Network Diagnostics'
 Add-Line $lines "Generated: $(Get-Date -Format 'yyyy-MM-dd HH:mm:ss')"
 Add-Line $lines "Host IP: $HostIp"
 Add-Line $lines "Port: $Port"

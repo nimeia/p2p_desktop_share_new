@@ -211,7 +211,7 @@ void ShellEffectExecutor::CreateTrayIcon(MainWindow& window) {
     nid.uFlags = NIF_MESSAGE | NIF_ICON | NIF_TIP | NIF_SHOWTIP;
     nid.uCallbackMessage = kHostAppTrayIconMessage;
     nid.hIcon = LoadTrayIconForState(shellState, window.m_hwnd);
-    const auto tip = lan::i18n::TranslateNativeText(L"LAN Screen Share Host", window.m_localeCode);
+    const auto tip = lan::i18n::TranslateNativeText(L"ViewMesh Host", window.m_localeCode);
     lstrcpynW(nid.szTip, tip.c_str(), _countof(nid.szTip));
     if (Shell_NotifyIconW(NIM_ADD, &nid)) {
         window.m_trayIconAdded = true;

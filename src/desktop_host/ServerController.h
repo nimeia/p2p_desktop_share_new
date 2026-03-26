@@ -8,7 +8,7 @@
 #include <windows.h>
 
 struct ServerOptions {
-    std::filesystem::path executable;  // lan_screenshare_server.exe
+    std::filesystem::path executable;  // ViewMeshServer.exe
     std::filesystem::path wwwDir;      // www
     std::filesystem::path adminDir;    // webui
     std::wstring bind = L"0.0.0.0";

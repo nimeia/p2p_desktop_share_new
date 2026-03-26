@@ -1,6 +1,6 @@
-# LAN Screen Share
+# ViewMesh
 
-LAN Screen Share is a Windows-first local screen sharing app. The current repository combines:
+ViewMesh is a Windows-first local screen sharing app. The current repository combines:
 
 - a Win32 desktop host shell with optional embedded WebView2
 - a local C++ HTTP / WS service built on Boost.Asio/Beast
@@ -56,8 +56,8 @@ Build only the desktop host:
 
 Useful outputs:
 
-- `out/server/Debug/lan_screenshare_server.exe`
-- `out/desktop_host/x64/Debug/LanScreenShareHostApp.exe`
+- `out/server/Debug/ViewMeshServer.exe`
+- `out/desktop_host/x64/Debug/ViewMesh.exe`
 - `out/logs/build_*.log`
 
 Validation helpers:

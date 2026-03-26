@@ -62,7 +62,7 @@ int main() {
 
   ShellBridgeSnapshotState snapshot;
   snapshot.localeCode = L"ja";
-  snapshot.appName = L"LanScreenShareHostApp";
+  snapshot.appName = L"ViewMeshApp";
   snapshot.nativePage = L"dashboard";
   snapshot.dashboardState = L"ready";
   snapshot.dashboardLabel = L"Ready";

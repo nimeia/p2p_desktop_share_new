@@ -36,7 +36,7 @@ int main() {
   session.hotspotStatus = L"stopped";
   session.hotspotSsid = L"LabHotspot";
   session.hotspotPassword = L"password123";
-  session.wifiDirectAlias = L"LanShare-roomA";
+  session.wifiDirectAlias = L"ViewMesh-roomA";
   session.wifiAdapterPresent = true;
   session.hotspotSupported = true;
   session.wifiDirectApiAvailable = true;
@@ -101,7 +101,7 @@ int main() {
   Expect(bundleJson.find("viewerUrl") != std::string::npos, "bundle json should include viewer url");
 
   const std::string diagnostics = ReadFile(request.outputDir / "share_diagnostics.txt");
-  Expect(diagnostics.find("LAN Screen Share diagnostics") != std::string::npos,
+  Expect(diagnostics.find("ViewMesh diagnostics") != std::string::npos,
          "diagnostics text should have heading");
   Expect(diagnostics.find("Operator first actions") != std::string::npos,
          "diagnostics text should include operator actions section");

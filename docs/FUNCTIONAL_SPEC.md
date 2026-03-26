@@ -1,4 +1,4 @@
-# LAN Screen Share Functional Spec
+# ViewMesh Functional Spec
 
 ## Scope
 
@@ -63,7 +63,7 @@ Still incomplete:
 
 Implemented now:
 
-- desktop host can start `lan_screenshare_server.exe`
+- desktop host can start `ViewMeshServer.exe`
 - desktop host can stop the server process
 - desktop host polls `/api/status`
 - desktop host reports running/stopped state

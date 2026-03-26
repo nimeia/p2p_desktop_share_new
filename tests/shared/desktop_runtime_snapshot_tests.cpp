@@ -28,7 +28,7 @@ void RunDesktopRuntimeSnapshotTests() {
   input.hotspotStatus = L"stopped";
   input.hotspotSsid = L"LabHotspot";
   input.hotspotPassword = L"password123";
-  input.wifiDirectAlias = L"LanShare-roomA";
+  input.wifiDirectAlias = L"ViewMesh-roomA";
   input.webviewStatusText = L"ready";
   input.wifiDirectApiAvailable = true;
   input.wifiAdapterPresent = true;

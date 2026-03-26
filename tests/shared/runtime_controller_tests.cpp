@@ -29,7 +29,7 @@ int main() {
   session.networkMode = L"lan";
   session.hostPageState = L"ready";
   session.hotspotStatus = L"stopped";
-  session.wifiDirectAlias = L"LanScreenShare-abc123";
+  session.wifiDirectAlias = L"ViewMesh-abc123";
   session.lastRooms = 1;
   session.lastViewers = 0;
 
@@ -75,7 +75,7 @@ int main() {
 
   const std::wstring shareInfo = BuildShareInfoText(session, health, selfCheck);
   Expect(shareInfo.find(L"Viewer URL") != std::wstring::npos, "share info should include viewer url section");
-  Expect(shareInfo.find(L"LanScreenShare-abc123") != std::wstring::npos, "share info should include Wi-Fi Direct alias");
+  Expect(shareInfo.find(L"ViewMesh-abc123") != std::wstring::npos, "share info should include Wi-Fi Direct alias");
   Expect(shareInfo.find(L"2 checks need attention") != std::wstring::npos, "share info should include self-check summary");
 
   session.hostPageState = L"sharing";

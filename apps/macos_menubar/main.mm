@@ -56,21 +56,25 @@ std::filesystem::path ResolveMacSupportDir() {
   @autoreleasepool {
     NSArray<NSString*>* paths = NSSearchPathForDirectoriesInDomains(NSApplicationSupportDirectory, NSUserDomainMask, YES);
     if (paths.count > 0) {
-      return std::filesystem::path([[paths objectAtIndex:0] UTF8String]) / "LanScreenShareHost";
+      return std::filesystem::path([[paths objectAtIndex:0] UTF8String]) / "ViewMesh";
     }
   }
 
   if (const char* home = std::getenv("HOME")) {
-    return std::filesystem::path(home) / "Library" / "Application Support" / "LanScreenShareHost";
+    return std::filesystem::path(home) / "Library" / "Application Support" / "ViewMesh";
   }
-  return std::filesystem::current_path() / "LanScreenShareHost";
+  return std::filesystem::current_path() / "ViewMesh";
 }
 
 std::filesystem::path ResolveMacDefaultServerExecutable(const std::filesystem::path& executableDir) {
   const std::filesystem::path candidates[] = {
+      executableDir / "ViewMeshServer",
       executableDir / "lan_screenshare_server",
+      executableDir.parent_path() / "Resources" / "runtime" / "ViewMeshServer",
       executableDir.parent_path() / "Resources" / "runtime" / "lan_screenshare_server",
+      executableDir.parent_path().parent_path().parent_path() / "ViewMeshServer",
       executableDir.parent_path().parent_path().parent_path() / "lan_screenshare_server",
+      executableDir.parent_path().parent_path().parent_path() / "server" / "ViewMeshServer",
       executableDir.parent_path().parent_path().parent_path() / "server" / "lan_screenshare_server",
   };
 
@@ -166,10 +170,10 @@ struct LanMenuBarCppState {
     [button setImagePosition:NSImageOnly];
     [button setImage:LoadMenuBarImage(MenuBarIconName(false, 0, false))];
     [button setTitle:(button.image ? @"" : @"LAN Share")];
-    [button setToolTip:LocalizedWide(L"LAN Screen Share Host")];
+    [button setToolTip:LocalizedWide(L"ViewMesh Host")];
   }
 
-  NSMenu* menu = [[NSMenu alloc] initWithTitle:LocalizedWide(L"LAN Screen Share Host")];
+  NSMenu* menu = [[NSMenu alloc] initWithTitle:LocalizedWide(L"ViewMesh Host")];
   _statusLineItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Status: starting") action:NULL keyEquivalent:@""];
   _detailLineItem = [[NSMenuItem alloc] initWithTitle:LocalizedWide(L"Waiting for first refresh...") action:NULL keyEquivalent:@""];
   _statusLineItem.enabled = NO;
@@ -291,7 +295,7 @@ struct LanMenuBarCppState {
   if (button != nil) {
     [button setImage:statusImage];
     [button setTitle:(statusImage ? @"" : (badge.length > 0 ? badge : @"LAN Share"))];
-    [button setToolTip:(detailText.length > 0 ? detailText : LocalizedWide(L"LAN Screen Share Host"))];
+    [button setToolTip:(detailText.length > 0 ? detailText : LocalizedWide(L"ViewMesh Host"))];
   }
   _openDashboardItem.enabled = stableRunning;
   _refreshDashboardItem.enabled = canRefreshDashboard;

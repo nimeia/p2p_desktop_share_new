@@ -380,7 +380,7 @@ stage_outputs() {
   mkdir -p "$OUTPUT_DIR"
 
   if [[ "$TARGET" == "all" || "$TARGET" == "server" || "$TARGET" == "tests" ]]; then
-    local server_bin="$BUILD_DIR/lan_screenshare_server"
+    local server_bin="$BUILD_DIR/ViewMeshServer"
     if [[ -f "$server_bin" ]]; then
       local server_out="$OUTPUT_DIR/server"
       stage_file "$server_bin" "$server_out"

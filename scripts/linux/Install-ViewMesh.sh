@@ -7,7 +7,7 @@ PREFIX=""
 
 usage() {
   cat <<'EOF'
-Usage: Install-LanScreenShare.sh [options]
+Usage: Install-ViewMesh.sh [options]
 
 Options:
   --scope user|system   Install scope. Default: user
@@ -47,10 +47,10 @@ esac
 
 PACKAGE_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 if [[ "$SCOPE" == "system" ]]; then
-  INSTALL_ROOT="${PREFIX:-/opt/LanScreenShareHost}"
+  INSTALL_ROOT="${PREFIX:-/opt/ViewMesh}"
   DESKTOP_DIR="/usr/local/share/applications"
 else
-  INSTALL_ROOT="${PREFIX:-$HOME/.local/share/LanScreenShareHost}"
+  INSTALL_ROOT="${PREFIX:-$HOME/.local/share/ViewMesh}"
   DESKTOP_DIR="$HOME/.local/share/applications"
 fi
 
@@ -61,21 +61,21 @@ cp -R "$PACKAGE_DIR/bin" "$INSTALL_ROOT/"
 cp -R "$PACKAGE_DIR/runtime" "$INSTALL_ROOT/"
 cp -R "$PACKAGE_DIR/icons" "$INSTALL_ROOT/"
 cp "$PACKAGE_DIR/package_manifest.json" "$INSTALL_ROOT/"
-cp "$PACKAGE_DIR/Install-LanScreenShare.sh" "$INSTALL_ROOT/"
-cp "$PACKAGE_DIR/Uninstall-LanScreenShare.sh" "$INSTALL_ROOT/"
+cp "$PACKAGE_DIR/Install-ViewMesh.sh" "$INSTALL_ROOT/"
+cp "$PACKAGE_DIR/Uninstall-ViewMesh.sh" "$INSTALL_ROOT/"
 
 chmod +x "$INSTALL_ROOT/bin/lan_screenshare_linux_tray"
-chmod +x "$INSTALL_ROOT/bin/launch_lan_screenshare_linux_tray.sh"
-chmod +x "$INSTALL_ROOT/runtime/lan_screenshare_server"
-chmod +x "$INSTALL_ROOT/Install-LanScreenShare.sh"
-chmod +x "$INSTALL_ROOT/Uninstall-LanScreenShare.sh"
+chmod +x "$INSTALL_ROOT/bin/launch_viewmesh_linux_tray.sh"
+chmod +x "$INSTALL_ROOT/runtime/ViewMeshServer"
+chmod +x "$INSTALL_ROOT/Install-ViewMesh.sh"
+chmod +x "$INSTALL_ROOT/Uninstall-ViewMesh.sh"
 
-cat > "$DESKTOP_DIR/lanscreenshare.desktop" <<EOF
+cat > "$DESKTOP_DIR/viewmesh.desktop" <<EOF
 [Desktop Entry]
 Type=Application
-Name=LanScreenShare
+Name=ViewMesh
 Comment=Desktop sharing host
-Exec=$INSTALL_ROOT/bin/launch_lan_screenshare_linux_tray.sh
+Exec=$INSTALL_ROOT/bin/launch_viewmesh_linux_tray.sh
 Icon=$INSTALL_ROOT/icons/linux/hicolor/256x256/apps/lanscreenshare.png
 Terminal=false
 Categories=Network;Utility;
@@ -83,4 +83,4 @@ StartupNotify=true
 EOF
 
 printf 'Installed to %s\n' "$INSTALL_ROOT"
-printf 'Desktop entry: %s/lanscreenshare.desktop\n' "$DESKTOP_DIR"
+printf 'Desktop entry: %s/viewmesh.desktop\n' "$DESKTOP_DIR"

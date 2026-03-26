@@ -15,7 +15,7 @@ void Expect(bool condition, const char* message) {
 lan::runtime::AdminViewModelInput BuildInput() {
   lan::runtime::AdminViewModelInput input;
   input.localeCode = L"ru";
-  input.appName = L"LanScreenShareHostApp";
+  input.appName = L"ViewMeshApp";
   input.nativePage = L"dashboard";
   input.runtimeSnapshot.session.bindAddress = L"0.0.0.0";
   input.runtimeSnapshot.session.port = 9443;
@@ -35,7 +35,7 @@ lan::runtime::AdminViewModelInput BuildInput() {
   input.sessionModel.defaultPort = 9443;
   input.outputDir = L"C:/out";
   input.bundleDir = L"C:/out/share_bundle";
-  input.serverExePath = L"C:/app/lan_screenshare_server.exe";
+  input.serverExePath = L"C:/app/ViewMeshServer.exe";
   input.adminDir = L"C:/app/webui";
   input.logTail = L"tail";
   input.timelineText = L"timeline";

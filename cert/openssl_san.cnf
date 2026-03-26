@@ -6,7 +6,7 @@ x509_extensions = v3_req
 distinguished_name = dn
 
 [ dn ]
-CN = LAN Screen Share
+CN = ViewMesh
 
 [ v3_req ]
 subjectAltName = @alt_names

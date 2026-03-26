@@ -36,7 +36,7 @@
 
 namespace {
 
-const wchar_t CLASS_NAME[] = L"LanScreenShareHostApp";
+const wchar_t CLASS_NAME[] = L"ViewMeshApp";
 const UINT WM_APP_LOG = WM_APP + 1;
 const UINT WM_APP_POLL = WM_APP + 2;
 const UINT WM_APP_WEBVIEW = WM_APP + 3;
@@ -743,7 +743,7 @@ bool MainWindow::Create() {
     m_hwnd = CreateWindowExW(
         0,
         CLASS_NAME,
-        L"LAN Screen Share Host (Win32 + WebView2)",
+        L"ViewMesh Host (Win32 + WebView2)",
         WS_OVERLAPPEDWINDOW,
         CW_USEDEFAULT,
         CW_USEDEFAULT,
@@ -861,7 +861,7 @@ void MainWindow::OnCreate() {
 
     EnsureHotspotDefaults();
     GenerateRoomToken();
-    m_defaultServerExePath = (AppDir() / L"lan_screenshare_server.exe").wstring();
+    m_defaultServerExePath = (AppDir() / L"ViewMeshServer.exe").wstring();
     m_defaultWwwPath = (AppDir() / L"www").wstring();
     m_defaultAdminDir = AdminUiDir().wstring();
     m_outputDir = (AppDir() / L"out").wstring();
@@ -1251,7 +1251,7 @@ void MainWindow::RunNetworkDiagnostics() {
     args.push_back(L"-Port");
     args.push_back(std::to_wstring(m_port));
     args.push_back(L"-ServerExe");
-    args.push_back((AppDir() / L"lan_screenshare_server.exe").wstring());
+    args.push_back((AppDir() / L"ViewMeshServer.exe").wstring());
     args.push_back(L"-OutputPath");
     args.push_back(reportPath.wstring());
 
@@ -1290,7 +1290,7 @@ void MainWindow::CheckWebViewRuntime() {
 
 
 void MainWindow::ExportRemoteProbeGuide() {
-    const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, AppDir() / L"lan_screenshare_server.exe", m_bindAddress, m_hostIp, m_port);
+    const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, AppDir() / L"ViewMeshServer.exe", m_bindAddress, m_hostIp, m_port);
     const auto plan = lan::runtime::BuildRemoteProbePlan(runtime.remoteProbeCandidates);
     const fs::path outputDir = AppDir() / L"out" / L"diagnostics";
     std::error_code ec;
@@ -1308,7 +1308,7 @@ void MainWindow::ExportRemoteProbeGuide() {
         return;
     }
 
-    out << "LAN Screen Share remote probe guide\r\n";
+    out << "ViewMesh remote probe guide\r\n";
     out << "Generated: " << urlutil::WideToUtf8(NowDateTime()) << "\r\n\r\n";
     out << "Summary: " << urlutil::WideToUtf8(plan.label.empty() ? L"(none)" : plan.label) << "\r\n";
     out << "Detail: " << urlutil::WideToUtf8(plan.detail.empty() ? L"(none)" : plan.detail) << "\r\n";
@@ -1430,7 +1430,7 @@ void MainWindow::OpenOutputFolder() {
 }
 
 lan::runtime::DesktopRuntimeSnapshot MainWindow::BuildDesktopRuntimeSnapshot(bool liveReady) const {
-    const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, AppDir() / L"lan_screenshare_server.exe", m_bindAddress, m_hostIp, m_port);
+    const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, AppDir() / L"ViewMeshServer.exe", m_bindAddress, m_hostIp, m_port);
 
     lan::runtime::DesktopRuntimeSnapshotInput input;
     input.localeCode = m_localeCode;
@@ -1511,7 +1511,7 @@ bool MainWindow::WriteShareArtifacts(fs::path* shareCardPath,
 }
 
 std::wstring MainWindow::BuildWifiDirectSessionAlias() const {
-    return L"LanShare-" + (m_room.empty() ? std::wstring(L"session") : m_room);
+    return L"ViewMesh-" + (m_room.empty() ? std::wstring(L"session") : m_room);
 }
 
 lan::desktop::WebViewShellState MainWindow::BuildWebViewShellState() const {
@@ -1793,17 +1793,17 @@ void MainWindow::HandleAdminShellMessage(std::wstring_view payload) {
 
 
 lan::runtime::AdminViewModelInput MainWindow::BuildAdminViewModelInput() const {
-    const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, AppDir() / L"lan_screenshare_server.exe", m_bindAddress, m_hostIp, m_port);
+    const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, AppDir() / L"ViewMeshServer.exe", m_bindAddress, m_hostIp, m_port);
     const auto runtimeSnapshot = BuildDesktopRuntimeSnapshot(true);
     const auto sessionModel = lan::runtime::BuildHostSessionAdminModel(BuildHostSessionState());
-    const auto serverExe = AppDir() / L"lan_screenshare_server.exe";
+    const auto serverExe = AppDir() / L"ViewMeshServer.exe";
     const auto wwwDir = AppDir() / L"www";
     const auto adminDir = AdminUiDir();
     const auto bundleDir = AppDir() / L"out" / L"share_bundle";
 
     lan::runtime::AdminViewModelInput input;
     input.localeCode = m_localeCode;
-    input.appName = L"LanScreenShareHostApp";
+    input.appName = L"ViewMeshApp";
     input.nativePage = AdminTabNameForPage(m_currentPage);
     input.runtimeSnapshot = runtimeSnapshot;
     input.sessionModel = sessionModel;
@@ -2004,7 +2004,7 @@ void MainWindow::RefreshDashboard() {
 
 void MainWindow::RefreshSessionSetup() {
     if (PreferHtmlAdminUi()) return;
-    const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, AppDir() / L"lan_screenshare_server.exe", m_bindAddress, m_hostIp, m_port);
+    const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, AppDir() / L"ViewMeshServer.exe", m_bindAddress, m_hostIp, m_port);
     const std::wstring hostUrl = BuildHostUrlLocal();
     const auto editViewModel = lan::runtime::BuildDesktopEditSessionViewModel(BuildDesktopEditSessionInput());
 
@@ -2051,7 +2051,7 @@ void MainWindow::RefreshNetworkPage() {
     if (PreferHtmlAdminUi()) return;
     std::array<bool, 4> candidatePresent{};
     const auto candidates = CollectActiveIpv4Candidates();
-    const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, AppDir() / L"lan_screenshare_server.exe", m_bindAddress, m_hostIp, m_port);
+    const auto runtime = CollectRuntimeDiagnostics(m_server.get(), m_webview, AppDir() / L"ViewMeshServer.exe", m_bindAddress, m_hostIp, m_port);
 
     if (m_networkSummaryCard) {
         std::wstringstream ss;
@@ -2519,7 +2519,7 @@ lan::runtime::HostActionOperation MainWindow::PerformStartServerAction() {
 
     ServerOptions opt;
     fs::path dir = AppDir();
-    opt.executable = dir / L"lan_screenshare_server.exe";
+    opt.executable = dir / L"ViewMeshServer.exe";
     opt.wwwDir = dir / L"www";
     opt.adminDir = AdminUiDir();
     opt.bind = m_bindAddress;
@@ -2572,7 +2572,7 @@ lan::runtime::HostActionOperation MainWindow::PerformStopServerAction() {
 
     ServerOptions opt;
     fs::path dir = AppDir();
-    opt.executable = dir / L"lan_screenshare_server.exe";
+    opt.executable = dir / L"ViewMeshServer.exe";
     opt.wwwDir = dir / L"www";
     opt.adminDir = AdminUiDir();
     opt.bind = m_bindAddress;

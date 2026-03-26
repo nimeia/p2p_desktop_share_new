@@ -32,7 +32,7 @@ HttpResponse HttpClient::Get(const std::wstring& url, DWORD timeoutMs) {
         return out;
     }
 
-    hSession = WinHttpOpen(L"LanScreenShareHost/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+    hSession = WinHttpOpen(L"ViewMesh/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
     if (!hSession) {
         out.error = L"WinHttpOpen failed: " + LastErrorText(GetLastError());
         return out;

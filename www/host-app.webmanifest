@@ -1,8 +1,8 @@
 {
   "id": "/host",
-  "name": "LAN Screen Share Host",
-  "short_name": "LAN Host",
-  "description": "A native-style local network sender console for LAN Screen Share.",
+  "name": "ViewMesh Host",
+  "short_name": "ViewMesh Host",
+  "description": "A native-style local network sender console for ViewMesh.",
   "lang": "en",
   "start_url": "/host",
   "scope": "/host",

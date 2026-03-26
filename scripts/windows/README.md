@@ -113,8 +113,8 @@ Store/MSIX package:
 
 Install/uninstall helpers are used from the staged package root:
 
-- `Install-LanScreenShare.ps1`
-- `Uninstall-LanScreenShare.ps1`
+- `Install-ViewMesh.ps1`
+- `Uninstall-ViewMesh.ps1`
 
 ## Output conventions
 

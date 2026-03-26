@@ -7,11 +7,11 @@ PREFIX=""
 
 usage() {
   cat <<'EOF'
-Usage: Uninstall-LanScreenShare.sh [options]
+Usage: Uninstall-ViewMesh.sh [options]
 
 Options:
   --prefix <path>   Override install root instead of using this script location
-  --remove-data     Also remove XDG state data under ~/.local/state/lan_screenshare
+  --remove-data     Also remove XDG state data under ~/.local/state/viewmesh
   -h, --help        Show this help
 EOF
 }
@@ -38,11 +38,12 @@ while [[ $# -gt 0 ]]; do
 done
 
 INSTALL_ROOT="${PREFIX:-$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)}"
-rm -f "$HOME/.local/share/applications/lanscreenshare.desktop"
-rm -f "/usr/local/share/applications/lanscreenshare.desktop"
+rm -f "$HOME/.local/share/applications/viewmesh.desktop"
+rm -f "/usr/local/share/applications/viewmesh.desktop"
 rm -rf "$INSTALL_ROOT"
 
 if [[ "$REMOVE_DATA" -eq 1 ]]; then
+  rm -rf "${XDG_STATE_HOME:-$HOME/.local/state}/viewmesh"
   rm -rf "${XDG_STATE_HOME:-$HOME/.local/state}/lan_screenshare"
 fi
 

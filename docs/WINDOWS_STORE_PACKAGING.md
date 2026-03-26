@@ -69,8 +69,8 @@ That directory contains:
 
 The staged runtime includes:
 
-- `LanScreenShareHostApp.exe`
-- `lan_screenshare_server.exe`
+- `ViewMesh.exe`
+- `ViewMeshServer.exe`
 - `www/`
 - `webui/`
 - `scripts/windows/Check-WebView2Runtime.ps1`

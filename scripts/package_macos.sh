@@ -100,17 +100,17 @@ if [[ "$SKIP_BUILD" -eq 0 ]]; then
   cmake --build "$BUILD_DIR" --target lan_screenshare_server lan_screenshare_macos_menubar
 fi
 
-APP_BUNDLE="$BUILD_DIR/lan_screenshare_macos_menubar.app"
-SERVER_BIN="$BUILD_DIR/lan_screenshare_server"
+APP_BUNDLE="$BUILD_DIR/ViewMesh.app"
+SERVER_BIN="$BUILD_DIR/ViewMeshServer"
 require_path "$APP_BUNDLE" "macOS app bundle"
 require_path "$SERVER_BIN" "macOS server binary"
 require_path "$ROOT_DIR/www" "web root"
 require_path "$ROOT_DIR/src/desktop_host/webui" "admin webui"
 
 VERSION_RESOLVED="$(resolve_package_version "$ROOT_DIR" "$VERSION")"
-PACKAGE_NAME="LanScreenShareHost_${VERSION_RESOLVED}_macos-${ARCH}"
+PACKAGE_NAME="ViewMesh_${VERSION_RESOLVED}_macos-${ARCH}"
 STAGE_DIR="$OUTPUT_ROOT/$PACKAGE_NAME"
-APP_NAME="LAN Screen Share.app"
+APP_NAME="ViewMesh.app"
 PACKAGED_APP="$STAGE_DIR/$APP_NAME"
 RUNTIME_DIR="$PACKAGED_APP/Contents/Resources/runtime"
 DMG_ROOT="$OUTPUT_ROOT/${PACKAGE_NAME}_dmg_root"
@@ -123,15 +123,15 @@ mkdir -p "$STAGE_DIR" "$DMG_ROOT"
 
 cp -R "$APP_BUNDLE" "$PACKAGED_APP"
 mkdir -p "$RUNTIME_DIR"
-cp "$SERVER_BIN" "$RUNTIME_DIR/lan_screenshare_server"
+cp "$SERVER_BIN" "$RUNTIME_DIR/ViewMeshServer"
 cp -R "$ROOT_DIR/www" "$RUNTIME_DIR/www"
 cp -R "$ROOT_DIR/src/desktop_host/webui" "$RUNTIME_DIR/webui"
-chmod +x "$RUNTIME_DIR/lan_screenshare_server"
+chmod +x "$RUNTIME_DIR/ViewMeshServer"
 
 GENERATED_AT="$(date -u +"%Y-%m-%dT%H:%M:%SZ")"
 cat > "$STAGE_DIR/package_manifest.json" <<EOF
 {
-  "product": "LanScreenShareHost",
+  "product": "ViewMesh",
   "version": "$(write_json_string "$VERSION_RESOLVED")",
   "platform": "macos",
   "arch": "$(write_json_string "$ARCH")",
@@ -148,7 +148,7 @@ ln -s /Applications "$DMG_ROOT/Applications"
 
 mkdir -p "$OUTPUT_ROOT"
 ditto -c -k --sequesterRsrc --keepParent "$PACKAGED_APP" "$ZIP_PATH"
-hdiutil create -volname "LAN Screen Share" -srcfolder "$DMG_ROOT" -format UDZO "$DMG_PATH"
+hdiutil create -volname "ViewMesh" -srcfolder "$DMG_ROOT" -format UDZO "$DMG_PATH"
 
 print_package_result "StageDir" "$STAGE_DIR"
 print_package_result "DMG" "$DMG_PATH"

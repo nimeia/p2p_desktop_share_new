@@ -1,4 +1,4 @@
-# LAN Screen Share Development Notes
+# ViewMesh Development Notes
 
 ## Goal
 

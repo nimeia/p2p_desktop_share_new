@@ -35,7 +35,7 @@ const hostHintText = document.getElementById("hostHintText");
 roomEl.textContent = room || "(missing)";
 factRoom.textContent = room || "(missing)";
 factToken.textContent = token || "(missing)";
-document.title = translateUi(room ? `LAN Host - ${room}` : "LAN Host");
+document.title = translateUi(room ? `ViewMesh Host - ${room}` : "ViewMesh Host");
 
 let ws = null;
 const peers = new Map();

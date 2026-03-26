@@ -61,7 +61,7 @@ ShellChromeStatusViewModel BuildShellChromeStatusViewModel(const ShellChromeStat
 
 TrayIconViewModel BuildTrayIconViewModel(const ShellChromeStateInput& input) {
   TrayIconViewModel viewModel;
-  viewModel.tooltip = L"LAN Screen Share Host";
+  viewModel.tooltip = L"ViewMesh Host";
   if (input.serverRunning) {
     if (input.viewerCount > 0) {
       viewModel.tooltip += L" - Sharing (" + std::to_wstring(input.viewerCount) + L" viewer(s))";

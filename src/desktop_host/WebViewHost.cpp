@@ -64,7 +64,7 @@ std::wstring ResolveUserDataFolder() {
         }
     }
 
-    const fs::path dir = base / L"LanScreenShareHostApp" / L"WebView2" / std::to_wstring(GetCurrentProcessId());
+    const fs::path dir = base / L"ViewMeshApp" / L"WebView2" / std::to_wstring(GetCurrentProcessId());
     std::error_code ec;
     fs::create_directories(dir, ec);
     if (ec) {

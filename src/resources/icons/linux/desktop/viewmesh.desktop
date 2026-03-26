@@ -1,8 +1,8 @@
 [Desktop Entry]
 Type=Application
-Name=LanScreenShare
+Name=ViewMesh
 Comment=Desktop sharing host
-Exec=lanscreenshare
+Exec=lan_screenshare_linux_tray
 Icon=lanscreenshare
 Terminal=false
 Categories=Network;Utility;

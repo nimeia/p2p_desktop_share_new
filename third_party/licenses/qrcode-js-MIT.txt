@@ -1,4 +1,4 @@
-Bundled QR code encoder used by LAN Screen Share share card.
+Bundled QR code encoder used by ViewMesh share card.
 
 Source origin:
 - qrcode-terminal vendor/QRCode implementation

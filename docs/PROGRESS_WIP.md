@@ -22,7 +22,7 @@ This package is intentionally **not finished**. It is provided to prevent the ch
 
 ## What is NOT finished (next pack)
 - Desktop host Step2 real Wi-Fi Direct guidance + Host IPv4 detection.
-- Desktop host Step3 spawn `lan_screenshare_server.exe` and poll `/api/status`.
+- Desktop host Step3 spawn `ViewMeshServer.exe` and poll `/api/status`.
 - Desktop host Step4 embed WebView2 host page and allow self-signed cert.
 - Desktop host Step5 generate QR and copy/open buttons.
 - The original `CertManager` has been split for the CLI path, but `NetworkManager` still needs the same treatment.
@@ -95,7 +95,7 @@ This package is intentionally **not finished**. It is provided to prevent the ch
   - LAN / hotspot / Wi-Fi Direct guidance in one page
 - Added a machine-readable share manifest (`share_bundle.json`) so later automation can consume current room / token / URLs / hotspot state.
 - Wi-Fi Direct is still not implemented as a native media transport path, but the session handoff is now more explicit:
-  - generated local session alias (`LanShare-<room>`)
+  - generated local session alias (`ViewMesh-<room>`)
   - pairing entry guidance
   - fallback instructions included in the bundle
 

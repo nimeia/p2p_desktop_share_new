@@ -192,12 +192,12 @@ int main() {
 
   const auto hostPage = HttpGet(port, "/host?room=smoke-room&token=host-token");
   Expect(hostPage.status == 200, "host page should return 200");
-  Expect(hostPage.body.find("LAN Screen Share - Host") != std::string::npos, "host page title should be present");
+  Expect(hostPage.body.find("ViewMesh - Host") != std::string::npos, "host page title should be present");
   Expect(hostPage.body.find("/assets/app_host.js") != std::string::npos, "host page should reference app_host.js");
 
   const auto viewerPage = HttpGet(port, "/view?room=smoke-room");
   Expect(viewerPage.status == 200, "viewer page should return 200");
-  Expect(viewerPage.body.find("LAN Screen Share - Viewer") != std::string::npos, "viewer page title should be present");
+  Expect(viewerPage.body.find("ViewMesh - Viewer") != std::string::npos, "viewer page title should be present");
   Expect(viewerPage.body.find("/assets/app_viewer.js") != std::string::npos, "viewer page should reference app_viewer.js");
 
   const auto commonJs = HttpGet(port, "/assets/common.js");

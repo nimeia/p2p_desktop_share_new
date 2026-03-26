@@ -28,7 +28,7 @@ $machineVersion = Get-WebView2Version ([Microsoft.Win32.RegistryHive]::LocalMach
 $userVersion = Get-WebView2Version ([Microsoft.Win32.RegistryHive]::CurrentUser) $userKey
 $installed = $false
 $lines = New-Object System.Collections.Generic.List[string]
-$lines.Add("LAN Screen Share WebView2 runtime check")
+$lines.Add("ViewMesh WebView2 runtime check")
 $lines.Add(("Generated: {0}" -f (Get-Date).ToString("s")))
 $lines.Add("")
 $lines.Add(("Machine install: {0}" -f ($(if ($machineVersion) { $machineVersion } else { "not found" }))))
@@ -41,7 +41,7 @@ if ($machineVersion -or $userVersion) {
 } else {
   $lines.Add("")
   $lines.Add("Result: Evergreen WebView2 Runtime not detected.")
-  $lines.Add("Recommendation: Install or repair the Evergreen runtime, then relaunch LanScreenShareHostApp.")
+  $lines.Add("Recommendation: Install or repair the Evergreen runtime, then relaunch ViewMeshApp.")
   $lines.Add("You can use either the WebView2 bootstrapper (online) or the standalone installer (offline), depending on the target machine.")
 }
 

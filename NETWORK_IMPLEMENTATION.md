@@ -1,8 +1,8 @@
-# LAN Screen Share Host - 网络功能实现
+# ViewMesh Host - 网络功能实现
 
 ## 🎉 功能完成
 
-已成功为 `LanScreenShareHostApp` 实现了完整的 **HTTP 网络服务器功能**。
+已成功为 `ViewMeshApp` 实现了完整的 **HTTP 网络服务器功能**。
 
 ## 📋 实现概述
 
@@ -72,7 +72,7 @@ Content-Type: text/html
 Connection: close
 
 <html><body>
-  <h1>LAN Screen Share Host</h1>
+  <h1>ViewMesh Host</h1>
   <p>Server running!</p>
 </body></html>
 ```
@@ -111,7 +111,7 @@ struct ServerOptions {
 
 1. **启动应用**
    ```
-   D:\chatgpt-dev\lan_28\out\desktop_host\x64\Debug\LanScreenShareHostApp.exe
+   D:\chatgpt-dev\lan_28\out\desktop_host\x64\Debug\ViewMesh.exe
    ```
 
 2. **在 UI 中配置**

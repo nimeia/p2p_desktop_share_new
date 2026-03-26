@@ -31,7 +31,7 @@ NetworkDiagnosticsViewModel BuildNetworkDiagnosticsViewModel(const RuntimeSessio
     model.firewallDetail = health.firewallDetail.empty()
         ? L"Windows Firewall is enabled, but no enabled inbound allow rule was detected for the local share service or its TCP port."
         : health.firewallDetail;
-    model.firewallAction = L"Open Windows Firewall settings or create an inbound allow rule for lan_screenshare_server.exe / the current TCP port.";
+    model.firewallAction = L"Open Windows Firewall settings or create an inbound allow rule for ViewMeshServer.exe / the current TCP port.";
   }
 
   if (!health.serverProcessRunning) {

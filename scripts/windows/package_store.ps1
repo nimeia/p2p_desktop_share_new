@@ -11,10 +11,10 @@ param(
   [Parameter(Mandatory = $true)]
   [string]$Publisher,
   [string]$PublisherDisplayName = "",
-  [string]$DisplayName = "LAN Screen Share Host",
-  [string]$Description = "LAN Screen Share desktop host for local viewer sessions.",
-  [string]$ApplicationId = "LanScreenShareHostApp",
-  [string]$Executable = "LanScreenShareHostApp.exe",
+  [string]$DisplayName = "ViewMesh",
+  [string]$Description = "ViewMesh desktop host for local sharing sessions.",
+  [string]$ApplicationId = "ViewMeshApp",
+  [string]$Executable = "ViewMesh.exe",
   [string]$AssetsDir = "",
   [string]$MinVersion = "10.0.19041.0",
   [string]$MaxVersionTested = "",
@@ -74,8 +74,8 @@ function Get-SafeFileComponent([string]$Value) {
 
 function Copy-RequiredPayload([string]$DesktopDir, [string]$RepoRoot, [string]$StageDir) {
   $required = @(
-    (Join-Path $DesktopDir "LanScreenShareHostApp.exe"),
-    (Join-Path $DesktopDir "lan_screenshare_server.exe"),
+    (Join-Path $DesktopDir "ViewMesh.exe"),
+    (Join-Path $DesktopDir "ViewMeshServer.exe"),
     (Join-Path $DesktopDir "www"),
     (Join-Path $DesktopDir "webui"),
     (Join-Path $RepoRoot "scripts\windows\Run-NetworkDiagnostics.ps1"),
@@ -214,11 +214,11 @@ function Ensure-StoreAssets(
   [string]$DisplayTitle
 ) {
   $assetSpecs = @(
-    @{ Name = "StoreLogo.png"; Width = 50; Height = 50; Label = "LAN" },
-    @{ Name = "Square44x44Logo.png"; Width = 44; Height = 44; Label = "LAN" },
-    @{ Name = "Square71x71Logo.png"; Width = 71; Height = 71; Label = "LAN" },
-    @{ Name = "Square150x150Logo.png"; Width = 150; Height = 150; Label = "LAN" },
-    @{ Name = "Square310x310Logo.png"; Width = 310; Height = 310; Label = "LAN" },
+    @{ Name = "StoreLogo.png"; Width = 50; Height = 50; Label = "VM" },
+    @{ Name = "Square44x44Logo.png"; Width = 44; Height = 44; Label = "VM" },
+    @{ Name = "Square71x71Logo.png"; Width = 71; Height = 71; Label = "VM" },
+    @{ Name = "Square150x150Logo.png"; Width = 150; Height = 150; Label = "VM" },
+    @{ Name = "Square310x310Logo.png"; Width = 310; Height = 310; Label = "VM" },
     @{ Name = "Wide310x150Logo.png"; Width = 310; Height = 150; Label = "HOST" },
     @{ Name = "SplashScreen.png"; Width = 620; Height = 300; Label = "HOST" }
   )
@@ -337,7 +337,7 @@ function New-SymbolPackage([string]$SearchRoot, [string]$DestinationPath) {
     return $null
   }
 
-  $tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("lan_msixsym_" + [guid]::NewGuid().ToString("N"))
+  $tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("viewmesh_msixsym_" + [guid]::NewGuid().ToString("N"))
   New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
   try {
     foreach ($symbol in $symbols) {
@@ -360,7 +360,7 @@ function New-SymbolPackage([string]$SearchRoot, [string]$DestinationPath) {
 }
 
 function New-UploadBundle([string]$MsixPath, [string]$SymbolsPath, [string]$DestinationPath) {
-  $tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("lan_msixupload_" + [guid]::NewGuid().ToString("N"))
+  $tmpDir = Join-Path ([System.IO.Path]::GetTempPath()) ("viewmesh_msixupload_" + [guid]::NewGuid().ToString("N"))
   New-Item -ItemType Directory -Force -Path $tmpDir | Out-Null
   try {
     Copy-Item -LiteralPath $MsixPath -Destination (Join-Path $tmpDir ([System.IO.Path]::GetFileName($MsixPath))) -Force

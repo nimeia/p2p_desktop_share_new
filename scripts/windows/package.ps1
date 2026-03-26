@@ -16,7 +16,7 @@ if (-not $OutputRoot) { $OutputRoot = Join-Path $repoRoot "out\package\windows" 
 $desktopDir = Get-DesktopHostOutputDir $repoRoot $Arch $Config
 $serverDir = Get-ServerOutputDir $repoRoot $Config
 $versionResolved = Get-PackageVersion -RepoRoot $repoRoot -Version $Version
-$packageName = "LanScreenShareHost_{0}_win-{1}" -f $versionResolved, $Arch
+$packageName = "ViewMesh_{0}_win-{1}" -f $versionResolved, $Arch
 $stageDir = Join-Path $OutputRoot $packageName
 $zipPath = Join-Path $OutputRoot ($packageName + ".zip")
 
@@ -28,12 +28,12 @@ if (-not $SkipBuild) {
 
 Write-Section "Validate package payload"
 $required = @(
-  (Join-Path $desktopDir "LanScreenShareHostApp.exe"),
-  (Join-Path $desktopDir "lan_screenshare_server.exe"),
+  (Join-Path $desktopDir "ViewMesh.exe"),
+  (Join-Path $desktopDir "ViewMeshServer.exe"),
   (Join-Path $desktopDir "www"),
   (Join-Path $desktopDir "webui"),
-  (Join-Path $repoRoot "scripts\windows\Install-LanScreenShare.ps1"),
-  (Join-Path $repoRoot "scripts\windows\Uninstall-LanScreenShare.ps1"),
+  (Join-Path $repoRoot "scripts\windows\Install-ViewMesh.ps1"),
+  (Join-Path $repoRoot "scripts\windows\Uninstall-ViewMesh.ps1"),
   (Join-Path $repoRoot "scripts\windows\Check-WebView2Runtime.ps1")
 )
 foreach ($item in $required) {
@@ -61,8 +61,8 @@ New-Item -ItemType Directory -Force -Path $stageScriptsDir | Out-Null
 ) | ForEach-Object {
   Copy-Item -LiteralPath (Join-Path $PSScriptRoot $_) -Destination (Join-Path $stageScriptsDir $_) -Force
 }
-Copy-Item -LiteralPath (Join-Path $PSScriptRoot "Install-LanScreenShare.ps1") -Destination (Join-Path $stageDir "Install-LanScreenShare.ps1") -Force
-Copy-Item -LiteralPath (Join-Path $PSScriptRoot "Uninstall-LanScreenShare.ps1") -Destination (Join-Path $stageDir "Uninstall-LanScreenShare.ps1") -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot "Install-ViewMesh.ps1") -Destination (Join-Path $stageDir "Install-ViewMesh.ps1") -Force
+Copy-Item -LiteralPath (Join-Path $PSScriptRoot "Uninstall-ViewMesh.ps1") -Destination (Join-Path $stageDir "Uninstall-ViewMesh.ps1") -Force
 
 $docSource = Join-Path $repoRoot "docs\WINDOWS_BOOTSTRAP_GUIDE.md"
 if (Test-Path -LiteralPath $docSource) {
@@ -78,8 +78,8 @@ $manifest = [ordered]@{
   desktop_dir = $desktopDir
   server_dir = $serverDir
   included_helpers = @(
-    "Install-LanScreenShare.ps1",
-    "Uninstall-LanScreenShare.ps1",
+    "Install-ViewMesh.ps1",
+    "Uninstall-ViewMesh.ps1",
     "scripts/windows/Check-WebView2Runtime.ps1",
     "scripts/windows/Run-NetworkDiagnostics.ps1"
   )

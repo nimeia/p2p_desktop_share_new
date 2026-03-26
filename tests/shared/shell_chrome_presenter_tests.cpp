@@ -63,7 +63,7 @@ int main() {
   input.viewerUrlAvailable = false;
   input.shareActionsAvailable = false;
   const auto stoppedTray = BuildTrayIconViewModel(input);
-  Expect(stoppedTray.tooltip == L"LAN Screen Share Host - Ready to share", "stopped tooltip should show ready state");
+  Expect(stoppedTray.tooltip == L"ViewMesh Host - Ready to share", "stopped tooltip should show ready state");
   Expect(stoppedTray.statusBadge == L"Stopped", "stopped badge should match");
   Expect(!stoppedTray.showBalloon, "balloon should not show when not pending");
   const auto stoppedMenu = BuildTrayMenuViewModel(input);

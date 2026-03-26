@@ -79,19 +79,23 @@ std::string ViewerLabel(std::size_t viewers) {
 
 std::filesystem::path ResolveLinuxStateDir() {
   if (const char* stateHome = std::getenv("XDG_STATE_HOME")) {
-    if (*stateHome) return std::filesystem::path(stateHome) / "lan_screenshare";
+    if (*stateHome) return std::filesystem::path(stateHome) / "viewmesh";
   }
   if (const char* home = std::getenv("HOME")) {
-    if (*home) return std::filesystem::path(home) / ".local" / "state" / "lan_screenshare";
+    if (*home) return std::filesystem::path(home) / ".local" / "state" / "viewmesh";
   }
-  return std::filesystem::current_path() / ".lan_screenshare";
+  return std::filesystem::current_path() / ".viewmesh";
 }
 
 std::filesystem::path ResolveLinuxDefaultServerExecutable(const std::filesystem::path& executableDir) {
   const std::filesystem::path candidates[] = {
+      executableDir / "ViewMeshServer",
       executableDir / "lan_screenshare_server",
+      executableDir.parent_path() / "server" / "ViewMeshServer",
       executableDir.parent_path() / "server" / "lan_screenshare_server",
+      executableDir.parent_path() / "runtime" / "ViewMeshServer",
       executableDir.parent_path() / "runtime" / "lan_screenshare_server",
+      executableDir.parent_path().parent_path() / "runtime" / "ViewMeshServer",
       executableDir.parent_path().parent_path() / "runtime" / "lan_screenshare_server",
   };
 
@@ -134,11 +138,16 @@ std::filesystem::path DiscoverLinuxIconRoot(const std::filesystem::path& executa
     const auto stagedRoot = root / "icons" / "linux";
     if (HasTrayIconSet(stagedRoot)) return stagedRoot;
 
-    const auto installedRoot = root / "share" / "lan_screenshare" / "icons" / "linux";
+    const auto installedRoot = root / "share" / "viewmesh" / "icons" / "linux";
     if (HasTrayIconSet(installedRoot)) return installedRoot;
+
+    const auto legacyInstalledRoot = root / "share" / "lan_screenshare" / "icons" / "linux";
+    if (HasTrayIconSet(legacyInstalledRoot)) return legacyInstalledRoot;
   }
 
   const std::filesystem::path systemRoots[] = {
+      "/usr/local/share/viewmesh/icons/linux",
+      "/usr/share/viewmesh/icons/linux",
       "/usr/local/share/lan_screenshare/icons/linux",
       "/usr/share/lan_screenshare/icons/linux",
   };

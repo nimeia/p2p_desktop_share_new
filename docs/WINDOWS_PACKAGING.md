@@ -10,12 +10,12 @@ The repository now includes a repeatable Windows zip-package flow for the deskto
   - stages a redistributable package under `out/package/windows/`
   - emits `package_manifest.json`
   - creates a zip archive for handoff
-- `scripts/windows/Install-LanScreenShare.ps1`
+- `scripts/windows/Install-ViewMesh.ps1`
   - installs or upgrades a staged package
   - supports `-Scope user` and `-Scope machine`
   - writes an uninstall registry entry
   - creates a Start Menu shortcut
-- `scripts/windows/Uninstall-LanScreenShare.ps1`
+- `scripts/windows/Uninstall-ViewMesh.ps1`
   - removes the installed payload
   - optionally removes local user data
 
@@ -38,31 +38,31 @@ Reuse an already-built Release payload:
 Install the staged package for the current user:
 
 ```powershell
-.\out\package\windows\LanScreenShareHost_<version>_win-x64\Install-LanScreenShare.ps1 -Scope user
+.\out\package\windows\ViewMesh_<version>_win-x64\Install-ViewMesh.ps1 -Scope user
 ```
 
 Install for all users:
 
 ```powershell
-.\out\package\windows\LanScreenShareHost_<version>_win-x64\Install-LanScreenShare.ps1 -Scope machine
+.\out\package\windows\ViewMesh_<version>_win-x64\Install-ViewMesh.ps1 -Scope machine
 ```
 
 Uninstall later:
 
 ```powershell
-powershell.exe -ExecutionPolicy Bypass -File "<InstallDir>\Uninstall-LanScreenShare.ps1" -Scope user
+powershell.exe -ExecutionPolicy Bypass -File "<InstallDir>\Uninstall-ViewMesh.ps1" -Scope user
 ```
 
 ## Package contents
 
 The staged package preserves the runtime layout the desktop host already expects:
 
-- `LanScreenShareHostApp.exe`
-- `lan_screenshare_server.exe`
+- `ViewMesh.exe`
+- `ViewMeshServer.exe`
 - `www/`
 - `webui/`
-- `Install-LanScreenShare.ps1`
-- `Uninstall-LanScreenShare.ps1`
+- `Install-ViewMesh.ps1`
+- `Uninstall-ViewMesh.ps1`
 - `WINDOWS_BOOTSTRAP_GUIDE.md`
 - `scripts/windows/`
 
@@ -79,5 +79,5 @@ No `cert/` directory or local trust-import helper is part of the current package
 ## Notes
 
 - The package format is a staged directory plus zip archive, not MSI.
-- The desktop output already bundles `lan_screenshare_server.exe`, `www/`, and `webui/`, so the packaged app can be moved to another machine without rebuilding the runtime tree.
+- The desktop output already bundles `ViewMeshServer.exe`, `www/`, and `webui/`, so the packaged app can be moved to another machine without rebuilding the runtime tree.
 - Clean-machine install/upgrade/uninstall validation is still required before treating this as a release-hardened distribution flow.

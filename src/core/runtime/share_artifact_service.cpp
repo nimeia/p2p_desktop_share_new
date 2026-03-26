@@ -68,7 +68,7 @@ static std::string BuildShareCardHtml(std::wstring_view networkMode,
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="theme-color" content="#050816"/>
-  <title>LAN Screen Share Share Card</title>
+  <title>ViewMesh Share Card</title>
   <style>
     :root { color-scheme: dark; }
     * { box-sizing: border-box; }
@@ -236,7 +236,7 @@ static std::string BuildShareCardHtml(std::wstring_view networkMode,
           <span class="badge live">Live status: auto refresh</span>
           <span class="tip">Last sync: <span id="lastSyncText">embedded snapshot</span></span>
         </div>
-        <h1>LAN Screen Share</h1>
+        <h1>ViewMesh</h1>
         <div class="meta">
           <div>Mode</div><div id="modeText"></div>
           <div>Host IPv4</div><div id="hostIpText"></div>
@@ -1066,7 +1066,7 @@ static std::string BuildDesktopSelfCheckHtml(std::string_view bundleJson) {
 <head>
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>LAN Screen Share - Desktop Self-Check</title>
+  <title>ViewMesh - Desktop Self-Check</title>
   <style>
     :root { color-scheme: dark; }
     * { box-sizing: border-box; }
@@ -1407,7 +1407,7 @@ static std::string BuildDesktopSelfCheckText(std::wstring_view generatedAt,
                                              std::wstring_view viewerUrl,
                                              const SelfCheckReport& report) {
     std::ostringstream out;
-    out << "LAN Screen Share - Desktop self-check\r\n";
+    out << "ViewMesh - Desktop self-check\r\n";
     out << "=====================================\r\n\r\n";
     out << "Generated: " << WideToUtf8(std::wstring(generatedAt)) << "\r\n";
     out << "Host URL: " << WideToUtf8(std::wstring(hostUrl)) << "\r\n";
@@ -1580,7 +1580,7 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
   <meta charset="utf-8"/>
   <meta name="viewport" content="width=device-width, initial-scale=1"/>
   <meta name="theme-color" content="#050816"/>
-  <title>LAN Screen Share - Share Wizard</title>
+  <title>ViewMesh - Share Wizard</title>
   <style>
     :root { color-scheme: dark; }
     * { box-sizing: border-box; }
@@ -1753,7 +1753,7 @@ static std::string BuildShareWizardHtml(std::string_view bundleJson) {
           <div class="pill">Live auto-refresh: <span id="liveStatusText">enabled</span></div>
           <div class="small">Last sync: <span id="lastSyncText">embedded snapshot</span></div>
         </div>
-        <h1>LAN Screen Share Wizard</h1>
+        <h1>ViewMesh Wizard</h1>
         <p class="sub">This page is generated locally by the desktop host. It packages the current room, token, URLs, hotspot details, and Wi-Fi Direct guidance into one offline handoff bundle.</p>
         <p class="small">After handing off the Viewer URL or QR, return to the desktop Dashboard or tray icon to confirm whether the session is now <strong>Ready For Handoff</strong>, <strong>Needs Fix</strong>, or already <strong>Delivered</strong>.</p>
         <div class="kv">
@@ -2336,7 +2336,7 @@ static std::string BuildShareDiagnosticsText(std::wstring_view generatedAt,
                                              hotspotStatus == L"running", true);
 
     std::ostringstream out;
-    out << "LAN Screen Share diagnostics\r\n";
+    out << "ViewMesh diagnostics\r\n";
     out << "============================\r\n\r\n";
     out << "Generated: " << WideToUtf8(std::wstring(generatedAt)) << "\r\n";
     out << "Mode: " << WideToUtf8(std::wstring(mode)) << "\r\n";
@@ -2418,7 +2418,7 @@ static std::string BuildShareReadmeText(std::wstring_view hostUrl,
                                         bool hotspotRunning,
                                         std::wstring_view wifiDirectAlias) {
     std::ostringstream out;
-    out << "LAN Screen Share bundle\r\n";
+    out << "ViewMesh bundle\r\n";
     out << "========================\r\n\r\n";
     out << "Viewer URL:\r\n" << WideToUtf8(std::wstring(viewerUrl)) << "\r\n\r\n";
     out << "Host URL:\r\n" << WideToUtf8(std::wstring(hostUrl)) << "\r\n\r\n";

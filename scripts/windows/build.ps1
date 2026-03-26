@@ -49,7 +49,7 @@ function Copy-VcpkgRuntimeDlls(
 function Validate-ServerOutputLayout(
   [string]$ServerBinDir
 ) {
-  Assert-PathExists (Join-Path $ServerBinDir "lan_screenshare_server.exe") "server executable"
+  Assert-PathExists (Join-Path $ServerBinDir "ViewMeshServer.exe") "server executable"
   Assert-PathExists (Join-Path $ServerBinDir "www\host.html") "host page"
   Assert-PathExists (Join-Path $ServerBinDir "www\viewer.html") "viewer page"
   Assert-PathExists (Join-Path $ServerBinDir "webui\index.html") "admin shell index"
@@ -80,7 +80,7 @@ if ($BuildRoot -eq "auto") {
     # Use LocalAppData rather than TEMP to avoid MSBuild warnings about Temp output directories.
     # Include the repo folder name to keep the build cache unique per source tree.
     $repoLeaf = Split-Path $root -Leaf
-    $BuildRoot = Join-Path $env:LOCALAPPDATA ("lan_screenshare_build\\" + $repoLeaf)
+    $BuildRoot = Join-Path $env:LOCALAPPDATA ("viewmesh_build\\" + $repoLeaf)
   } else {
     $BuildRoot = $outDir
   }
@@ -191,9 +191,9 @@ try {
   }
 # Locate built exe (generator output paths vary; search recursively)
 # NOTE: Do NOT pass FileInfo objects directly into Copy-Item. PowerShell may coerce them via .ToString(),
-# which can become a relative path (e.g. "lan_screenshare_server.exe") and resolve under $PWD, causing
+# which can become a relative path (e.g. "ViewMeshServer.exe") and resolve under $PWD, causing
 # confusing "file not found" errors even though the build succeeded.
-$serverExeItem = Get-ChildItem -Path $buildDir -Recurse -Filter "lan_screenshare_server.exe" -File -ErrorAction SilentlyContinue |
+$serverExeItem = Get-ChildItem -Path $buildDir -Recurse -Filter "ViewMeshServer.exe" -File -ErrorAction SilentlyContinue |
   Sort-Object -Property LastWriteTime -Descending |
   Select-Object -First 1
 
@@ -216,13 +216,13 @@ $serverExe = $serverExeItem.FullName
 
 $binDir = $serverOutDir
 New-Item -ItemType Directory -Force -Path $binDir | Out-Null
-Copy-Item -Force $serverExe (Join-Path $binDir "lan_screenshare_server.exe")
+Copy-Item -Force $serverExe (Join-Path $binDir "ViewMeshServer.exe")
 Copy-VcpkgRuntimeDlls -RepoRoot $root -Triplet $Triplet -Config $Config -DestinationDir $binDir
 
 # Copy PDB if present (useful for debugging)
 $pdbCandidate = [System.IO.Path]::ChangeExtension($serverExe, ".pdb")
 if (Test-Path $pdbCandidate) {
-  Copy-Item -Force $pdbCandidate (Join-Path $binDir "lan_screenshare_server.pdb")
+  Copy-Item -Force $pdbCandidate (Join-Path $binDir "ViewMeshServer.pdb")
 }
   # Copy www into the server runtime bundle
   $wwwOut = Join-Path $binDir "www"
@@ -251,7 +251,7 @@ if (Test-Path $pdbCandidate) {
 if ($Target -eq "desktop_host" -or $Target -eq "all") {
   Write-Section "Build desktop host app"
 
-  $sln = Join-Path $root "src\desktop_host\LanScreenShareHostApp.sln"
+  $sln = Join-Path $root "src\desktop_host\ViewMeshApp.sln"
   if (-not (Test-Path $sln)) { Fail "Desktop host solution not found: $sln" }
 
   $projDir = Join-Path $root "src\desktop_host"
@@ -300,8 +300,8 @@ if ($Target -eq "desktop_host" -or $Target -eq "all") {
     Copy-VcpkgRuntimeDlls -RepoRoot $root -Triplet $Triplet -Config $Config -DestinationDir $winOut
 
     # Copy server + www next to the desktop host exe (best-effort)
-    $serverBuilt = Join-Path $serverOutDir "lan_screenshare_server.exe"
-    if (Test-Path $serverBuilt) { Copy-Item -Force $serverBuilt (Join-Path $winOut "lan_screenshare_server.exe") }
+    $serverBuilt = Join-Path $serverOutDir "ViewMeshServer.exe"
+    if (Test-Path $serverBuilt) { Copy-Item -Force $serverBuilt (Join-Path $winOut "ViewMeshServer.exe") }
 
     $serverToolsBuilt = Join-Path $serverOutDir "tools"
     if (Test-Path $serverToolsBuilt) {
@@ -335,12 +335,12 @@ Write-Host "BuildDir: $buildDir"
 Write-Host "OutDir:   $outDir"
 Write-Host "LogFile:  $logFile"
 if ($needServer) {
-  $serverExeOut = Join-Path $serverOutDir "lan_screenshare_server.exe"
+  $serverExeOut = Join-Path $serverOutDir "ViewMeshServer.exe"
   Write-Host "ServerDir: $serverOutDir"
   Write-Host "ServerExe: $serverExeOut"
 }
 if ($needDesktopHost) {
-  $desktopExeOut = Join-Path $desktopOutDir "LanScreenShareHostApp.exe"
+  $desktopExeOut = Join-Path $desktopOutDir "ViewMesh.exe"
   Write-Host "DesktopDir: $desktopOutDir"
   Write-Host "DesktopExe: $desktopExeOut"
 }

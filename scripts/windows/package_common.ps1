@@ -2,9 +2,9 @@ param()
 
 . (Join-Path $PSScriptRoot "common.ps1")
 
-$global:LanProductName = "LanScreenShareHost"
-$global:LanPublisher = "LAN Screen Share"
-$global:LanUninstallKey = "Software\Microsoft\Windows\CurrentVersion\Uninstall\LanScreenShareHost"
+$global:LanProductName = "ViewMesh"
+$global:LanPublisher = "ViewMesh"
+$global:LanUninstallKey = "Software\Microsoft\Windows\CurrentVersion\Uninstall\ViewMesh"
 
 function Get-PackageVersion([string]$RepoRoot, [string]$Version) {
   if ($Version) { return $Version }
@@ -46,7 +46,7 @@ function Write-UninstallEntry([string]$Scope, [string]$InstallDir, [string]$Vers
   $root = if ($Scope -eq "machine") { [Microsoft.Win32.Registry]::LocalMachine } else { [Microsoft.Win32.Registry]::CurrentUser }
   $key = $root.CreateSubKey($global:LanUninstallKey)
   if (-not $key) { throw "Unable to create uninstall registry key." }
-  $uninstallScript = Join-Path $InstallDir "Uninstall-LanScreenShare.ps1"
+  $uninstallScript = Join-Path $InstallDir "Uninstall-ViewMesh.ps1"
   $command = "powershell.exe -NoProfile -ExecutionPolicy Bypass -File `"$uninstallScript`" -Scope $Scope"
   $key.SetValue("DisplayName", $global:LanProductName)
   $key.SetValue("Publisher", $global:LanPublisher)

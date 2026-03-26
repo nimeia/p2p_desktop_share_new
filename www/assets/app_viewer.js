@@ -10,7 +10,7 @@ const translateUi = (text) => window.LanShareI18n && typeof window.LanShareI18n.
   ? window.LanShareI18n.translateText(text)
   : text;
 document.getElementById("room").textContent = room || "(missing)";
-document.title = translateUi(room ? `LAN Viewer - ${room}` : "LAN Viewer");
+document.title = translateUi(room ? `ViewMesh Viewer - ${room}` : "ViewMesh Viewer");
 
 const viewerShell = document.getElementById("viewerShell");
 const video = document.getElementById("video");

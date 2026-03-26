@@ -59,10 +59,10 @@ Windows builds are incremental by default. Use `-Clean` only when you need a fre
 
 ## Outputs
 
-- server exe: `out/server/<Config>/lan_screenshare_server.exe`
+- server exe: `out/server/<Config>/ViewMeshServer.exe`
 - server web assets: `out/server/<Config>/www/` and `out/server/<Config>/webui/`
-- desktop host exe: `out/desktop_host/<Arch>/<Config>/LanScreenShareHostApp.exe`
-- desktop bundled runtime: `out/desktop_host/<Arch>/<Config>/lan_screenshare_server.exe`, `www/`, `webui/`
+- desktop host exe: `out/desktop_host/<Arch>/<Config>/ViewMesh.exe`
+- desktop bundled runtime: `out/desktop_host/<Arch>/<Config>/ViewMeshServer.exe`, `www/`, `webui/`
 - build logs: `out/logs/build_*.log`
 
 ## Run
@@ -82,7 +82,7 @@ Run the desktop host:
 Manual server run:
 
 ```powershell
-.\out\server\Release\lan_screenshare_server.exe --bind 0.0.0.0 --host-ip auto --port 9443 --www .\out\server\Release\www --admin-www .\out\server\Release\webui
+.\out\server\Release\ViewMeshServer.exe --bind 0.0.0.0 --host-ip auto --port 9443 --www .\out\server\Release\www --admin-www .\out\server\Release\webui
 ```
 
 Client URLs:

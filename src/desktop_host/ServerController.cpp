@@ -135,7 +135,7 @@ ServerCleanupResult ServerController::CleanupStaleProcess(const ServerOptions& o
     ServerCleanupResult result;
 
     std::filesystem::path exe = opt.executable;
-    if (exe.empty()) exe = std::filesystem::current_path() / L"lan_screenshare_server.exe";
+    if (exe.empty()) exe = std::filesystem::current_path() / L"ViewMeshServer.exe";
     if (!std::filesystem::exists(exe)) {
         result.message = L"Cannot recover stale server because the executable is missing: " + exe.wstring();
         return result;
@@ -197,7 +197,7 @@ ServerCleanupResult ServerController::CleanupStaleProcess(const ServerOptions& o
 
     std::wstringstream ss;
     if (!stoppedPids.empty()) {
-        ss << L"Recovered stale lan_screenshare_server instance";
+        ss << L"Recovered stale ViewMeshServer instance";
         if (stoppedPids.size() > 1) ss << L"s";
         ss << L": ";
         for (std::size_t i = 0; i < stoppedPids.size(); ++i) {
@@ -245,7 +245,7 @@ ServerStartResult ServerController::Start(const ServerOptions& opt) {
     Cleanup();
 
     std::filesystem::path exe = opt.executable;
-    if (exe.empty()) exe = std::filesystem::current_path() / L"lan_screenshare_server.exe";
+    if (exe.empty()) exe = std::filesystem::current_path() / L"ViewMeshServer.exe";
 
     std::filesystem::path www = opt.wwwDir;
     if (www.empty()) www = std::filesystem::current_path() / L"www";

@@ -46,7 +46,7 @@ Packaged builds include the same helper under `scripts/windows/Run-NetworkDiagno
 ## Operator checklist
 
 - confirm the desktop host or local server is running
-- confirm the viewer is using the LAN Viewer URL shown by the desktop host
+- confirm the viewer is using the ViewMesh Viewer URL shown by the desktop host
 - if embedded preview is blank, run `Check-WebView2Runtime.ps1`
 - if remote devices cannot connect, run `Run-NetworkDiagnostics.ps1`
 

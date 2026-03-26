@@ -26,8 +26,8 @@
     settings: { en: "Settings", "zh-CN": "设置", "zh-TW": "設定", ko: "설정", ja: "設定", de: "Einstellungen", ru: "Настройки" },
     host: { en: "Host", "zh-CN": "主控端", "zh-TW": "主控端", ko: "호스트", ja: "ホスト", de: "Host", ru: "Хост" },
     viewer: { en: "Viewer", "zh-CN": "接收端", "zh-TW": "接收端", ko: "뷰어", ja: "ビューアー", de: "Viewer", ru: "Клиент" },
-    lan_host: { en: "LAN Host", "zh-CN": "局域网主控端", "zh-TW": "區域網主控端", ko: "LAN 호스트", ja: "LAN ホスト", de: "LAN-Host", ru: "LAN-хост" },
-    lan_viewer: { en: "LAN Viewer", "zh-CN": "局域网接收端", "zh-TW": "區域網接收端", ko: "LAN 뷰어", ja: "LAN ビューアー", de: "LAN-Viewer", ru: "LAN Viewer" },
+    lan_host: { en: "ViewMesh Host", "zh-CN": "ViewMesh Host", "zh-TW": "ViewMesh Host", ko: "ViewMesh Host", ja: "ViewMesh Host", de: "ViewMesh Host", ru: "ViewMesh Host" },
+    lan_viewer: { en: "ViewMesh Viewer", "zh-CN": "ViewMesh Viewer", "zh-TW": "ViewMesh Viewer", ko: "ViewMesh Viewer", ja: "ViewMesh Viewer", de: "ViewMesh Viewer", ru: "ViewMesh Viewer" },
     room: { en: "Room", "zh-CN": "房间", "zh-TW": "房間", ko: "룸", ja: "ルーム", de: "Raum", ru: "Комната" },
     viewers: { en: "Viewers", "zh-CN": "接收方", "zh-TW": "接收方", ko: "뷰어", ja: "閲覧側", de: "Viewer", ru: "Зрители" },
     token: { en: "Token", "zh-CN": "令牌", "zh-TW": "權杖", ko: "토큰", ja: "トークン", de: "Token", ru: "Токен" },
@@ -41,7 +41,7 @@
     fullscreen: { en: "fullscreen", "zh-CN": "全屏", "zh-TW": "全螢幕", ko: "전체 화면", ja: "全画面", de: "Vollbild", ru: "полный экран" },
     installed: { en: "installed", "zh-CN": "已安装", "zh-TW": "已安裝", ko: "설치됨", ja: "インストール済み", de: "installiert", ru: "установлено" },
     missing: { en: "(missing)", "zh-CN": "（缺失）", "zh-TW": "（缺失）", ko: "(없음)", ja: "（未設定）", de: "(fehlt)", ru: "(отсутствует)" },
-    language_title: { en: "LanScreenShare Guide & Console", "zh-CN": "LanScreenShare 引导与控制台", "zh-TW": "LanScreenShare 引導與控制台", ko: "LanScreenShare 안내 및 콘솔", ja: "LanScreenShare ガイドとコンソール", de: "LanScreenShare Anleitung und Konsole", ru: "LanScreenShare: мастер и консоль" },
+    language_title: { en: "ViewMesh Guide & Console", "zh-CN": "ViewMesh 引导与控制台", "zh-TW": "ViewMesh 引導與控制台", ko: "ViewMesh 안내 및 콘솔", ja: "ViewMesh ガイドとコンソール", de: "ViewMesh Anleitung und Konsole", ru: "ViewMesh: мастер и консоль" },
     re_detect: { en: "Re-Detect", "zh-CN": "重新检测", "zh-TW": "重新偵測", ko: "다시 감지", ja: "再検出", de: "Erneut erkennen", ru: "Проверить снова" },
     advanced_diagnostics: { en: "Advanced Diagnostics", "zh-CN": "高级诊断", "zh-TW": "進階診斷", ko: "고급 진단", ja: "詳細診断", de: "Erweiterte Diagnose", ru: "Расширенная диагностика" },
     start_sharing: { en: "Start Sharing", "zh-CN": "开始共享", "zh-TW": "開始分享", ko: "공유 시작", ja: "共有を開始", de: "Freigabe starten", ru: "Начать показ" },
@@ -158,25 +158,15 @@
   };
 
   function translateByPattern(text, locale) {
-    let match = text.match(/^LAN Host - (.+)$/);
+    let match = text.match(/^ViewMesh Host - (.+)$/);
     if (match) {
       const room = match[1];
-      if (locale === "zh-CN") return `局域网主控端 - ${room}`;
-      if (locale === "zh-TW") return `區域網主控端 - ${room}`;
-      if (locale === "ko") return `LAN 호스트 - ${room}`;
-      if (locale === "ja") return `LAN ホスト - ${room}`;
-      if (locale === "de") return `LAN-Host - ${room}`;
-      if (locale === "ru") return `LAN-хост - ${room}`;
+      if (locale !== "en") return `ViewMesh Host - ${room}`;
     }
-    match = text.match(/^LAN Viewer - (.+)$/);
+    match = text.match(/^ViewMesh Viewer - (.+)$/);
     if (match) {
       const room = match[1];
-      if (locale === "zh-CN") return `局域网接收端 - ${room}`;
-      if (locale === "zh-TW") return `區域網接收端 - ${room}`;
-      if (locale === "ko") return `LAN 뷰어 - ${room}`;
-      if (locale === "ja") return `LAN ビューアー - ${room}`;
-      if (locale === "de") return `LAN-Viewer - ${room}`;
-      if (locale === "ru") return `LAN Viewer - ${room}`;
+      if (locale !== "en") return `ViewMesh Viewer - ${room}`;
     }
     return text;
   }

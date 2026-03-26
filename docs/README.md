@@ -11,6 +11,8 @@ This folder now mixes two kinds of documents:
 - [BUILD_WINDOWS.md](BUILD_WINDOWS.md): current Windows build and validation workflow
 - [WINDOWS_PACKAGING.md](WINDOWS_PACKAGING.md): zip packaging and install/uninstall flow
 - [WINDOWS_STORE_PACKAGING.md](WINDOWS_STORE_PACKAGING.md): MSIX / Store packaging flow
+- [PRIVACY_POLICY.md](PRIVACY_POLICY.md): draft privacy policy for Store / public listing
+- [STORE_CERTIFICATION_NOTES.md](STORE_CERTIFICATION_NOTES.md): tester-facing notes for Partner Center submission
 - [WINDOWS_BOOTSTRAP_GUIDE.md](WINDOWS_BOOTSTRAP_GUIDE.md): current Windows operator checks
 - [RELEASE_VALIDATION.md](RELEASE_VALIDATION.md): browser smoke plus desktop payload validation
 

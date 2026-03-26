@@ -4,10 +4,10 @@
 
 namespace {
 
-constexpr wchar_t kSingleInstanceMutexName[] = L"Local\\LanScreenShareHostApp.Singleton";
+constexpr wchar_t kSingleInstanceMutexName[] = L"Local\\ViewMeshApp.Singleton";
 
 HWND FindExistingHostWindow() {
-    return FindWindowW(L"LanScreenShareHostApp", nullptr);
+    return FindWindowW(L"ViewMeshApp", nullptr);
 }
 
 bool WakeExistingInstance() {

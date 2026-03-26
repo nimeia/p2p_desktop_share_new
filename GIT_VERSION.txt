@@ -1,4 +1,4 @@
-LanScreenShareHost - Git version manifest
+ViewMesh - Git version manifest
 
 Current packaged commit: 5a0d567
 Commit message: Add packaging and WebView2 bootstrap baseline

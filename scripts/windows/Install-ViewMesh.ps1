@@ -19,7 +19,7 @@ $manifest = Get-Content -LiteralPath $manifestPath -Raw | ConvertFrom-Json
 $version = [string]$manifest.version
 $installDir = Get-InstallRoot -Scope $Scope
 
-Write-Section "Install LAN Screen Share"
+Write-Section "Install ViewMesh"
 Write-Host "PackageRoot: $PackageRoot"
 Write-Host "InstallDir:  $installDir"
 Write-Host "Scope:       $Scope"
@@ -31,9 +31,9 @@ Get-ChildItem -LiteralPath $PackageRoot -Force | ForEach-Object {
   Copy-Item -LiteralPath $_.FullName -Destination (Join-Path $installDir $_.Name) -Recurse -Force
 }
 
-$exe = Join-Path $installDir "LanScreenShareHostApp.exe"
+$exe = Join-Path $installDir "ViewMesh.exe"
 if (-not (Test-Path -LiteralPath $exe)) {
-  Fail "Installed payload is missing LanScreenShareHostApp.exe"
+  Fail "Installed payload is missing ViewMesh.exe"
 }
 
 $startMenuDir = if ($Scope -eq "machine") {
@@ -42,10 +42,10 @@ $startMenuDir = if ($Scope -eq "machine") {
   Join-Path $env:APPDATA "Microsoft\Windows\Start Menu\Programs"
 }
 $startMenuShortcut = Join-Path $startMenuDir ($global:LanProductName + ".lnk")
-New-Shortcut -ShortcutPath $startMenuShortcut -TargetPath $exe -Description "LAN Screen Share desktop host"
+New-Shortcut -ShortcutPath $startMenuShortcut -TargetPath $exe -Description "ViewMesh desktop host"
 if ($CreateDesktopShortcut) {
   $desktop = [Environment]::GetFolderPath("Desktop")
-  New-Shortcut -ShortcutPath (Join-Path $desktop ($global:LanProductName + ".lnk")) -TargetPath $exe -Description "LAN Screen Share desktop host"
+  New-Shortcut -ShortcutPath (Join-Path $desktop ($global:LanProductName + ".lnk")) -TargetPath $exe -Description "ViewMesh desktop host"
 }
 
 Write-UninstallEntry -Scope $Scope -InstallDir $installDir -Version $version

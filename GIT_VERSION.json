@@ -1,5 +1,5 @@
 {
-  "project": "LanScreenShareHost",
+  "project": "ViewMesh",
   "current_commit": "5a0d567",
   "current_message": "Add packaging and WebView2 bootstrap baseline",
   "related_commits": [

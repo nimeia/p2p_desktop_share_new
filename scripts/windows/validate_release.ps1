@@ -17,8 +17,8 @@ if (-not $DesktopDir) {
 
 Write-Section "Validate desktop payload layout"
 Assert-PathExists $DesktopDir "desktop output directory"
-Assert-PathExists (Join-Path $DesktopDir "LanScreenShareHostApp.exe") "desktop host executable"
-Assert-PathExists (Join-Path $DesktopDir "lan_screenshare_server.exe") "bundled server executable"
+Assert-PathExists (Join-Path $DesktopDir "ViewMesh.exe") "desktop host executable"
+Assert-PathExists (Join-Path $DesktopDir "ViewMeshServer.exe") "bundled server executable"
 Assert-PathExists (Join-Path $DesktopDir "www\host.html") "bundled host page"
 Assert-PathExists (Join-Path $DesktopDir "www\viewer.html") "bundled viewer page"
 Assert-PathExists (Join-Path $DesktopDir "www\assets\common.js") "bundled common.js"
@@ -29,7 +29,7 @@ Assert-PathExists (Join-Path $DesktopDir "webui\style.css") "embedded desktop st
 if (-not $SkipServerSmoke) {
   Write-Section "Smoke test bundled server"
   & (Join-Path $root "scripts\windows\smoke_server.ps1") `
-    -ServerExe (Join-Path $DesktopDir "lan_screenshare_server.exe") `
+    -ServerExe (Join-Path $DesktopDir "ViewMeshServer.exe") `
     -WwwRoot (Join-Path $DesktopDir "www") `
     -AdminWww (Join-Path $DesktopDir "webui") `
     -BindHost "127.0.0.1" `
@@ -39,7 +39,7 @@ if (-not $SkipServerSmoke) {
 
 if (-not $SkipDesktopLaunch) {
   Write-Section "Launch desktop host"
-  $exe = Join-Path $DesktopDir "LanScreenShareHostApp.exe"
+  $exe = Join-Path $DesktopDir "ViewMesh.exe"
   $proc = Start-Process -FilePath $exe -WorkingDirectory $DesktopDir -PassThru
   try {
     Start-Sleep -Seconds $LaunchSeconds

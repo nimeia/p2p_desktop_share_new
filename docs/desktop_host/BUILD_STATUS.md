@@ -6,7 +6,7 @@ The current repository baseline provides:
 
 - a scriptable Windows desktop-host build under `out\desktop_host\<Arch>\<Config>\`
 - a scriptable local server build under `out\server\<Config>\`
-- bundled desktop runtime layout with `lan_screenshare_server.exe`, `www\`, and `webui\`
+- bundled desktop runtime layout with `ViewMeshServer.exe`, `www\`, and `webui\`
 - Windows validation helpers for server smoke, browser smoke, desktop payload validation, WebView2 runtime checks, and local network diagnostics
 
 ## What works in the current build flow

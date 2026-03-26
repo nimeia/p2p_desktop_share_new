@@ -118,7 +118,7 @@ inline std::filesystem::path LocalePreferencePath() {
   wchar_t localAppData[MAX_PATH]{};
   const DWORD len = GetEnvironmentVariableW(L"LOCALAPPDATA", localAppData, MAX_PATH);
   if (len > 0 && len < MAX_PATH) {
-    return std::filesystem::path(localAppData) / L"LanScreenShareHostApp" / L"settings" / L"locale.txt";
+    return std::filesystem::path(localAppData) / L"ViewMeshApp" / L"settings" / L"locale.txt";
   }
 #endif
   const char* home = std::getenv("HOME");
@@ -252,7 +252,7 @@ inline const NativeTranslationEntry* FindNativeTranslation(std::wstring_view key
       {L"Healthy", L"Healthy", L"健康", L"健康", L"정상", L"正常", L"In Ordnung", L"Исправно"},
       {L"Health degraded", L"Health degraded", L"健康异常", L"健康異常", L"상태 저하", L"状態低下", L"Gesundheit beeinträchtigt", L"Состояние ухудшено"},
       {L"Service stopped", L"Service stopped", L"服务已停止", L"服務已停止", L"서비스 중지됨", L"サービス停止", L"Dienst gestoppt", L"Служба остановлена"},
-      {L"LAN Screen Share Host", L"LAN Screen Share Host", L"局域网屏幕共享主机", L"區域網路螢幕分享主機", L"LAN 화면 공유 호스트", L"LAN 画面共有ホスト", L"LAN-Bildschirmfreigabe Host", L"Хост LAN Screen Share"},
+      {L"ViewMesh Host", L"ViewMesh Host", L"ViewMesh Host", L"ViewMesh Host", L"ViewMesh Host", L"ViewMesh Host", L"ViewMesh Host", L"ViewMesh Host"},
       {L"Attention needed", L"Attention needed", L"需要关注", L"需要注意", L"주의 필요", L"要対応", L"Aufmerksamkeit erforderlich", L"Требуется внимание"},
       {L"The local sharing service is stopped.", L"The local sharing service is stopped.", L"本地共享服务已停止。", L"本地共享服務已停止。", L"로컬 공유 서비스가 중지되었습니다.", L"ローカル共有サービスは停止しています。", L"Der lokale Freigabedienst ist angehalten.", L"Локальная служба общего доступа остановлена."},
       {L"Waiting for viewers.", L"Waiting for viewers.", L"等待接收方连接。", L"等待接收方連線。", L"뷰어 연결 대기 중입니다.", L"閲覧側の接続を待機しています。", L"Warten auf Viewer.", L"Ожидание подключений зрителей."},
@@ -376,12 +376,12 @@ inline std::wstring TranslateNativeText(std::wstring_view source, std::wstring_v
     if (normalized == L"ru") return count + L" зрителей";
   }
 
-  const std::wstring tooltipPrefix = L"LAN Screen Share Host - ";
+  const std::wstring tooltipPrefix = L"ViewMesh Host - ";
   if (s.rfind(tooltipPrefix, 0) == 0) {
     const std::wstring rest = s.substr(tooltipPrefix.size());
     const std::wstring translatedRest = TranslateNativeText(rest, normalized);
     if (!translatedRest.empty() && translatedRest != rest) {
-      return TranslateNativeText(L"LAN Screen Share Host", normalized) + L" - " + translatedRest;
+      return TranslateNativeText(L"ViewMesh Host", normalized) + L" - " + translatedRest;
     }
   }
 

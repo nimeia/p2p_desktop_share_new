@@ -238,7 +238,7 @@ function New-StoreAssetBitmap(
       try {
         $textX = [int][Math]::Round($Width * 0.08) + $iconSize + [int][Math]::Round($Width * 0.05)
         $graphics.DrawString($Title, $titleFont, $titleBrush, [single]$textX, [single][Math]::Round($Height * 0.24))
-        $graphics.DrawString("LAN Screen Share", $captionFont, $captionBrush, [single]$textX, [single][Math]::Round($Height * 0.55))
+        $graphics.DrawString("ViewMesh", $captionFont, $captionBrush, [single]$textX, [single][Math]::Round($Height * 0.55))
       } finally {
         $titleFont.Dispose()
         $captionFont.Dispose()
@@ -319,8 +319,8 @@ try {
     @{ Name = "Square71x71Logo.png"; Width = 71; Height = 71; Title = "Tile" },
     @{ Name = "Square150x150Logo.png"; Width = 150; Height = 150; Title = "Tile" },
     @{ Name = "Square310x310Logo.png"; Width = 310; Height = 310; Title = "Tile" },
-    @{ Name = "Wide310x150Logo.png"; Width = 310; Height = 150; Title = "LAN Screen Share Host" },
-    @{ Name = "SplashScreen.png"; Width = 620; Height = 300; Title = "LAN Screen Share Host" }
+    @{ Name = "Wide310x150Logo.png"; Width = 310; Height = 150; Title = "ViewMesh Host" },
+    @{ Name = "SplashScreen.png"; Width = 620; Height = 300; Title = "ViewMesh Host" }
   )
   foreach ($spec in $storeSpecs) {
     $bitmap = New-StoreAssetBitmap -Source $appSource -Width $spec.Width -Height $spec.Height -Title $spec.Title

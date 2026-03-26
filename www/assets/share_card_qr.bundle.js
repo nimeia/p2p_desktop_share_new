@@ -1,4 +1,4 @@
-// Bundled local QR renderer for LAN Screen Share share card.
+// Bundled local QR renderer for ViewMesh share card.
 // Derived from qrcode-terminal vendor/QRCode browser-unaware CommonJS sources.
 // Original QRCode for JavaScript header preserved below.
 

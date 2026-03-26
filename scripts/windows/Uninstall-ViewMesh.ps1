@@ -9,7 +9,7 @@ $helperDir = Join-Path $scriptDir "scripts\windows"
 . (Join-Path $helperDir "package_common.ps1")
 
 $installDir = Get-InstallRoot -Scope $Scope
-Write-Section "Uninstall LAN Screen Share"
+Write-Section "Uninstall ViewMesh"
 Write-Host "InstallDir: $installDir"
 
 $startMenuDir = if ($Scope -eq "machine") {
@@ -26,7 +26,7 @@ if (Test-Path -LiteralPath $installDir) {
   Remove-Item -LiteralPath $installDir -Recurse -Force -ErrorAction SilentlyContinue
 }
 if ($RemoveUserData) {
-  $userData = Join-Path $env:LOCALAPPDATA "LanScreenShareHostApp"
+  $userData = Join-Path $env:LOCALAPPDATA "ViewMeshApp"
   if (Test-Path -LiteralPath $userData) {
     Remove-Item -LiteralPath $userData -Recurse -Force -ErrorAction SilentlyContinue
   }

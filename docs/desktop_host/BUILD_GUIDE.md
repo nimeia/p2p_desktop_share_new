@@ -22,7 +22,7 @@ Advanced Windows-only build entry point:
 .\scripts\windows\build.ps1 -Target desktop_host -Config Debug -SkipDesktopValidation
 ```
 
-You can also open and build `src/desktop_host/LanScreenShareHostApp.sln` directly in Visual Studio, but the scripts are the authoritative path because they also copy the bundled runtime layout.
+You can also open and build `src/desktop_host/ViewMeshApp.sln` directly in Visual Studio, but the scripts are the authoritative path because they also copy the bundled runtime layout.
 
 ## Run
 
@@ -41,7 +41,7 @@ Run the local server directly:
 Manual server run:
 
 ```powershell
-.\out\server\Debug\lan_screenshare_server.exe --bind 0.0.0.0 --host-ip auto --port 9443 --www .\out\server\Debug\www --admin-www .\out\server\Debug\webui
+.\out\server\Debug\ViewMeshServer.exe --bind 0.0.0.0 --host-ip auto --port 9443 --www .\out\server\Debug\www --admin-www .\out\server\Debug\webui
 ```
 
 ## Outputs
@@ -52,8 +52,8 @@ Manual server run:
 
 The desktop output bundles:
 
-- `LanScreenShareHostApp.exe`
-- `lan_screenshare_server.exe`
+- `ViewMesh.exe`
+- `ViewMeshServer.exe`
 - `www\`
 - `webui\`
 

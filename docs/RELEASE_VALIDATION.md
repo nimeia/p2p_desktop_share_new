@@ -25,8 +25,8 @@ Implemented by `scripts/windows/validate_release.ps1`.
 Current coverage:
 
 - validates the desktop payload layout
-- smoke-tests the bundled `lan_screenshare_server.exe` from the desktop output directory
-- launch-tests `LanScreenShareHostApp.exe` and fails if it exits immediately
+- smoke-tests the bundled `ViewMeshServer.exe` from the desktop output directory
+- launch-tests `ViewMesh.exe` and fails if it exits immediately
 
 Run it with:
 
