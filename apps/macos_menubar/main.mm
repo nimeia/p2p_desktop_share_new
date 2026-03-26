@@ -103,7 +103,7 @@ NSImage* LoadMenuBarImage(NSString* name) {
   }
 
   if (image) {
-    image.template = YES;
+    [image setTemplate:YES];
   }
   return image;
 }
