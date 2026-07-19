@@ -3,6 +3,9 @@
 #include "core/protocol/messages.h"
 #include "ws_hub.h"
 
+#include <cinttypes>
+#include <cstdio>
+#include <filesystem>
 #include <fstream>
 #include <sstream>
 
@@ -41,6 +44,22 @@ inline bool ReadAllBytes(const std::string& path, std::string& out) {
   oss << ifs.rdbuf();
   out = oss.str();
   return true;
+}
+
+// Weak validator derived from file size + mtime. Cheap to compute, changes
+// whenever the file is rebuilt/copied, and needs no date parsing.
+inline std::string ComputeFileEtag(const std::string& path) {
+  std::error_code ec;
+  const std::filesystem::path p(path);
+  const auto size = std::filesystem::file_size(p, ec);
+  if (ec) return {};
+  const auto mtime = std::filesystem::last_write_time(p, ec);
+  if (ec) return {};
+  const auto ticks = static_cast<std::uint64_t>(mtime.time_since_epoch().count());
+  char buf[48];
+  std::snprintf(buf, sizeof(buf), "\"%" PRIx64 "-%" PRIx64 "\"",
+                static_cast<std::uint64_t>(size), ticks);
+  return buf;
 }
 
 } // namespace
@@ -112,10 +131,27 @@ http::response<http::string_body> HttpRouter::HandleRequest(
   const auto path = MapPath(target);
   if (path.empty()) return NotFound(req);
 
+  // Conditional GET: clients cache assets but must revalidate ("no-cache");
+  // an unchanged file answers with an empty 304 instead of the full body.
+  const auto etag = ComputeFileEtag(path);
+  if (!etag.empty()) {
+    const auto inm = req.find(http::field::if_none_match);
+    if (inm != req.end() && inm->value() == etag) {
+      auto res = MakeText(req, http::status::not_modified, GuessMime(path), std::string());
+      res.set(http::field::etag, etag);
+      res.set(http::field::cache_control, "no-cache");
+      return res;
+    }
+  }
+
   std::string content;
   if (!ReadAllBytes(path, content)) return NotFound(req);
 
   auto res = MakeText(req, http::status::ok, GuessMime(path), std::move(content));
+  if (!etag.empty()) {
+    res.set(http::field::etag, etag);
+    res.set(http::field::cache_control, "no-cache");
+  }
   return res;
 }
 
