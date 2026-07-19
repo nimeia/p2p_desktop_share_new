@@ -16,7 +16,9 @@ struct ServiceHost::Impl {
   ServiceConfig cfg{};
   ServiceStatus status{};
 
-  boost::asio::io_context ioc{1};
+  // No concurrency hint: RunThreads() drives this io_context from multiple
+  // threads, so it must not be constructed with the single-thread hint (1).
+  boost::asio::io_context ioc;
   std::shared_ptr<WsHub> hub;
   std::unique_ptr<Listener> listener;
   std::vector<std::thread> threads;

@@ -14,7 +14,9 @@ void WsSession::HandleMessage(const std::string& text) {
   auto v = boost::json::parse(text, jec);
   if (jec || !v.is_object()) return;
 
-  auto obj = v.as_object(); // copy, so we can safely mutate (e.g. add "from")
+  // Mutate the parsed value in place; `v` is owned by this frame, so no copy
+  // of the (potentially multi-KB SDP) DOM is needed.
+  auto& obj = v.as_object();
 
   const auto typeOpt = lan::protocol::GetString(obj, "type");
   if (!typeOpt) return;

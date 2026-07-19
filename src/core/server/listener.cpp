@@ -35,6 +35,10 @@ void Listener::DoAccept() {
     boost::asio::make_strand(ioc_),
     [this](boost::system::error_code ec, tcp::socket socket) {
       if (!ec) {
+        // Disable Nagle: signaling and API traffic is many small messages,
+        // where coalescing delays hurt far more than the saved packets.
+        boost::system::error_code nec;
+        socket.set_option(tcp::no_delay(true), nec);
         // Spawn a session per connection
         std::make_shared<HttpSession>(std::move(socket), hub_, router_)->Run();
       } else {
