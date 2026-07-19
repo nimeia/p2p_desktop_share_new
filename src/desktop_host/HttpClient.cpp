@@ -10,10 +10,19 @@ static std::wstring LastErrorText(DWORD err) {
     return buf;
 }
 
+// One process-wide WinHTTP session. WinHTTP keeps its keep-alive connection
+// pool per session handle, so reusing the session lets the 1s status poll
+// reuse its TCP connection instead of opening a fresh one every call.
+// Session handles are thread-safe; the OS reclaims the handle at exit.
+static HINTERNET SharedSession() {
+    static HINTERNET session = WinHttpOpen(L"ViewMesh/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
+                                           WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+    return session;
+}
+
 HttpResponse HttpClient::Get(const std::wstring& url, DWORD timeoutMs) {
     HttpResponse out;
 
-    HINTERNET hSession = nullptr;
     HINTERNET hConnect = nullptr;
     HINTERNET hRequest = nullptr;
 
@@ -32,18 +41,15 @@ HttpResponse HttpClient::Get(const std::wstring& url, DWORD timeoutMs) {
         return out;
     }
 
-    hSession = WinHttpOpen(L"ViewMesh/1.0", WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
+    HINTERNET hSession = SharedSession();
     if (!hSession) {
         out.error = L"WinHttpOpen failed: " + LastErrorText(GetLastError());
         return out;
     }
 
-    WinHttpSetTimeouts(hSession, timeoutMs, timeoutMs, timeoutMs, timeoutMs);
-
     hConnect = WinHttpConnect(hSession, uc.lpszHostName, uc.nPort, 0);
     if (!hConnect) {
         out.error = L"WinHttpConnect failed: " + LastErrorText(GetLastError());
-        WinHttpCloseHandle(hSession);
         return out;
     }
 
@@ -54,15 +60,17 @@ HttpResponse HttpClient::Get(const std::wstring& url, DWORD timeoutMs) {
     if (!hRequest) {
         out.error = L"WinHttpOpenRequest failed: " + LastErrorText(GetLastError());
         WinHttpCloseHandle(hConnect);
-        WinHttpCloseHandle(hSession);
         return out;
     }
+
+    // The session is shared across threads, so timeouts are applied to the
+    // per-call request handle rather than mutating shared state.
+    WinHttpSetTimeouts(hRequest, timeoutMs, timeoutMs, timeoutMs, timeoutMs);
 
     if (!WinHttpSendRequest(hRequest, WINHTTP_NO_ADDITIONAL_HEADERS, 0, WINHTTP_NO_REQUEST_DATA, 0, 0, 0)) {
         out.error = L"WinHttpSendRequest failed: " + LastErrorText(GetLastError());
         WinHttpCloseHandle(hRequest);
         WinHttpCloseHandle(hConnect);
-        WinHttpCloseHandle(hSession);
         return out;
     }
 
@@ -70,7 +78,6 @@ HttpResponse HttpClient::Get(const std::wstring& url, DWORD timeoutMs) {
         out.error = L"WinHttpReceiveResponse failed: " + LastErrorText(GetLastError());
         WinHttpCloseHandle(hRequest);
         WinHttpCloseHandle(hConnect);
-        WinHttpCloseHandle(hSession);
         return out;
     }
 
@@ -95,6 +102,5 @@ HttpResponse HttpClient::Get(const std::wstring& url, DWORD timeoutMs) {
 
     WinHttpCloseHandle(hRequest);
     WinHttpCloseHandle(hConnect);
-    WinHttpCloseHandle(hSession);
     return out;
 }
