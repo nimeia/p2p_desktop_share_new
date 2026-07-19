@@ -228,9 +228,10 @@
     share_target_updated: makeLocalMessage("The shared target has been updated.", "共享目标已更新。", "分享目標已更新。"),
     share_selection_canceled: makeLocalMessage("You canceled the share selection. You can start again.", "你已取消共享选择，可以重新开始。", "你已取消分享選擇，可以重新開始。"),
     share_start_failed: makeLocalMessage("Sharing failed to start. Retry or open advanced diagnostics.", "共享启动失败，请重试或进入高级诊断。", "分享啟動失敗，請重試或進入進階診斷。"),
-    bridge_unavailable: makeLocalMessage("Bridge unavailable", "桥接不可用", "橋接不可用"),
-    bridge_live_running: makeLocalMessage("Bridge live / service running", "桥接在线 / 服务运行中", "橋接在線 / 服務運行中"),
-    bridge_live: makeLocalMessage("Bridge live", "桥接在线", "橋接在線"),
+    bridge_unavailable: makeLocalMessage("Desktop link unavailable", "未连接到桌面程序", "未連接到桌面程式"),
+    bridge_live_running: makeLocalMessage("Connected · service running", "已连接 · 服务运行中", "已連接 · 服務運行中"),
+    bridge_live: makeLocalMessage("Connected", "已连接", "已連接"),
+    bridge_browser_mode: makeLocalMessage("Browser mode (not the desktop app)", "浏览器模式（非桌面程序）", "瀏覽器模式（非桌面程式）"),
     dashboard_ready_detail: makeLocalMessage("Service and host page look ready for the next sharing session.", "服务与 Host 页面已准备好下一次共享。", "服務與 Host 頁面已準備好下一次分享。"),
     dashboard_sharing_detail: makeLocalMessage("Sharing is active. The viewer link can be handed off right now.", "共享正在进行。现在可以把接收链接交给对方。", "分享正在進行。現在可以把接收連結交給對方。"),
     dashboard_error_detail: makeLocalMessage("The service is running, but live checks are still failing.", "服务已经启动，但实时检查仍然失败。", "服務已啟動，但即時檢查仍然失敗。"),
@@ -2824,7 +2825,7 @@
 
   function bindBridge() {
     if (!window.chrome || !window.chrome.webview) {
-      setText("bridgeStatus", "Running outside WebView2");
+      setText("bridgeStatus", localMessage("bridge_browser_mode"));
       applyLocalTranslations(document.body || document.documentElement);
       return;
     }

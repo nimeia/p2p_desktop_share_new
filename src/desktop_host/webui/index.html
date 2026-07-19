@@ -214,27 +214,17 @@
         </article>
       </section>
 
-      <section class="summary-grid">
-        <article class="card debug-card">
-          <div class="card-head">
-            <h2>Debug Trace</h2>
-            <button class="ghost" id="shareDebugClearBtn" data-local-action="clear-share-debug">Clear</button>
-          </div>
-          <dl id="shareDebugMeta"></dl>
-          <pre class="debug-log" id="shareDebugLog">No debug entries yet.</pre>
-        </article>
-      </section>
     </section>
 
     <div class="advanced-shell" data-route-view="advanced" hidden>
       <header class="hero">
         <div class="hero-copy">
-          <p class="eyebrow">Migration Workspace</p>
-          <h1>HTML Admin Shell</h1>
-          <p class="subtitle">The desktop-only admin shell is now the primary operator workspace for Dashboard, Session, Network, Sharing, Monitor, Diagnostics, and Settings.</p>
+          <p class="eyebrow">高级模式</p>
+          <h1>高级诊断与设置</h1>
+          <p class="subtitle">这里提供会话、网络、共享、监控、诊断与设置的完整控制。日常共享用不到，遇到问题时再进来。</p>
         </div>
         <div class="hero-meta">
-          <div class="status idle" id="bridgeStatus">Waiting for bridge</div>
+          <div class="status idle" id="bridgeStatus">正在连接…</div>
           <div class="action-row compact">
             <label class="locale-inline">
               <span>Language</span>
@@ -242,18 +232,18 @@
             </label>
             <button class="ghost" data-route-target="last-simple">返回简化模式</button>
           </div>
-          <div class="native-note">The HTML admin shell now owns the main workflow. Native pages remain in place only as a fallback when WebView2 is unavailable.</div>
+          <div class="native-note">当 WebView2 不可用时，系统会自动回退到原生页面。</div>
         </div>
       </header>
 
       <nav class="tabs">
-        <button class="tab active" data-tab="dashboard">Dashboard</button>
-        <button class="tab" data-tab="session">Session</button>
-        <button class="tab" data-tab="network">Network</button>
-        <button class="tab" data-tab="sharing">Sharing</button>
-        <button class="tab" data-tab="monitor">Monitor</button>
-        <button class="tab" data-tab="diagnostics">Diagnostics</button>
-        <button class="tab" data-tab="settings">Settings</button>
+        <button class="tab active" data-tab="dashboard">概览</button>
+        <button class="tab" data-tab="session">会话</button>
+        <button class="tab" data-tab="network">网络</button>
+        <button class="tab" data-tab="sharing">共享</button>
+        <button class="tab" data-tab="monitor">监控</button>
+        <button class="tab" data-tab="diagnostics">诊断</button>
+        <button class="tab" data-tab="settings">设置</button>
       </nav>
 
       <section class="view active" data-view="dashboard">
@@ -593,10 +583,10 @@
 
       <section class="card">
         <div class="card-head">
-          <h2>Raw Snapshot</h2>
+          <h2>原始状态数据</h2>
           <div class="action-row compact">
-            <button class="ghost" data-command="request-snapshot">Refresh Snapshot</button>
-            <span class="muted">Useful while the HTML shell is still under active migration.</span>
+            <button class="ghost" data-command="request-snapshot">刷新状态</button>
+            <span class="muted">仅在排查问题时参考。</span>
           </div>
         </div>
         <pre id="rawState">{}</pre>
