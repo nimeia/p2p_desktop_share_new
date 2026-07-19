@@ -232,6 +232,7 @@
     bridge_live_running: makeLocalMessage("Connected · service running", "已连接 · 服务运行中", "已連接 · 服務運行中"),
     bridge_live: makeLocalMessage("Connected", "已连接", "已連接"),
     bridge_browser_mode: makeLocalMessage("Browser mode (not the desktop app)", "浏览器模式（非桌面程序）", "瀏覽器模式（非桌面程式）"),
+    no_hotspot_same_wifi: makeLocalMessage("Not using a hotspot — the viewer just needs to be on the same Wi-Fi.", "未使用热点，对方连接同一个 Wi-Fi 即可。", "未使用熱點，對方連接同一個 Wi‑Fi 即可。"),
     dashboard_ready_detail: makeLocalMessage("Service and host page look ready for the next sharing session.", "服务与 Host 页面已准备好下一次共享。", "服務與 Host 頁面已準備好下一次分享。"),
     dashboard_sharing_detail: makeLocalMessage("Sharing is active. The viewer link can be handed off right now.", "共享正在进行。现在可以把接收链接交给对方。", "分享正在進行。現在可以把接收連結交給對方。"),
     dashboard_error_detail: makeLocalMessage("The service is running, but live checks are still failing.", "服务已经启动，但实时检查仍然失败。", "服務已啟動，但即時檢查仍然失敗。"),
@@ -2268,12 +2269,14 @@
       shareAttentionBtn.textContent = attention ? attention.actionLabel : localMessage("refresh_status");
     }
 
-    setPairs("shareAccessCard", [
-      [localMessage("access_link"), payload.viewerUrl || localMessage("generated_after_prepare_paren")],
-      [localMessage("qr_code"), payload.viewerUrl ? localMessage("click_show_qr") : localMessage("generated_after_prepare")],
-      [localMessage("hotspot_name"), payload.hotspotRunning ? (payload.hotspotSsid || localMessage("unnamed")) : localMessage("not_used_plain")],
-      [localMessage("hotspot_password"), payload.hotspotRunning ? (payload.hotspotPassword || localMessage("not_generated")) : localMessage("not_used_plain")]
-    ]);
+    renderShareQr(payload);
+
+    setPairs("shareAccessCard", payload.hotspotRunning
+      ? [
+        [localMessage("hotspot_name"), payload.hotspotSsid || localMessage("unnamed")],
+        [localMessage("hotspot_password"), payload.hotspotPassword || localMessage("not_generated")]
+      ]
+      : [[localMessage("current_path"), localMessage("no_hotspot_same_wifi")]]);
 
     setPairs("shareMethodCard", [
       [localMessage("current_path"), detectConnectionPath(payload)],
@@ -2400,6 +2403,37 @@
     };
   }
 
+  function renderShareQr(payload) {
+    const mount = $("shareQrMount");
+    const frame = $("shareQrFrame");
+    const empty = $("shareQrEmpty");
+    const urlText = $("shareViewerUrlText");
+    const url = payload.viewerUrl || "";
+    if (urlText) {
+      urlText.textContent = url || localMessage("generated_after_prepare");
+    }
+    if (!mount) return;
+    const canRender = !!url && window.LanShareQr && typeof window.LanShareQr.renderInto === "function";
+    if (canRender) {
+      try {
+        window.LanShareQr.renderInto(mount, url, {
+          cellSize: 6,
+          margin: 3,
+          dark: "#0f1830",
+          light: "#ffffff",
+        });
+        if (frame) frame.classList.remove("is-empty");
+        if (empty) empty.hidden = true;
+        return;
+      } catch (err) {
+        debugLog("qr render failed", err && err.message ? err.message : String(err));
+      }
+    }
+    mount.innerHTML = "";
+    if (frame) frame.classList.add("is-empty");
+    if (empty) empty.hidden = false;
+  }
+
   function renderShareSimple(payload) {
     const status = buildShareStatusSimple(payload);
     const attention = buildShareAttention(payload);
@@ -2439,12 +2473,14 @@
       shareAttentionBtn.textContent = attention ? attention.actionLabel : localMessage("refresh_status");
     }
 
-    setPairs("shareAccessCard", [
-      [localMessage("access_link"), payload.viewerUrl || localMessage("generated_after_prepare_paren")],
-      [localMessage("qr_code"), payload.viewerUrl ? localMessage("click_show_qr") : localMessage("generated_after_prepare")],
-      [localMessage("hotspot_name"), payload.hotspotRunning ? (payload.hotspotSsid || localMessage("unnamed")) : localMessage("not_used_plain")],
-      [localMessage("hotspot_password"), payload.hotspotRunning ? (payload.hotspotPassword || localMessage("not_generated")) : localMessage("not_used_plain")]
-    ]);
+    renderShareQr(payload);
+
+    setPairs("shareAccessCard", payload.hotspotRunning
+      ? [
+        [localMessage("hotspot_name"), payload.hotspotSsid || localMessage("unnamed")],
+        [localMessage("hotspot_password"), payload.hotspotPassword || localMessage("not_generated")]
+      ]
+      : [[localMessage("current_path"), localMessage("no_hotspot_same_wifi")]]);
 
     setPairs("shareMethodCard", [
       [localMessage("current_path"), detectConnectionPath(payload)],

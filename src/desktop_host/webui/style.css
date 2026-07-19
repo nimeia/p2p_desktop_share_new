@@ -281,6 +281,99 @@ body::after {
   min-width: 148px;
 }
 
+/* ---- inline QR handoff on the share page ---- */
+.qr-card {
+  margin-bottom: 14px;
+}
+
+.qr-hero {
+  display: flex;
+  gap: 22px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.qr-frame {
+  flex: none;
+  width: 204px;
+  height: 204px;
+  display: grid;
+  place-items: center;
+  padding: 12px;
+  border-radius: 16px;
+  background: #ffffff;
+  box-shadow: var(--shadow);
+}
+
+.qr-frame.is-empty {
+  background: rgba(255, 255, 255, 0.04);
+  border: 1px dashed var(--line-strong);
+  box-shadow: none;
+}
+
+.qr-frame .qr-mount {
+  line-height: 0;
+}
+
+.qr-frame .qr-mount svg {
+  display: block;
+  width: 180px;
+  height: 180px;
+  border-radius: 4px;
+}
+
+.qr-frame.is-empty .qr-mount {
+  display: none;
+}
+
+.qr-frame-empty {
+  margin: 0;
+  padding: 0 14px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.qr-hero-side {
+  flex: 1;
+  min-width: 240px;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+.qr-lead {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--ink);
+}
+
+.qr-url {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 12px 14px;
+  border-radius: 12px;
+  border: 1px solid var(--line);
+  background: rgba(255, 255, 255, 0.04);
+}
+
+.qr-url-label {
+  font-size: 11px;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--muted);
+}
+
+.qr-url code {
+  font-family: Consolas, "Cascadia Mono", monospace;
+  font-size: 14px;
+  color: var(--ink);
+  word-break: break-all;
+}
+
 .advanced-shell {
   display: block;
 }

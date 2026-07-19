@@ -184,15 +184,32 @@
         <p class="attention-text" id="shareAttentionText">当前没有额外提醒。</p>
       </article>
 
-      <section class="summary-grid">
-        <article class="card">
-          <div class="card-head">
-            <h2>让对方连接</h2>
+      <section class="card qr-card">
+        <div class="card-head">
+          <h2>让对方连接</h2>
+          <button class="ghost" data-command="show-qr">放大 / 分享卡片</button>
+        </div>
+        <div class="qr-hero">
+          <div class="qr-frame is-empty" id="shareQrFrame">
+            <div class="qr-mount" id="shareQrMount"></div>
+            <p class="qr-frame-empty" id="shareQrEmpty">准备完成后，这里会出现二维码</p>
+          </div>
+          <div class="qr-hero-side">
+            <p class="qr-lead" id="shareQrLead">让对方用手机扫码，或打开下面的地址</p>
+            <div class="qr-url">
+              <span class="qr-url-label">访问地址</span>
+              <code id="shareViewerUrlText">准备后自动生成</code>
+            </div>
             <div class="action-row compact">
               <button class="secondary" data-command="copy-viewer-url">复制地址</button>
-              <button class="ghost" data-command="show-qr">显示二维码</button>
             </div>
           </div>
+        </div>
+      </section>
+
+      <section class="summary-grid">
+        <article class="card">
+          <h2>热点信息</h2>
           <dl id="shareAccessCard"></dl>
         </article>
 
@@ -602,6 +619,7 @@
     };
   </script>
   <script src="/assets/i18n.js"></script>
+  <script src="/assets/share_card_qr.bundle.js"></script>
   <script src="./app.js"></script>
 </body>
 </html>
